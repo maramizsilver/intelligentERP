@@ -29,6 +29,13 @@ import ClientCommandeDetail from './pages/clientCommandeDetail';
 import ClientProduits from './pages/clientProduits';
 import ClientFactures from './pages/clientFactures';
 import ClientProfil from './pages/clientProfil';
+// Ajouter les imports
+import Entrepots from './pages/stock/Entrepots';
+import TransfertStock from './pages/stock/TransfertStock';
+import Inventaires from './pages/stock/Inventaires';
+import Documents from './pages/administratif/Documents';
+import Archives from './pages/administratif/Archives';
+
 
 // ============================================================
 // NOUVEAUX COMPOSANTS - MODULE COMMERCIAL
@@ -316,6 +323,12 @@ function MainApp() {
             ============================================================ */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
+      // Ajouter les routes
+<Route path="/entrepots" element={<PrivateRoute><Entrepots /></PrivateRoute>} />
+<Route path="/transfert-stock" element={<PrivateRoute><TransfertStock /></PrivateRoute>} />
+<Route path="/inventaires" element={<PrivateRoute><Inventaires /></PrivateRoute>} />
+<Route path="/documents" element={<PrivateRoute><Documents /></PrivateRoute>} />
+<Route path="/archives" element={<PrivateRoute><Archives /></PrivateRoute>} />
     </>
   );
 }

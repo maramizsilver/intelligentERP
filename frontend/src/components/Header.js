@@ -1,3 +1,4 @@
+// frontend/src/components/Header.js
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -78,7 +79,14 @@ export default function Header() {
             </>
           ) : (
             <>
+              {/* ============================================================
+                  DASHBOARD
+                  ============================================================ */}
               <button style={{ padding: '6px 14px', borderRadius: '6px', backgroundColor: isActive('/dashboard') ? '#1e293b' : 'transparent', color: isActive('/dashboard') ? '#60a5fa' : '#94a3b8', border: 'none', cursor: 'pointer', fontSize: '13px' }} onClick={() => navigate('/dashboard')}>Dashboard</button>
+
+              {/* ============================================================
+                  MODULE VENTES
+                  ============================================================ */}
               {hasPermission('Ventes', 'consultation') && (
                 <>
                   <button style={{ padding: '6px 14px', borderRadius: '6px', backgroundColor: isActive('/clients') ? '#1e293b' : 'transparent', color: isActive('/clients') ? '#60a5fa' : '#94a3b8', border: 'none', cursor: 'pointer', fontSize: '13px' }} onClick={() => navigate('/clients')}>Clients</button>
@@ -87,21 +95,47 @@ export default function Header() {
                   <button style={{ padding: '6px 14px', borderRadius: '6px', backgroundColor: isActive('/promotions') ? '#1e293b' : 'transparent', color: isActive('/promotions') ? '#60a5fa' : '#94a3b8', border: 'none', cursor: 'pointer', fontSize: '13px' }} onClick={() => navigate('/promotions')}>Promotions</button>
                 </>
               )}
+
+              {/* ============================================================
+                  MODULE ACHATS
+                  ============================================================ */}
               {hasPermission('Achats', 'consultation') && (
                 <>
                   <button style={{ padding: '6px 14px', borderRadius: '6px', backgroundColor: isActive('/fournisseurs') ? '#1e293b' : 'transparent', color: isActive('/fournisseurs') ? '#60a5fa' : '#94a3b8', border: 'none', cursor: 'pointer', fontSize: '13px' }} onClick={() => navigate('/fournisseurs')}>Fournisseurs</button>
                   <button style={{ padding: '6px 14px', borderRadius: '6px', backgroundColor: isActive('/achats') ? '#1e293b' : 'transparent', color: isActive('/achats') ? '#60a5fa' : '#94a3b8', border: 'none', cursor: 'pointer', fontSize: '13px' }} onClick={() => navigate('/achats')}>Achats</button>
                 </>
               )}
+
+              {/* ============================================================
+                  MODULE STOCK (avec nouveaux modules)
+                  ============================================================ */}
               {hasPermission('Stock', 'consultation') && (
                 <>
                   <button style={{ padding: '6px 14px', borderRadius: '6px', backgroundColor: isActive('/produits') ? '#1e293b' : 'transparent', color: isActive('/produits') ? '#60a5fa' : '#94a3b8', border: 'none', cursor: 'pointer', fontSize: '13px' }} onClick={() => navigate('/produits')}>Produits</button>
                   <button style={{ padding: '6px 14px', borderRadius: '6px', backgroundColor: isActive('/mouvements-stock') ? '#1e293b' : 'transparent', color: isActive('/mouvements-stock') ? '#60a5fa' : '#94a3b8', border: 'none', cursor: 'pointer', fontSize: '13px' }} onClick={() => navigate('/mouvements-stock')}>Mouvements</button>
                   <button style={{ padding: '6px 14px', borderRadius: '6px', backgroundColor: isActive('/alertes-stock') ? '#1e293b' : 'transparent', color: isActive('/alertes-stock') ? '#60a5fa' : '#94a3b8', border: 'none', cursor: 'pointer', fontSize: '13px' }} onClick={() => navigate('/alertes-stock')}>Alertes</button>
+                  {/* NOUVEAUX MODULES STOCK */}
+                  <button style={{ padding: '6px 14px', borderRadius: '6px', backgroundColor: isActive('/entrepots') ? '#1e293b' : 'transparent', color: isActive('/entrepots') ? '#60a5fa' : '#94a3b8', border: 'none', cursor: 'pointer', fontSize: '13px' }} onClick={() => navigate('/entrepots')}>Entrepôts</button>
+                  {hasPermission('Stock', 'modification') && (
+                    <button style={{ padding: '6px 14px', borderRadius: '6px', backgroundColor: isActive('/transfert-stock') ? '#1e293b' : 'transparent', color: isActive('/transfert-stock') ? '#60a5fa' : '#94a3b8', border: 'none', cursor: 'pointer', fontSize: '13px' }} onClick={() => navigate('/transfert-stock')}>Transfert</button>
+                  )}
+                  <button style={{ padding: '6px 14px', borderRadius: '6px', backgroundColor: isActive('/inventaires') ? '#1e293b' : 'transparent', color: isActive('/inventaires') ? '#60a5fa' : '#94a3b8', border: 'none', cursor: 'pointer', fontSize: '13px' }} onClick={() => navigate('/inventaires')}>Inventaires</button>
                 </>
               )}
+
+              {/* ============================================================
+                  MODULE ADMINISTRATION (Utilisateurs + Documents + Archives)
+                  ============================================================ */}
               {hasPermission('Utilisateurs', 'consultation') && (
                 <button style={{ padding: '6px 14px', borderRadius: '6px', backgroundColor: isActive('/utilisateurs') ? '#1e293b' : 'transparent', color: isActive('/utilisateurs') ? '#60a5fa' : '#94a3b8', border: 'none', cursor: 'pointer', fontSize: '13px' }} onClick={() => navigate('/utilisateurs')}>Utilisateurs</button>
+              )}
+
+              {/* NOUVEAUX MODULES ADMINISTRATIFS */}
+              {hasPermission('Documents', 'consultation') && (
+                <button style={{ padding: '6px 14px', borderRadius: '6px', backgroundColor: isActive('/documents') ? '#1e293b' : 'transparent', color: isActive('/documents') ? '#60a5fa' : '#94a3b8', border: 'none', cursor: 'pointer', fontSize: '13px' }} onClick={() => navigate('/documents')}>Documents</button>
+              )}
+              {hasPermission('Documents', 'consultation') && (
+                <button style={{ padding: '6px 14px', borderRadius: '6px', backgroundColor: isActive('/archives') ? '#1e293b' : 'transparent', color: isActive('/archives') ? '#60a5fa' : '#94a3b8', border: 'none', cursor: 'pointer', fontSize: '13px' }} onClick={() => navigate('/archives')}>Archives</button>
               )}
             </>
           )}
