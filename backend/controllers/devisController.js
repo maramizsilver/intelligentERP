@@ -1,17 +1,46 @@
 const db = require('../config/db');
 
 // ============================================================
-// GÉNÉRER UN NUMÉRO DE DEVIS UNIQUE
+// FIX BUG #2 : même correctif que achatController (compteur atomique)
 // ============================================================
 function genererNumeroDevis(entrepriseId) {
     return new Promise((resolve, reject) => {
-        const sql = "SELECT COUNT(*) AS count FROM devis WHERE entreprise_id = ?";
-        db.query(sql, [entrepriseId], (err, results) => {
-            if (err) return reject(err);
-            const count = (results[0]?.count || 0) + 1;
-            const annee = new Date().getFullYear();
-            const mois = String(new Date().getMonth() + 1).padStart(2, '0');
-            resolve(`DEV-${annee}${mois}-${String(count).padStart(4, '0')}`);
+        db.getConnection((errConn, connection) => {
+            if (errConn) return reject(errConn);
+
+            connection.beginTransaction((errTx) => {
+                if (errTx) { connection.release(); return reject(errTx); }
+
+                connection.query(
+                    'SELECT dernier_numero_devis FROM entreprises WHERE id = ? FOR UPDATE',
+                    [entrepriseId],
+                    (errSel, rows) => {
+                        if (errSel) {
+                            return connection.rollback(() => { connection.release(); reject(errSel); });
+                        }
+
+                        const numero = (rows[0]?.dernier_numero_devis || 0) + 1;
+
+                        connection.query(
+                            'UPDATE entreprises SET dernier_numero_devis = ? WHERE id = ?',
+                            [numero, entrepriseId],
+                            (errUpd) => {
+                                if (errUpd) {
+                                    return connection.rollback(() => { connection.release(); reject(errUpd); });
+                                }
+                                connection.commit((errCommit) => {
+                                    connection.release();
+                                    if (errCommit) return reject(errCommit);
+
+                                    const annee = new Date().getFullYear();
+                                    const mois = String(new Date().getMonth() + 1).padStart(2, '0');
+                                    resolve(`DEV-${annee}${mois}-${String(numero).padStart(4, '0')}`);
+                                });
+                            }
+                        );
+                    }
+                );
+            });
         });
     });
 }
@@ -73,7 +102,6 @@ exports.createDevis = async (req, res) => {
     }
     if (!date_validite) return res.status(400).json({ message: 'La date de validité est requise' });
 
-    // Vérifier que le client appartient à l'entreprise
     db.query('SELECT id FROM clients WHERE id = ? AND entreprise_id = ?', [client_id, req.user.entreprise_id], async (errClient, clients) => {
         if (errClient) { console.error(errClient); return res.status(500).json({ message: 'Erreur serveur' }); }
         if (clients.length === 0) return res.status(400).json({ message: 'Client invalide pour votre entreprise' });
@@ -81,7 +109,6 @@ exports.createDevis = async (req, res) => {
         try {
             const numero_devis = await genererNumeroDevis(req.user.entreprise_id);
 
-            // Calculer les totaux
             let total_ht = 0;
             const produitsIds = lignes.map(l => l.produit_id);
             const sqlPrix = 'SELECT id, prix FROM produits WHERE id IN (?) AND entreprise_id = ?';
@@ -106,7 +133,6 @@ exports.createDevis = async (req, res) => {
                 const remiseTotale = Number(remise) || 0;
                 const total_ttc = total_ht * (1 - remiseTotale / 100);
 
-                // Insérer le devis
                 const sqlDevis = `
                     INSERT INTO devis (entreprise_id, client_id, numero_devis, date_validite, total_ht, total_ttc, remise, notes)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -151,13 +177,20 @@ exports.updateDevisStatut = (req, res) => {
 
 // ============================================================
 // TRANSFORMER UN DEVIS EN COMMANDE
+//
+// FIX BUG #1 : chaque ligne de la commande générée utilisait
+// `devis.prix_unitaire`, qui correspond en réalité au prix de la
+// PREMIÈRE ligne du devis (results[0], à cause du LEFT JOIN + d.*).
+// Toutes les lignes héritaient donc du même prix, faussant le total
+// de la commande générée. Correctif : on utilise le prix propre à
+// chaque ligne (r.prix_unitaire), alias explicitement pour éviter
+// toute ambiguïté avec un futur champ du même nom sur `devis`.
 // ============================================================
 exports.devisToCommande = (req, res) => {
     const { id } = req.params;
 
-    // Récupérer le devis avec ses lignes
     const sqlDevis = `
-        SELECT d.*, dp.produit_id, dp.quantite, dp.prix_unitaire
+        SELECT d.*, dp.produit_id, dp.quantite, dp.prix_unitaire AS ligne_prix_unitaire
         FROM devis d
         LEFT JOIN devis_produits dp ON d.id = dp.devis_id
         WHERE d.id = ? AND d.entreprise_id = ? AND d.statut = 'accepte'
@@ -169,20 +202,24 @@ exports.devisToCommande = (req, res) => {
         }
 
         const devis = results[0];
-        const lignes = results.map(r => ({ produit_id: r.produit_id, quantite: r.quantite }));
+        // Chaque ligne conserve désormais SON PROPRE prix unitaire
+        const lignes = results.map(r => ({
+            produit_id: r.produit_id,
+            quantite: r.quantite,
+            prix_unitaire: r.ligne_prix_unitaire
+        }));
 
-        // Créer une commande à partir du devis
         const sqlInsertCommande = 'INSERT INTO commandes (client_id, total) VALUES (?, ?)';
         db.query(sqlInsertCommande, [devis.client_id, devis.total_ttc], (err2, result) => {
             if (err2) { console.error(err2); return res.status(500).json({ message: 'Erreur serveur' }); }
 
             const commandeId = result.insertId;
             const sqlLignes = 'INSERT INTO commande_produits (commande_id, produit_id, quantite, prix_unitaire) VALUES ?';
-            const values = lignes.map(l => [commandeId, l.produit_id, l.quantite, devis.prix_unitaire]);
+            // Chaque ligne utilise maintenant l.prix_unitaire (propre à la ligne), plus devis.prix_unitaire
+            const values = lignes.map(l => [commandeId, l.produit_id, l.quantite, l.prix_unitaire]);
             db.query(sqlLignes, [values], (err3) => {
                 if (err3) { console.error(err3); return res.status(500).json({ message: 'Erreur serveur' }); }
 
-                // Mettre à jour le statut du devis
                 db.query('UPDATE devis SET statut = ? WHERE id = ?', ['accepte', id], () => {});
 
                 res.status(201).json({

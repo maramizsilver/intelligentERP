@@ -1,14 +1,53 @@
 const db = require('../config/db');
 
+// ============================================================
+// FIX BUG #2 : génération de numéro atomique via transaction +
+// verrouillage de ligne (SELECT ... FOR UPDATE), au lieu d'un COUNT(*)
+// qui pouvait recréer un numéro déjà utilisé après une suppression.
+//
+// NB : nécessite que `db` expose bien `.getConnection()` (pool mysql2).
+// Si `db` est une connexion unique (pas un pool), remplacer
+// db.getConnection(cb) par un simple usage direct de `db` (db supporte
+// déjà beginTransaction/commit/rollback dans ce cas).
+// ============================================================
 function genererNumeroBC(entrepriseId) {
     return new Promise((resolve, reject) => {
-        const sql = "SELECT COUNT(*) AS count FROM achats WHERE entreprise_id = ?";
-        db.query(sql, [entrepriseId], (err, results) => {
-            if (err) return reject(err);
-            const count = (results[0]?.count || 0) + 1;
-            const annee = new Date().getFullYear();
-            const mois = String(new Date().getMonth() + 1).padStart(2, '0');
-            resolve(`BC-${annee}${mois}-${String(count).padStart(4, '0')}`);
+        db.getConnection((errConn, connection) => {
+            if (errConn) return reject(errConn);
+
+            connection.beginTransaction((errTx) => {
+                if (errTx) { connection.release(); return reject(errTx); }
+
+                connection.query(
+                    'SELECT dernier_numero_bc FROM entreprises WHERE id = ? FOR UPDATE',
+                    [entrepriseId],
+                    (errSel, rows) => {
+                        if (errSel) {
+                            return connection.rollback(() => { connection.release(); reject(errSel); });
+                        }
+
+                        const numero = (rows[0]?.dernier_numero_bc || 0) + 1;
+
+                        connection.query(
+                            'UPDATE entreprises SET dernier_numero_bc = ? WHERE id = ?',
+                            [numero, entrepriseId],
+                            (errUpd) => {
+                                if (errUpd) {
+                                    return connection.rollback(() => { connection.release(); reject(errUpd); });
+                                }
+                                connection.commit((errCommit) => {
+                                    connection.release();
+                                    if (errCommit) return reject(errCommit);
+
+                                    const annee = new Date().getFullYear();
+                                    const mois = String(new Date().getMonth() + 1).padStart(2, '0');
+                                    resolve(`BC-${annee}${mois}-${String(numero).padStart(4, '0')}`);
+                                });
+                            }
+                        );
+                    }
+                );
+            });
         });
     });
 }
@@ -137,7 +176,6 @@ exports.recevoirAchat = (req, res) => {
             return res.status(400).json({ message: 'Cette commande est déjà totalement reçue' });
         }
 
-        // Récupérer les lignes
         db.query('SELECT * FROM achat_produits WHERE achat_id = ?', [id], (err2, lignes) => {
             if (err2) { console.error(err2); return res.status(500).json({ message: 'Erreur serveur' }); }
 
@@ -148,17 +186,14 @@ exports.recevoirAchat = (req, res) => {
 
                 if (nouvelleQteRecue < ligne.quantite) toutRecu = false;
 
-                // Mettre à jour la quantité reçue
                 db.query('UPDATE achat_produits SET quantite_recue = ? WHERE id = ?', [nouvelleQteRecue, ligne.id], () => {});
 
-                // Mettre à jour le stock du produit
                 db.query(
                     'UPDATE produits SET quantite_stock = quantite_stock + ? WHERE id = ? AND entreprise_id = ?',
                     [qteRecue, ligne.produit_id, req.user.entreprise_id],
                     () => {}
                 );
 
-                // Ajouter un mouvement de stock
                 db.query(
                     `INSERT INTO mouvements_stock (entreprise_id, produit_id, type, quantite, reference_id, reference_type, ancien_stock, nouveau_stock, motif, created_by)
                      SELECT ?, ?, 'achat_fournisseur', ?, ?, 'achat', quantite_stock - ?, quantite_stock, ?, ? FROM produits WHERE id = ? AND entreprise_id = ?`,
@@ -199,3 +234,4 @@ exports.deleteAchat = (req, res) => {
         res.json({ message: 'Bon de commande supprimé avec succès' });
     });
 };
+

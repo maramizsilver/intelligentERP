@@ -426,3 +426,124 @@ exports.updateUserRole = (req, res) => {
     }
   );
 };
+
+// ============================================
+// AJOUTER CES FONCTIONS À LA FIN DE authController.js
+// ============================================
+
+// Statistiques des utilisateurs
+exports.getUserStats = async (req, res) => {
+  try {
+    const db = require('../config/db');
+    
+    // Récupérer l'ID de l'entreprise depuis req.user
+    const entrepriseId = req.user?.entreprise_id || req.user?.entrepriseId;
+    
+    if (!entrepriseId) {
+      return res.status(400).json({ message: 'Entreprise non identifiée' });
+    }
+    
+    // Nombre total d'utilisateurs
+    const sqlTotal = `SELECT COUNT(*) AS total FROM users WHERE entreprise_id = ?`;
+    db.query(sqlTotal, [entrepriseId], (err, totalResult) => {
+      if (err) {
+        console.error('Erreur SQL total:', err);
+        return res.status(500).json({ message: 'Erreur lors du comptage' });
+      }
+      
+      const total = totalResult[0]?.total || 0;
+      
+      // Nombre d'utilisateurs actifs
+      const sqlActifs = `SELECT COUNT(*) AS actifs FROM users WHERE entreprise_id = ? AND status = 'actif'`;
+      db.query(sqlActifs, [entrepriseId], (err, actifsResult) => {
+        if (err) {
+          console.error('Erreur SQL actifs:', err);
+          return res.status(500).json({ message: 'Erreur lors du comptage actifs' });
+        }
+        
+        const actifs = actifsResult[0]?.actifs || 0;
+        
+        // Stats par rôle
+        const sqlRoles = `
+          SELECT r.nom AS role, COUNT(u.id) AS count 
+          FROM users u
+          JOIN roles r ON u.role_id = r.id
+          WHERE u.entreprise_id = ?
+          GROUP BY r.nom
+        `;
+        db.query(sqlRoles, [entrepriseId], (err, rolesResult) => {
+          if (err) {
+            console.error('Erreur SQL roles:', err);
+            return res.status(500).json({ message: 'Erreur lors du comptage par rôle' });
+          }
+          
+          const parRole = {};
+          rolesResult.forEach(row => {
+            parRole[row.role] = row.count;
+          });
+          
+          res.json({
+            total: total,
+            actifs: actifs,
+            inactifs: total - actifs,
+            parRole: parRole
+          });
+        });
+      });
+    });
+  } catch (error) {
+    console.error('Erreur getUserStats:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+// Supprimer un utilisateur
+exports.deleteUser = async (req, res) => {
+  try {
+    const db = require('../config/db');
+    const { id } = req.params;
+    const entrepriseId = req.user?.entreprise_id || req.user?.entrepriseId;
+    
+    if (!entrepriseId) {
+      return res.status(400).json({ message: 'Entreprise non identifiée' });
+    }
+    
+    // Vérifier que l'utilisateur existe et appartient à l'entreprise
+    const sqlCheck = `SELECT id, entreprise_id FROM users WHERE id = ?`;
+    db.query(sqlCheck, [id], (err, results) => {
+      if (err) {
+        console.error('Erreur vérification:', err);
+        return res.status(500).json({ message: 'Erreur serveur' });
+      }
+      
+      if (results.length === 0) {
+        return res.status(404).json({ message: 'Utilisateur non trouvé' });
+      }
+      
+      const user = results[0];
+      
+      if (user.entreprise_id !== entrepriseId) {
+        return res.status(403).json({ message: 'Vous ne pouvez pas supprimer un utilisateur d\'une autre entreprise' });
+      }
+      
+      // Empêcher la suppression de soi-même
+      if (user.id === req.user.id) {
+        return res.status(400).json({ message: 'Vous ne pouvez pas supprimer votre propre compte' });
+      }
+      
+      // Supprimer l'utilisateur
+      const sqlDelete = `DELETE FROM users WHERE id = ?`;
+      db.query(sqlDelete, [id], (err) => {
+        if (err) {
+          console.error('Erreur suppression:', err);
+          return res.status(500).json({ message: 'Erreur lors de la suppression' });
+        }
+        
+        res.json({ message: 'Utilisateur supprimé avec succès' });
+      });
+    });
+  } catch (error) {
+    console.error('Erreur deleteUser:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
