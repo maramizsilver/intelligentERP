@@ -1,0 +1,467 @@
+// src/pages/achats/Achats.jsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import API from '../../utils/api';
+
+import Card from '../../components/common/Card';
+import Button from '../../components/common/Button';
+import Table from '../../components/common/Table';
+import Badge from '../../components/common/Badge';
+import Input from '../../components/common/Input';
+import Modal from '../../components/common/Modal';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+
+export default function Achats() {
+  const { hasPermission } = useAuth();
+  const navigate = useNavigate();
+
+  const [achats, setAchats] = useState([]);
+  const [fournisseurs, setFournisseurs] = useState([]);
+  const [produits, setProduits] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [receivingId, setReceivingId] = useState(null);
+
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({
+    fournisseur_id: '',
+    date_livraison_prevue: '',
+    notes: '',
+    lignes: [{ produit_id: '', quantite: 1, prix_unitaire: '' }]
+  });
+  const [formLoading, setFormLoading] = useState(false);
+
+  const peutCreer = hasPermission('Achats', 'creation');
+  const peutModifier = hasPermission('Achats', 'modification');
+  const peutSupprimer = hasPermission('Achats', 'suppression');
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [achatsRes, fournisseursRes, produitsRes] = await Promise.all([
+        API.get('/achats'),
+        API.get('/fournisseurs'),
+        API.get('/produits')
+      ]);
+      setAchats(achatsRes.data.achats || []);
+      setFournisseurs(fournisseursRes.data.fournisseurs || []);
+      setProduits(produitsRes.data.produits || []);
+    } catch (err) {
+      setError('Impossible de charger les données');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLigneChange = (index, field, value) => {
+    const newLignes = [...form.lignes];
+    newLignes[index][field] = value;
+    if (field === 'produit_id' && value) {
+      const produit = produits.find(p => p.id === Number(value));
+      if (produit && !newLignes[index].prix_unitaire) {
+        newLignes[index].prix_unitaire = produit.prix;
+      }
+    }
+    setForm({ ...form, lignes: newLignes });
+  };
+
+  const addLigne = () => {
+    setForm({
+      ...form,
+      lignes: [...form.lignes, { produit_id: '', quantite: 1, prix_unitaire: '' }]
+    });
+  };
+
+  const removeLigne = (index) => {
+    setForm({
+      ...form,
+      lignes: form.lignes.filter((_, i) => i !== index)
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setFormLoading(true);
+
+    try {
+      const data = {
+        ...form,
+        lignes: form.lignes.filter(l => l.produit_id && l.quantite > 0)
+      };
+
+      if (data.lignes.length === 0) {
+        setError('Ajoutez au moins un produit');
+        setFormLoading(false);
+        return;
+      }
+
+      await API.post('/achats', data);
+      setSuccess(' Bon de commande créé avec succès');
+      setShowForm(false);
+      setForm({
+        fournisseur_id: '',
+        date_livraison_prevue: '',
+        notes: '',
+        lignes: [{ produit_id: '', quantite: 1, prix_unitaire: '' }]
+      });
+      loadData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Erreur');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const handleRecevoir = async (id) => {
+    const quantites = {};
+    const lignes = achats.find(a => a.id === id)?.lignes || [];
+    
+    for (const ligne of lignes) {
+      const qte = prompt(`Quantité reçue pour ${ligne.produit_nom || 'produit'} (max: ${ligne.quantite - (ligne.quantite_recue || 0)})`);
+      if (qte !== null && !isNaN(qte) && Number(qte) > 0) {
+        quantites[ligne.produit_id] = Number(qte);
+      }
+    }
+
+    if (Object.keys(quantites).length === 0) {
+      alert('Aucune quantité saisie');
+      return;
+    }
+
+    try {
+      setReceivingId(id);
+      await API.put(`/achats/${id}/recevoir`, { quantites_recues: quantites });
+      setSuccess(' Réception enregistrée, stock mis à jour');
+      loadData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Erreur lors de la réception');
+    } finally {
+      setReceivingId(null);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Supprimer ce bon de commande ?')) return;
+    try {
+      await API.delete(`/achats/${id}`);
+      setSuccess(' Bon de commande supprimé');
+      loadData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Erreur');
+    }
+  };
+
+  const getStatutBadge = (statut) => {
+    const statuts = {
+      brouillon: { label: 'Brouillon', variant: 'outline' },
+      envoye: { label: 'Envoyé', variant: 'primary' },
+      recu_partiel: { label: 'Reçu partiel', variant: 'warning' },
+      recu_total: { label: 'Reçu total', variant: 'success' },
+      annule: { label: 'Annulé', variant: 'danger' }
+    };
+    return statuts[statut] || statuts.brouillon;
+  };
+
+  const columns = [
+    { key: 'numero_bc', label: 'N°' },
+    { key: 'fournisseur_nom', label: 'Fournisseur' },
+    {
+      key: 'date_commande',
+      label: 'Date',
+      render: (row) => new Date(row.date_commande).toLocaleDateString('fr-FR')
+    },
+    {
+      key: 'date_livraison_prevue',
+      label: 'Livraison prévue',
+      render: (row) => row.date_livraison_prevue ? new Date(row.date_livraison_prevue).toLocaleDateString('fr-FR') : '—'
+    },
+    {
+      key: 'total_ttc',
+      label: 'Total',
+      render: (row) => `${row.total_ttc} DT`
+    },
+    {
+      key: 'statut',
+      label: 'Statut',
+      render: (row) => {
+        const statut = getStatutBadge(row.statut);
+        return <Badge variant={statut.variant}>{statut.label}</Badge>;
+      }
+    }
+  ];
+
+  const actions = [];
+  if (peutModifier) {
+    actions.push({
+      label: ' Réceptionner',
+      variant: 'primary',
+      onClick: (row) => handleRecevoir(row.id),
+      disabled: (row) => row.statut === 'recu_total' || row.statut === 'annule' || receivingId === row.id
+    });
+  }
+  if (peutSupprimer) {
+    actions.push({
+      label: ' Supprimer',
+      variant: 'danger',
+      onClick: (row) => handleDelete(row.id),
+      disabled: (row) => row.statut !== 'brouillon'
+    });
+  }
+
+  return (
+    <div>
+      <div style={styles.header}>
+        <div>
+          <h1 style={styles.title}> Gestion des Achats</h1>
+          <p style={styles.subtitle}>Gérez vos bons de commande fournisseurs</p>
+        </div>
+        <div style={styles.headerActions}>
+          <Button variant="secondary" onClick={() => navigate('/dashboard')} icon="←">
+            Retour
+          </Button>
+          {peutCreer && (
+            <Button
+              variant="primary"
+              icon={showForm ? '✕' : '+'}
+              onClick={() => setShowForm(!showForm)}
+            >
+              {showForm ? 'Fermer' : 'Nouveau bon de commande'}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {error && (
+        <div style={styles.errorContainer}>
+          <span>❌</span>
+          <span style={styles.errorText}>{error}</span>
+        </div>
+      )}
+      {success && (
+        <div style={styles.successContainer}>
+          <span>done</span>
+          <span style={styles.successText}>{success}</span>
+        </div>
+      )}
+
+      {showForm && (
+        <Card title=" Nouveau bon de commande" variant="primary" style={{ marginBottom: '24px' }}>
+          <form onSubmit={handleSubmit}>
+            <div style={styles.formGrid}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Fournisseur *</label>
+                <select
+                  style={styles.select}
+                  value={form.fournisseur_id}
+                  onChange={(e) => setForm({ ...form, fournisseur_id: e.target.value })}
+                  required
+                  disabled={formLoading}
+                >
+                  <option value="">-- Choisir un fournisseur --</option>
+                  {fournisseurs.map(f => (
+                    <option key={f.id} value={f.id}>{f.nom}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Date livraison prévue</label>
+                <input
+                  style={styles.input}
+                  type="date"
+                  value={form.date_livraison_prevue}
+                  onChange={(e) => setForm({ ...form, date_livraison_prevue: e.target.value })}
+                  disabled={formLoading}
+                />
+              </div>
+            </div>
+
+            <div style={styles.lignesContainer}>
+              <div style={styles.lignesHeader}>
+                <span style={styles.lignesTitle}>Produits</span>
+                <Button type="button" variant="outline" size="sm" onClick={addLigne} icon="+">
+                  Ajouter un produit
+                </Button>
+              </div>
+
+              {form.lignes.map((ligne, index) => (
+                <div key={index} style={styles.ligneRow}>
+                  <select
+                    style={{ ...styles.select, flex: 2 }}
+                    value={ligne.produit_id}
+                    onChange={(e) => handleLigneChange(index, 'produit_id', e.target.value)}
+                    required
+                    disabled={formLoading}
+                  >
+                    <option value="">-- Produit --</option>
+                    {produits.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.nom} ({p.prix} DT) - Stock: {p.quantite_stock}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    style={{ ...styles.input, width: '80px' }}
+                    type="number"
+                    min="1"
+                    placeholder="Qté"
+                    value={ligne.quantite}
+                    onChange={(e) => handleLigneChange(index, 'quantite', e.target.value)}
+                    required
+                    disabled={formLoading}
+                  />
+                  <input
+                    style={{ ...styles.input, width: '120px' }}
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Prix unitaire"
+                    value={ligne.prix_unitaire}
+                    onChange={(e) => handleLigneChange(index, 'prix_unitaire', e.target.value)}
+                    required
+                    disabled={formLoading}
+                  />
+                  {form.lignes.length > 1 && (
+                    <Button type="button" variant="danger" size="sm" onClick={() => removeLigne(index)}>
+                      ✕
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Notes</label>
+              <textarea
+                style={styles.textarea}
+                placeholder="Notes supplémentaires"
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                disabled={formLoading}
+              />
+            </div>
+
+            <Button type="submit" variant="primary" loading={formLoading}  fullWidth>
+              Créer le bon de commande
+            </Button>
+          </form>
+        </Card>
+      )}
+
+      <Card title=" Liste des bons de commande" variant="primary">
+        <Table columns={columns} data={achats} loading={loading} actions={actions} />
+      </Card>
+    </div>
+  );
+}
+
+const styles = {
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: '24px',
+    flexWrap: 'wrap',
+    gap: '12px',
+  },
+  title: { fontSize: '24px', fontWeight: 700, color: '#0F172A', margin: 0 },
+  subtitle: { fontSize: '14px', color: '#64748B', margin: '4px 0 0' },
+  headerActions: { display: 'flex', gap: '8px', flexWrap: 'wrap' },
+  errorContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    backgroundColor: '#FEF2F2',
+    border: '1px solid #FECACA',
+    borderRadius: '8px',
+    padding: '12px 16px',
+    marginBottom: '16px',
+  },
+  errorText: { color: '#991B1B', fontSize: '13px', fontWeight: 500 },
+  successContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    backgroundColor: '#F0FDF4',
+    border: '1px solid #86EFAC',
+    borderRadius: '8px',
+    padding: '12px 16px',
+    marginBottom: '16px',
+  },
+  successText: { color: '#065F46', fontSize: '13px', fontWeight: 500 },
+  formGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '16px' },
+  formGroup: { display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '16px' },
+  label: { fontSize: '13px', fontWeight: 600, color: '#334155' },
+  select: {
+    padding: '10px 14px',
+    borderRadius: '8px',
+    border: '2px solid #E2E8F0',
+    fontSize: '14px',
+    backgroundColor: '#F8FAFC',
+    width: '100%',
+    boxSizing: 'border-box',
+    outline: 'none',
+    transition: 'all 0.2s ease',
+    ':focus': {
+      borderColor: '#0EA5E9',
+      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
+    },
+  },
+  input: {
+    padding: '10px 14px',
+    borderRadius: '8px',
+    border: '2px solid #E2E8F0',
+    fontSize: '14px',
+    backgroundColor: '#F8FAFC',
+    outline: 'none',
+    transition: 'all 0.2s ease',
+    ':focus': {
+      borderColor: '#0EA5E9',
+      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
+    },
+  },
+  textarea: {
+    width: '100%',
+    padding: '10px 14px',
+    borderRadius: '8px',
+    border: '2px solid #E2E8F0',
+    fontSize: '14px',
+    backgroundColor: '#F8FAFC',
+    minHeight: '60px',
+    boxSizing: 'border-box',
+    outline: 'none',
+    transition: 'all 0.2s ease',
+    fontFamily: 'inherit',
+    ':focus': {
+      borderColor: '#0EA5E9',
+      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
+    },
+  },
+  lignesContainer: {
+    backgroundColor: '#F8FAFC',
+    padding: '16px',
+    borderRadius: '8px',
+    marginBottom: '16px',
+  },
+  lignesHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '12px',
+  },
+  lignesTitle: { fontSize: '14px', fontWeight: 600, color: '#0F172A' },
+  ligneRow: {
+    display: 'flex',
+    gap: '8px',
+    alignItems: 'center',
+    marginBottom: '8px',
+    flexWrap: 'wrap',
+  },
+};
