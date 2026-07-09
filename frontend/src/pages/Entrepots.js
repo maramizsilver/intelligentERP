@@ -1,13 +1,14 @@
-// frontend/src/pages/stock/Entrepots.js
+// frontend/src/pages/Entrepots.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import API from '../../utils/api';
+import { useAuth } from '../context/AuthContext';
+import API from '../utils/api';
 
 export default function Entrepots() {
   const { hasPermission } = useAuth();
   const navigate = useNavigate();
   const [entrepots, setEntrepots] = useState([]);
+  const [produits, setProduits] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ nom: '', adresse: '', responsable: '', actif: true });
@@ -15,12 +16,20 @@ export default function Entrepots() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // États pour la gestion du stock
+  const [showStockModal, setShowStockModal] = useState(false);
+  const [selectedEntrepot, setSelectedEntrepot] = useState(null);
+  const [stockForm, setStockForm] = useState({ produit_id: '', quantite: '' });
+  const [stockList, setStockList] = useState([]);
+  const [loadingStock, setLoadingStock] = useState(false);
+
   const peutCreer = hasPermission('Stock', 'creation');
   const peutModifier = hasPermission('Stock', 'modification');
   const peutSupprimer = hasPermission('Stock', 'suppression');
 
   useEffect(() => {
     loadEntrepots();
+    loadProduits();
   }, []);
 
   const loadEntrepots = async () => {
@@ -32,6 +41,27 @@ export default function Entrepots() {
       setError('Impossible de charger les entrepôts');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadProduits = async () => {
+    try {
+      const res = await API.get('/produits');
+      setProduits(res.data.produits || []);
+    } catch (err) {
+      console.error('Erreur chargement produits:', err);
+    }
+  };
+
+  const loadStockEntrepot = async (entrepotId) => {
+    try {
+      setLoadingStock(true);
+      const res = await API.get(`/entrepots/${entrepotId}`);
+      setStockList(res.data.entrepot?.stock || []);
+    } catch (err) {
+      setError('Impossible de charger le stock');
+    } finally {
+      setLoadingStock(false);
     }
   };
 
@@ -49,7 +79,7 @@ export default function Entrepots() {
     try {
       if (editingId) {
         await API.put(`/entrepots/${editingId}`, form);
-        setSuccess('Entrepôt mis à jour avec succès');
+        setSuccess(' Entrepôt mis à jour avec succès');
       } else {
         await API.post('/entrepots', form);
         setSuccess(' Entrepôt créé avec succès');
@@ -87,10 +117,63 @@ export default function Entrepots() {
     }
   };
 
+  // ============================================================
+  // GESTION DU STOCK
+  // ============================================================
+
+  const handleOpenStockModal = async (entrepot) => {
+    setSelectedEntrepot(entrepot);
+    setStockForm({ produit_id: '', quantite: '' });
+    await loadStockEntrepot(entrepot.id);
+    setShowStockModal(true);
+  };
+
+  const handleStockChange = (e) => {
+    const { name, value } = e.target;
+    setStockForm({ ...stockForm, [name]: value });
+  };
+
+  const handleUpdateStock = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setLoading(true);
+
+    try {
+      await API.put(`/entrepots/${selectedEntrepot.id}/stock`, {
+        produit_id: parseInt(stockForm.produit_id),
+        quantite: parseInt(stockForm.quantite)
+      });
+      setSuccess('Stock mis à jour avec succès');
+      setStockForm({ produit_id: '', quantite: '' });
+      await loadStockEntrepot(selectedEntrepot.id);
+      loadEntrepots();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Erreur');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteStock = async (produitId) => {
+    if (!window.confirm('Supprimer ce produit du stock ?')) return;
+    try {
+      await API.put(`/entrepots/${selectedEntrepot.id}/stock`, {
+        produit_id: produitId,
+        quantite: 0
+      });
+      setSuccess(' Produit retiré du stock');
+      await loadStockEntrepot(selectedEntrepot.id);
+      loadEntrepots();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Erreur');
+    }
+  };
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h2 style={styles.title}> Gestion des Entrepôts</h2>
+        <h2 style={styles.title}>Gestion des Entrepôts</h2>
         <div>
           <button style={styles.backBtn} onClick={() => navigate('/dashboard')}>← Retour</button>
           {peutCreer && (
@@ -179,6 +262,7 @@ export default function Entrepots() {
                   </td>
                   {(peutModifier || peutSupprimer) && (
                     <td>
+                      <button style={styles.stockBtn} onClick={() => handleOpenStockModal(e)}> Stock</button>
                       {peutModifier && <button style={styles.editBtn} onClick={() => handleEdit(e)}>modifier</button>}
                       {peutSupprimer && <button style={styles.deleteBtn} onClick={() => handleDelete(e.id)}>suppr</button>}
                     </td>
@@ -189,6 +273,98 @@ export default function Entrepots() {
           </table>
         )}
       </div>
+
+      {/* ============================================================
+          MODAL DE GESTION DU STOCK
+          ============================================================ */}
+      {showStockModal && selectedEntrepot && (
+        <div style={styles.modalOverlay} onClick={() => setShowStockModal(false)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h3 style={styles.modalTitle}> Gestion du stock - {selectedEntrepot.nom}</h3>
+            
+            {/* Formulaire d'ajout de stock */}
+            <form onSubmit={handleUpdateStock} style={styles.stockForm}>
+              <div style={styles.stockFormGrid}>
+                <select
+                  style={styles.input}
+                  name="produit_id"
+                  value={stockForm.produit_id}
+                  onChange={handleStockChange}
+                  required
+                  disabled={loading}
+                >
+                  <option value="">-- Choisir un produit --</option>
+                  {produits.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.nom} (Prix: {p.prix} DT)
+                    </option>
+                  ))}
+                </select>
+                <input
+                  style={styles.input}
+                  type="number"
+                  name="quantite"
+                  placeholder="Quantité"
+                  value={stockForm.quantite}
+                  onChange={handleStockChange}
+                  required
+                  min="0"
+                  disabled={loading}
+                />
+                <button style={styles.stockSubmitBtn} type="submit" disabled={loading}>
+                  {loading ? '...' : '+ Ajouter'}
+                </button>
+              </div>
+            </form>
+
+            <hr style={styles.modalHr} />
+
+            {/* Liste du stock actuel */}
+            <h4>Stock actuel</h4>
+            {loadingStock ? (
+              <p style={styles.loading}>Chargement du stock...</p>
+            ) : stockList.length === 0 ? (
+              <p style={styles.empty}>Aucun produit dans cet entrepôt</p>
+            ) : (
+              <table style={styles.modalTable}>
+                <thead>
+                  <tr>
+                    <th>Produit</th>
+                    <th>Quantité</th>
+                    <th>Prix</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stockList.map((item) => (
+                    <tr key={item.produit_id}>
+                      <td>{item.produit_nom}</td>
+                      <td style={{ fontWeight: 'bold', color: item.quantite > 0 ? '#065f46' : '#dc2626' }}>
+                        {item.quantite}
+                      </td>
+                      <td>{item.prix} DT</td>
+                      <td>
+                        <button 
+                          style={styles.deleteStockBtn} 
+                          onClick={() => handleDeleteStock(item.produit_id)}
+                        >
+                          Supprimer
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            <div style={styles.modalActions}>
+              <button style={styles.modalCloseBtn} onClick={() => setShowStockModal(false)}>
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -209,8 +385,85 @@ const styles = {
   tableCard: { backgroundColor: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'auto' },
   table: { width: '100%', borderCollapse: 'collapse' },
   badge: { padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '600' },
+  stockBtn: { padding: '4px 10px', backgroundColor: '#8b5cf6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', marginRight: '4px', fontSize: '12px' },
   editBtn: { padding: '4px 10px', backgroundColor: '#dbeafe', color: '#1e40af', border: 'none', borderRadius: '6px', cursor: 'pointer', marginRight: '4px', fontSize: '14px' },
   deleteBtn: { padding: '4px 10px', backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px' },
   loading: { textAlign: 'center', color: '#64748b', padding: '20px' },
-  empty: { textAlign: 'center', color: '#94a3b8', padding: '40px' }
+  empty: { textAlign: 'center', color: '#94a3b8', padding: '40px' },
+  
+  // Styles du modal
+  modalOverlay: { 
+    position: 'fixed', 
+    top: 0, 
+    left: 0, 
+    right: 0, 
+    bottom: 0, 
+    backgroundColor: 'rgba(0,0,0,0.5)', 
+    display: 'flex', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    zIndex: 1000 
+  },
+  modal: { 
+    backgroundColor: 'white', 
+    padding: '30px', 
+    borderRadius: '12px', 
+    maxWidth: '700px', 
+    width: '90%', 
+    maxHeight: '90vh', 
+    overflow: 'auto' 
+  },
+  modalTitle: { 
+    margin: '0 0 16px', 
+    color: '#0f172a' 
+  },
+  modalHr: { 
+    margin: '16px 0' 
+  },
+  stockForm: { 
+    marginBottom: '16px' 
+  },
+  stockFormGrid: { 
+    display: 'grid', 
+    gridTemplateColumns: '2fr 1fr auto', 
+    gap: '12px', 
+    alignItems: 'end' 
+  },
+  stockSubmitBtn: { 
+    padding: '10px 20px', 
+    backgroundColor: '#22c55e', 
+    color: 'white', 
+    border: 'none', 
+    borderRadius: '8px', 
+    cursor: 'pointer', 
+    fontSize: '14px', 
+    fontWeight: '600' 
+  },
+  modalTable: { 
+    width: '100%', 
+    borderCollapse: 'collapse' 
+  },
+  deleteStockBtn: { 
+    padding: '4px 10px', 
+    backgroundColor: '#fee2e2', 
+    color: '#991b1b', 
+    border: 'none', 
+    borderRadius: '6px', 
+    cursor: 'pointer', 
+    fontSize: '12px' 
+  },
+  modalActions: { 
+    display: 'flex', 
+    gap: '12px', 
+    marginTop: '16px', 
+    justifyContent: 'flex-end' 
+  },
+  modalCloseBtn: { 
+    padding: '10px 20px', 
+    backgroundColor: '#6b7280', 
+    color: 'white', 
+    border: 'none', 
+    borderRadius: '8px', 
+    cursor: 'pointer' 
+  }
 };

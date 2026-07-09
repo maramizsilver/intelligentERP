@@ -1,3 +1,4 @@
+// frontend/src/App.js
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -29,22 +30,20 @@ import ClientCommandeDetail from './pages/clientCommandeDetail';
 import ClientProduits from './pages/clientProduits';
 import ClientFactures from './pages/clientFactures';
 import ClientProfil from './pages/clientProfil';
-// Ajouter les imports
-import Entrepots from './pages/stock/Entrepots';
-import TransfertStock from './pages/stock/TransfertStock';
-import Inventaires from './pages/stock/Inventaires';
-import Documents from './pages/administratif/Documents';
-import Archives from './pages/administratif/Archives';
 
-
-// ============================================================
-// NOUVEAUX COMPOSANTS - MODULE COMMERCIAL
-// ============================================================
+// Module Commercial
 import Devis from './pages/Devis';
 import Promotions from './pages/Promotions';
 import Achats from './pages/Achats';
 import MouvementsStock from './pages/MouvementsStock';
 import AlertesStock from './pages/AlertesStock';
+
+// NOUVEAUX MODULES
+import Entrepots from './pages/Entrepots';
+import TransfertStock from './pages/TransfertStock';
+import Inventaires from './pages/Inventaires';
+import Documents from './pages/Documents';
+import Archives from './pages/Archives';
 
 // ============================================================
 // PrivateRoute — Vérification par TYPE de compte
@@ -117,16 +116,15 @@ function MainApp() {
       {user && <Header />}
       {user && <EssaiBanner />}
 
+      {/* ============================================================
+          TOUTES LES ROUTES DOIVENT ÊTRE DANS <Routes>
+          ============================================================ */}
       <Routes>
-        {/* ============================================================
-            ROUTES PUBLIQUES
-            ============================================================ */}
+        {/* ROUTES PUBLIQUES */}
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* ============================================================
-            PAGE ESSAI EXPIRE
-            ============================================================ */}
+        {/* PAGE ESSAI EXPIRE */}
         <Route 
           path="/essai-expire" 
           element={
@@ -136,9 +134,7 @@ function MainApp() {
           } 
         />
 
-        {/* ============================================================
-            ESPACE SUPERADMIN
-            ============================================================ */}
+        {/* ESPACE SUPERADMIN */}
         <Route 
           path="/superadmin/dashboard" 
           element={
@@ -148,9 +144,7 @@ function MainApp() {
           } 
         />
 
-        {/* ============================================================
-            ESPACE CLIENT (PORTAL EXTERNE)
-            ============================================================ */}
+        {/* ESPACE CLIENT (PORTAL EXTERNE) */}
         <Route 
           path="/client/dashboard" 
           element={
@@ -200,11 +194,7 @@ function MainApp() {
           } 
         />
 
-        {/* ============================================================
-            ESPACE INTERNE (STAFF DE L'ENTREPRISE)
-            ============================================================ */}
-
-        {/* Dashboard principal */}
+        {/* ESPACE INTERNE (STAFF DE L'ENTREPRISE) */}
         <Route 
           path="/dashboard" 
           element={
@@ -214,7 +204,7 @@ function MainApp() {
           } 
         />
 
-        {/* Module Commercial - Clients */}
+        {/* Module Commercial */}
         <Route 
           path="/clients" 
           element={
@@ -223,8 +213,6 @@ function MainApp() {
             </PrivateRoute>
           } 
         />
-
-        {/* Module Commercial - Fournisseurs */}
         <Route 
           path="/fournisseurs" 
           element={
@@ -233,8 +221,6 @@ function MainApp() {
             </PrivateRoute>
           } 
         />
-
-        {/* Module Commercial - Produits */}
         <Route 
           path="/produits" 
           element={
@@ -243,8 +229,6 @@ function MainApp() {
             </PrivateRoute>
           } 
         />
-
-        {/* Module Commercial - Commandes */}
         <Route 
           path="/commandes" 
           element={
@@ -253,12 +237,6 @@ function MainApp() {
             </PrivateRoute>
           } 
         />
-
-        {/* ============================================================
-            NOUVEAUX - MODULE COMMERCIAL COMPLET
-            ============================================================ */}
-
-        {/* Module Commercial - Devis */}
         <Route 
           path="/devis" 
           element={
@@ -267,8 +245,6 @@ function MainApp() {
             </PrivateRoute>
           } 
         />
-
-        {/* Module Commercial - Promotions */}
         <Route 
           path="/promotions" 
           element={
@@ -277,8 +253,6 @@ function MainApp() {
             </PrivateRoute>
           } 
         />
-
-        {/* Module Commercial - Achats (Bons de commande fournisseurs) */}
         <Route 
           path="/achats" 
           element={
@@ -288,7 +262,7 @@ function MainApp() {
           } 
         />
 
-        {/* Module Stock - Mouvements de stock */}
+        {/* Module Stock */}
         <Route 
           path="/mouvements-stock" 
           element={
@@ -297,8 +271,6 @@ function MainApp() {
             </PrivateRoute>
           } 
         />
-
-        {/* Module Stock - Alertes de rupture */}
         <Route 
           path="/alertes-stock" 
           element={
@@ -308,7 +280,33 @@ function MainApp() {
           } 
         />
 
-        {/* Module Administratif - Utilisateurs et Rôles */}
+        {/* NOUVEAUX MODULES STOCK */}
+        <Route 
+          path="/entrepots" 
+          element={
+            <PrivateRoute>
+              <Entrepots />
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="/transfert-stock" 
+          element={
+            <PrivateRoute>
+              <TransfertStock />
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="/inventaires" 
+          element={
+            <PrivateRoute>
+              <Inventaires />
+            </PrivateRoute>
+          } 
+        />
+
+        {/* Module Administratif */}
         <Route 
           path="/utilisateurs" 
           element={
@@ -318,17 +316,27 @@ function MainApp() {
           } 
         />
 
-        {/* ============================================================
-            REDIRECTION PAR DÉFAUT
-            ============================================================ */}
+        {/* NOUVEAUX MODULES ADMINISTRATIFS */}
+        <Route 
+          path="/documents" 
+          element={
+            <PrivateRoute>
+              <Documents />
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="/archives" 
+          element={
+            <PrivateRoute>
+              <Archives />
+            </PrivateRoute>
+          } 
+        />
+
+        {/* REDIRECTION PAR DÉFAUT */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
-      // Ajouter les routes
-<Route path="/entrepots" element={<PrivateRoute><Entrepots /></PrivateRoute>} />
-<Route path="/transfert-stock" element={<PrivateRoute><TransfertStock /></PrivateRoute>} />
-<Route path="/inventaires" element={<PrivateRoute><Inventaires /></PrivateRoute>} />
-<Route path="/documents" element={<PrivateRoute><Documents /></PrivateRoute>} />
-<Route path="/archives" element={<PrivateRoute><Archives /></PrivateRoute>} />
     </>
   );
 }

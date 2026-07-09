@@ -1,8 +1,8 @@
-// frontend/src/pages/stock/TransfertStock.js
+// frontend/src/pages/TransfertStock.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import API from '../../utils/api';
+import { useAuth } from '../context/AuthContext';
+import API from '../utils/api';
 
 export default function TransfertStock() {
   const { hasPermission } = useAuth();
@@ -56,9 +56,18 @@ export default function TransfertStock() {
     try {
       const res = await API.get(`/entrepots/${entrepotId}`);
       const stock = res.data.entrepot?.stock?.find(s => s.produit_id === parseInt(produitId));
-      setStockSource(stock?.quantite || 0);
+      const quantite = stock?.quantite || 0;
+      setStockSource(quantite);
+      
+      // Si le stock est 0, afficher un message
+      if (quantite === 0) {
+        setError('⚠️ Ce produit n\'a pas de stock dans l\'entrepôt source sélectionné.');
+      } else {
+        setError('');
+      }
     } catch (err) {
       setStockSource(0);
+      setError('Erreur lors de la vérification du stock');
     }
   };
 
@@ -68,11 +77,26 @@ export default function TransfertStock() {
     setSuccess('');
     setLoading(true);
 
+    // Vérifier que la quantité est valide
+    const quantite = Number(form.quantite);
+    if (quantite <= 0) {
+      setError('La quantité doit être supérieure à 0');
+      setLoading(false);
+      return;
+    }
+    if (quantite > stockSource) {
+      setError(`Stock insuffisant. Disponible: ${stockSource}`);
+      setLoading(false);
+      return;
+    }
+
     try {
       await API.post('/entrepots/transfert', form);
-      setSuccess(' Transfert effectué avec succès');
+      setSuccess('✅ Transfert effectué avec succès');
       setForm({ produit_id: '', entrepot_source_id: '', entrepot_destination_id: '', quantite: '' });
       setStockSource(0);
+      // Recharger les données
+      loadData();
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors du transfert');
     } finally {
@@ -92,7 +116,7 @@ export default function TransfertStock() {
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h2 style={styles.title}> Transfert de stock</h2>
+        <h2 style={styles.title}>🔄 Transfert de stock</h2>
         <button style={styles.backBtn} onClick={() => navigate('/dashboard')}>← Retour</button>
       </div>
 
@@ -113,7 +137,7 @@ export default function TransfertStock() {
             >
               <option value="">-- Choisir un produit --</option>
               {produits.map(p => (
-                <option key={p.id} value={p.id}>{p.nom} (Stock: {p.quantite_stock})</option>
+                <option key={p.id} value={p.id}>{p.nom} (Stock total: {p.quantite_stock})</option>
               ))}
             </select>
           </div>
@@ -133,8 +157,10 @@ export default function TransfertStock() {
                 <option key={e.id} value={e.id}>{e.nom}</option>
               ))}
             </select>
-            {stockSource > 0 && (
-              <span style={styles.stockInfo}>Stock disponible: {stockSource}</span>
+            {form.entrepot_source_id && form.produit_id && (
+              <span style={{ ...styles.stockInfo, color: stockSource > 0 ? '#0ea5e9' : '#dc2626' }}>
+                Stock disponible: {stockSource} {stockSource === 0 && '⚠️ Aucun stock'}
+              </span>
             )}
           </div>
 
@@ -168,14 +194,21 @@ export default function TransfertStock() {
               onChange={handleChange}
               required
               min={1}
-              max={stockSource}
-              disabled={loading}
+              max={stockSource || 0}
+              disabled={loading || stockSource === 0}
             />
+            {stockSource === 0 && (
+              <span style={styles.warningText}>Ajoutez du stock dans l'entrepôt source d'abord</span>
+            )}
           </div>
         </div>
 
-        <button style={styles.submitBtn} type="submit" disabled={loading}>
-          {loading ? 'Transfert en cours...' : ' Effectuer le transfert'}
+        <button 
+          style={{ ...styles.submitBtn, opacity: stockSource === 0 ? 0.5 : 1 }}
+          type="submit" 
+          disabled={loading || stockSource === 0}
+        >
+          {loading ? 'Transfert en cours...' : '🔄 Effectuer le transfert'}
         </button>
       </form>
     </div>
@@ -193,6 +226,7 @@ const styles = {
   formGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '16px' },
   label: { display: 'block', marginBottom: '6px', fontWeight: '600', color: '#0f172a', fontSize: '14px' },
   input: { padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '14px', width: '100%', boxSizing: 'border-box' },
-  stockInfo: { display: 'block', fontSize: '12px', color: '#0ea5e9', marginTop: '4px' },
+  stockInfo: { display: 'block', fontSize: '12px', marginTop: '4px' },
+  warningText: { display: 'block', fontSize: '12px', color: '#dc2626', marginTop: '4px' },
   submitBtn: { padding: '12px 24px', backgroundColor: '#22c55e', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '16px', fontWeight: '600' }
 };

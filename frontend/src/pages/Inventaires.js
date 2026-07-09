@@ -1,8 +1,8 @@
 // frontend/src/pages/stock/Inventaires.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import API from '../../utils/api';
+import { useAuth } from '../context/AuthContext';
+import API from '../utils/api';
 
 export default function Inventaires() {
   const { hasPermission } = useAuth();

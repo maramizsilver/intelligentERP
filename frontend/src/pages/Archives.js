@@ -1,8 +1,8 @@
 // frontend/src/pages/administratif/Archives.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import API from '../../utils/api';
+import { useAuth } from '../context/AuthContext';
+import API from '../utils/api';
 
 export default function Archives() {
   const { hasPermission } = useAuth();

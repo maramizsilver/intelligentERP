@@ -1,7 +1,4 @@
-// ============================================================
-// ⚠️ FICHIER D'AJOUT — à coller à la fin de ton authController.js existant
-// (ne remplace pas le fichier, complète-le : la partie inscription/login/
-// permissions déjà en place ne change pas).
+
 // ============================================================
 
 // ============================================================
