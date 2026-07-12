@@ -123,7 +123,9 @@ export default function Header() {
       internalRoutes.push({ path: '/fournisseurs', label: 'Fournisseurs', permission: 'Achats' });
       internalRoutes.push({ path: '/achats', label: 'Achats', permission: 'Achats' });
     }
-
+ if (hasPermission('Finance', 'consultation')) {
+      internalRoutes.push({ path: '/finance', label: 'Finance', permission: 'Finance' });
+    }
     // Stock
     if (hasPermission('Stock', 'consultation')) {
       internalRoutes.push({ path: '/produits', label: 'Produits', permission: 'Stock' });

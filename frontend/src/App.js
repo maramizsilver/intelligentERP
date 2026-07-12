@@ -58,6 +58,8 @@ import ClientCommandeDetail from './pages/client/ClientCommandeDetail';
 import ClientProduits from './pages/client/ClientProduits';
 import ClientFactures from './pages/client/ClientFactures';
 import ClientProfil from './pages/client/ClientProfil';
+//Finance
+import Finance from './pages/Finance/Finance';
 
 import './styles/global.css';
 
@@ -109,6 +111,9 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
+      //Route Finance
+
+        <Route path="/Finance" element={<Finance />} />
 
       {/* ============================================================
           CLIENT (portail externe)

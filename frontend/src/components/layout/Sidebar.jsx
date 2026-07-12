@@ -83,7 +83,19 @@ export default function Sidebar() {
         ]
       });
     }
-
+ if (hasPermission('Finance', 'consultation')) {
+      sections.push({
+        section: 'Finance',
+        items: [
+          { 
+            path: '/finance', 
+            label: 'Finance', 
+            icon: '💰', 
+            description: 'Gestion financière' 
+          },
+        ]
+      });
+    }
     // Stock
     if (hasPermission('Stock', 'consultation')) {
       const stockItems = [

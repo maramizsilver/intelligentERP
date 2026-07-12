@@ -21,14 +21,11 @@ app.use('/api/promotions', require('./routes/promotionRoutes'));
 app.use('/api/achats', require('./routes/achatRoutes'));
 app.use('/api/mouvements-stock', require('./routes/mouvementStockRoutes'));
 
-// ============================================================
-// NOUVEAUX MODULES
-// ============================================================
-app.use('/api/entrepots', require('./routes/entrepotRoutes'));       // Module Stock - Gestion des entrepôts
-app.use('/api/inventaires', require('./routes/inventaireRoutes'));   // Module Stock - Gestion des inventaires
-app.use('/api/documents', require('./routes/documentRoutes'));       // Module Administratif - Gestion documentaire
-app.use('/api/archives', require('./routes/archivageRoutes'));       // Module Administratif - Archivage numérique
-
+app.use('/api/entrepots', require('./routes/entrepotRoutes'));      
+app.use('/api/inventaires', require('./routes/inventaireRoutes'));   
+app.use('/api/documents', require('./routes/documentRoutes'));       
+app.use('/api/archives', require('./routes/archivageRoutes'));       
+app.use('/api/finance', require('./routes/financeRoutes'));
 app.get('/', (req, res) => {
   res.json({ message: 'Serveur ERP fonctionne !' });
 });

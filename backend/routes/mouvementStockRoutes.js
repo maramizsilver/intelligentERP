@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
     getMouvementsByProduit, getAlertesRupture, ajusterStock
-} = require('../controllers/mouvementStockController');
+} = require('../controllers/mouvementstockController');
 const authMiddleware = require('../middleware/authMiddleware');
 const checkPermission = require('../middleware/permissionMiddleware');
 const checkEssaiActif = require('../middleware/checkEssaiActif');

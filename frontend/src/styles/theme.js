@@ -1,20 +1,18 @@
 
 export const colors = {
-  // Primary - Bleu ciel
+
   primary: '#0EA5E9',
   primaryDark: '#0284C7',
   primaryDarker: '#0369A1',
   primaryLight: '#7DD3FC',
   primaryLighter: '#BAE6FD',
   primaryBg: '#F0F9FF',
-  
-  // Secondary - Indigo/Violet (accent)
+
   secondary: '#6366F1',
   secondaryDark: '#4F46E5',
   secondaryLight: '#A5B4FC',
   secondaryBg: '#EEF2FF',
   
-  // Neutres
   white: '#FFFFFF',
   bg: '#F1F5F9',
   bgCard: '#FFFFFF',
@@ -24,8 +22,7 @@ export const colors = {
   border: '#E2E8F0',
   borderLight: '#F1F5F9',
   borderDark: '#CBD5E1',
-  
- 
+
   success: '#22C55E',
   successDark: '#16A34A',
   successBg: '#F0FDF4',

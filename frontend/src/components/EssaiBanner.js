@@ -14,7 +14,7 @@ export default function EssaiBanner() {
 
   return (
     <div style={{ ...styles.banner, ...(critique ? styles.bannerCritique : {}) }}>
-      🎁 Période d'essai gratuite — <strong>{user.connexions_restantes} connexion(s)</strong> restante(s) avant expiration.
+       Période d'essai gratuite — <strong>{user.connexions_restantes} connexion(s)</strong> restante(s) avant expiration.
       {critique && ' Pensez à souscrire un abonnement pour ne pas perdre l’accès.'}
     </div>
   );
