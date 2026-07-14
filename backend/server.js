@@ -26,6 +26,7 @@ app.use('/api/inventaires', require('./routes/inventaireRoutes'));
 app.use('/api/documents', require('./routes/documentRoutes'));       
 app.use('/api/archives', require('./routes/archivageRoutes'));       
 app.use('/api/finance', require('./routes/financeRoutes'));
+app.use('/api/calculateur', require('./routes/calculateurRoutes'));
 app.get('/', (req, res) => {
   res.json({ message: 'Serveur ERP fonctionne !' });
 });

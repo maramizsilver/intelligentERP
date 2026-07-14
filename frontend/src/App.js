@@ -60,6 +60,8 @@ import ClientFactures from './pages/client/ClientFactures';
 import ClientProfil from './pages/client/ClientProfil';
 //Finance
 import Finance from './pages/Finance/Finance';
+//moteur de calcul
+import Calculateur from './pages/calculateur/Calculateur';
 
 import './styles/global.css';
 
@@ -111,9 +113,28 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
-      //Route Finance
-
-        <Route path="/Finance" element={<Finance />} />
+      // Route Finance avec Layout → Header + Sidebar apparaissent
+<Route
+  path="/finance"
+  element={
+    <PrivateRoute>
+      <Layout>
+        <Finance />
+      </Layout>
+    </PrivateRoute>
+  }
+/>
+//calculateur 
+<Route
+  path="/calculateur"
+  element={
+    <PrivateRoute>
+      <Layout>
+        <Calculateur />
+      </Layout>
+    </PrivateRoute>
+  }
+/>
 
       {/* ============================================================
           CLIENT (portail externe)

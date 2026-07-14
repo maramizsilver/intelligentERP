@@ -103,6 +103,7 @@ export default function Sidebar() {
         { path: '/mouvements-stock', label: 'Mouvements', icon: '🔄', description: 'Historique des mouvements' },
         { path: '/alertes-stock', label: 'Alertes', icon: '⚠️', description: 'Alertes de rupture' },
         { path: '/entrepots', label: 'Entrepôts', icon: '🏚️', description: 'Gestion des entrepôts' },
+        { path: '/calculateur', label: 'Calculateur', icon: '🧮', description: 'Moteur de calcul' }
       ];
       if (hasPermission('Stock', 'modification')) {
         stockItems.push({ path: '/transfert-stock', label: 'Transfert', icon: '🔄', description: 'Transfert entre entrepôts' });
