@@ -1,3 +1,4 @@
+// backend/controllers/authController.js
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -14,11 +15,7 @@ function validateRegisterInput({ nom, prenom, email, password }) {
 }
 
 // ============================================================
-// INSCRIPTION D'UNE NOUVELLE ENTREPRISE (page publique "Créer mon compte ERP")
-// Crée : 1) l'entreprise (statut = en_attente), 2) le rôle "Admin Entreprise",
-// 3) le premier utilisateur (l'admin de cette entreprise).
-// L'entreprise reste inactive tant que le SuperAdmin ne l'a pas validée
-// (cf. schéma : "Validation des inscriptions" côté SuperAdmin).
+// INSCRIPTION D'UNE NOUVELLE ENTREPRISE
 // ============================================================
 exports.registerEntreprise = async (req, res) => {
   const { entreprise_nom, nom, prenom, email, password, plan_type } = req.body;
@@ -26,7 +23,7 @@ exports.registerEntreprise = async (req, res) => {
   if (!entreprise_nom || entreprise_nom.trim().length < 2) {
     errors.push("Le nom de l'entreprise est requis (min 2 caractères)");
   }
-  const planChoisi = plan_type === 'payant' ? 'payant' : 'essai'; // essai par défaut
+  const planChoisi = plan_type === 'payant' ? 'payant' : 'essai';
   if (errors.length > 0) {
     return res.status(400).json({ message: 'Données invalides', errors });
   }
@@ -45,6 +42,7 @@ exports.registerEntreprise = async (req, res) => {
         }
         const entrepriseId = resEnt.insertId;
 
+        // 2. Créer le rôle Admin Entreprise
         db.query(
           'INSERT INTO roles (entreprise_id, nom, est_admin_entreprise) VALUES (?, ?, TRUE)',
           [entrepriseId, 'Admin Entreprise'],
@@ -56,22 +54,42 @@ exports.registerEntreprise = async (req, res) => {
             }
             const roleId = resRole.insertId;
 
+            // ============================================================
+            // 🔥 AJOUT AUTOMATIQUE DES PERMISSIONS
+            // ============================================================
             db.query(
-              'INSERT INTO users (entreprise_id, role_id, nom, prenom, email, password) VALUES (?, ?, ?, ?, ?, ?)',
-              [entrepriseId, roleId, nom.trim(), prenom.trim(), cleanEmail, hashedPassword],
-              (errUser) => {
-                if (errUser) {
+              `INSERT INTO permissions (role_id, module_id, consultation, creation, modification, suppression, validation, export)
+               SELECT ?, m.id, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE
+               FROM modules m`,
+              [roleId],
+              (errPerm) => {
+                if (errPerm) {
+                  console.error('Erreur lors de l\'ajout des permissions:', errPerm);
                   db.query('DELETE FROM roles WHERE id = ?', [roleId], () => {});
                   db.query('DELETE FROM entreprises WHERE id = ?', [entrepriseId], () => {});
-                  if (errUser.code === 'ER_DUP_ENTRY') {
-                    return res.status(400).json({ message: 'Email déjà utilisé' });
-                  }
-                  console.error(errUser);
-                  return res.status(500).json({ message: 'Erreur serveur' });
+                  return res.status(500).json({ message: 'Erreur serveur lors de l\'ajout des permissions' });
                 }
-                res.status(201).json({
-                  message: "Inscription envoyée avec succès. Votre entreprise est en attente de validation par l'administrateur de la plateforme."
-                });
+
+                // 4. Créer l'utilisateur Admin
+                db.query(
+                  'INSERT INTO users (entreprise_id, role_id, nom, prenom, email, password) VALUES (?, ?, ?, ?, ?, ?)',
+                  [entrepriseId, roleId, nom.trim(), prenom.trim(), cleanEmail, hashedPassword],
+                  (errUser) => {
+                    if (errUser) {
+                      db.query('DELETE FROM permissions WHERE role_id = ?', [roleId], () => {});
+                      db.query('DELETE FROM roles WHERE id = ?', [roleId], () => {});
+                      db.query('DELETE FROM entreprises WHERE id = ?', [entrepriseId], () => {});
+                      if (errUser.code === 'ER_DUP_ENTRY') {
+                        return res.status(400).json({ message: 'Email déjà utilisé' });
+                      }
+                      console.error(errUser);
+                      return res.status(500).json({ message: 'Erreur serveur' });
+                    }
+                    res.status(201).json({
+                      message: "Inscription envoyée avec succès. Votre entreprise est en attente de validation par l'administrateur de la plateforme."
+                    });
+                  }
+                );
               }
             );
           }
@@ -85,8 +103,7 @@ exports.registerEntreprise = async (req, res) => {
 };
 
 // ============================================================
-// LOGIN UNIQUE — email + mot de passe seulement.
-// Le système déduit automatiquement entreprise_id, role_id, is_super_admin, is_external.
+// LOGIN
 // ============================================================
 exports.login = (req, res) => {
   const { email, password } = req.body;
@@ -114,8 +131,6 @@ exports.login = (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
 
-    // Un compte d'entreprise non-superadmin ne peut se connecter que si son
-    // entreprise est active (bloque les comptes en attente de validation ou suspendus)
     if (!user.is_super_admin && user.entreprise_statut !== 'actif') {
       return res.status(403).json({
         message: user.entreprise_statut === 'en_attente'
@@ -124,10 +139,7 @@ exports.login = (req, res) => {
       });
     }
 
-    // ============================================================
-    // GESTION DE L'ESSAI GRATUIT (30 connexions)
-    // Ne concerne pas le SuperAdmin (pas d'entreprise) ni les comptes en plan "payant".
-    // ============================================================
+    // Gestion de l'essai gratuit
     let essaiExpire = false;
     let connexionsRestantes = null;
     let messageEssai = null;
@@ -188,7 +200,7 @@ exports.login = (req, res) => {
 };
 
 // ============================================================
-// ME — utilisateur courant (via token), avec ses infos de rôle/entreprise
+// ME — utilisateur courant
 // ============================================================
 exports.getMe = (req, res) => {
   const sql = `
@@ -211,8 +223,7 @@ exports.getMe = (req, res) => {
 };
 
 // ============================================================
-// MES PERMISSIONS — utilisé par le frontend pour construire le menu dynamiquement.
-// Un SuperAdmin ou un utilisateur externe n'a pas de permissions par module (accès séparé).
+// MES PERMISSIONS
 // ============================================================
 exports.getMesPermissions = (req, res) => {
   if (req.user.is_super_admin || req.user.is_external || !req.user.role_id) {
@@ -231,7 +242,7 @@ exports.getMesPermissions = (req, res) => {
 };
 
 // ============================================================
-// METTRE À JOUR MON PROPRE PROFIL (nom, prénom, email, mot de passe optionnel)
+// METTRE À JOUR MON PROFIL
 // ============================================================
 exports.updateMe = async (req, res) => {
   const { nom, prenom, email, password } = req.body;
@@ -272,7 +283,7 @@ exports.updateMe = async (req, res) => {
 };
 
 // ============================================================
-// ADMIN ENTREPRISE : lister tous les comptes de son entreprise (internes + externes)
+// ADMIN : lister les utilisateurs de l'entreprise
 // ============================================================
 exports.getUsersEntreprise = (req, res) => {
   const sql = `
@@ -290,8 +301,7 @@ exports.getUsersEntreprise = (req, res) => {
 };
 
 // ============================================================
-// ADMIN ENTREPRISE : créer un utilisateur INTERNE (collaborateur) avec un rôle
-// personnalisé qui doit appartenir à SA PROPRE entreprise.
+// ADMIN : créer un utilisateur INTERNE
 // ============================================================
 exports.createUserByAdmin = async (req, res) => {
   const { nom, prenom, email, password, role_id } = req.body;
@@ -301,7 +311,6 @@ exports.createUserByAdmin = async (req, res) => {
     return res.status(400).json({ message: 'Données invalides', errors });
   }
 
-  // Sécurité multi-tenant : le rôle choisi doit appartenir à l'entreprise de l'admin connecté
   db.query(
     'SELECT id FROM roles WHERE id = ? AND entreprise_id = ?',
     [role_id, req.user.entreprise_id],
@@ -339,8 +348,7 @@ exports.createUserByAdmin = async (req, res) => {
 };
 
 // ============================================================
-// ADMIN ENTREPRISE : créer un compte EXTERNE (portail client/fournisseur),
-// toujours lié à une fiche "clients" existante de la même entreprise.
+// ADMIN : créer un compte EXTERNE
 // ============================================================
 exports.createExternalUser = async (req, res) => {
   const { nom, prenom, email, password, client_id } = req.body;
@@ -384,9 +392,9 @@ exports.createExternalUser = async (req, res) => {
     }
   );
 };
+
 // ============================================================
-// ADMIN ENTREPRISE : changer le rôle d'un utilisateur interne
-// (le rôle doit appartenir à la même entreprise)
+// ADMIN : changer le rôle d'un utilisateur
 // ============================================================
 exports.updateUserRole = (req, res) => {
   const { id } = req.params;
@@ -425,88 +433,80 @@ exports.updateUserRole = (req, res) => {
   );
 };
 
-
 // ============================================================
-
-// ============================================================
-// ADMIN ENTREPRISE : supprimer un utilisateur interne de son entreprise
-// - impossible de se supprimer soi-même (garde-fou)
-// - impossible de supprimer le dernier compte Admin Entreprise restant
-//   (sinon plus personne ne peut gérer l'entreprise)
+// ADMIN : supprimer un utilisateur
 // ============================================================
 exports.deleteUser = (req, res) => {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    if (Number(id) === req.user.id) {
-        return res.status(400).json({ message: 'Vous ne pouvez pas supprimer votre propre compte' });
+  if (Number(id) === req.user.id) {
+    return res.status(400).json({ message: 'Vous ne pouvez pas supprimer votre propre compte' });
+  }
+
+  const sqlInfo = `
+    SELECT u.id, r.est_admin_entreprise
+    FROM users u
+    LEFT JOIN roles r ON u.role_id = r.id
+    WHERE u.id = ? AND u.entreprise_id = ?
+  `;
+  db.query(sqlInfo, [id, req.user.entreprise_id], (errInfo, rows) => {
+    if (errInfo) { console.error(errInfo); return res.status(500).json({ message: 'Erreur serveur' }); }
+    if (rows.length === 0) return res.status(404).json({ message: 'Utilisateur introuvable dans votre entreprise' });
+
+    const cible = rows[0];
+
+    const supprimer = () => {
+      db.query('DELETE FROM users WHERE id = ? AND entreprise_id = ?', [id, req.user.entreprise_id], (err, result) => {
+        if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
+        if (result.affectedRows === 0) return res.status(404).json({ message: 'Utilisateur introuvable' });
+        res.json({ message: 'Utilisateur supprimé avec succès' });
+      });
+    };
+
+    if (!cible.est_admin_entreprise) {
+      return supprimer();
     }
 
-    const sqlInfo = `
-        SELECT u.id, r.est_admin_entreprise
-        FROM users u
-        LEFT JOIN roles r ON u.role_id = r.id
-        WHERE u.id = ? AND u.entreprise_id = ?
+    const sqlCountAdmins = `
+      SELECT COUNT(*) AS total
+      FROM users u
+      JOIN roles r ON u.role_id = r.id
+      WHERE u.entreprise_id = ? AND r.est_admin_entreprise = TRUE
     `;
-    db.query(sqlInfo, [id, req.user.entreprise_id], (errInfo, rows) => {
-        if (errInfo) { console.error(errInfo); return res.status(500).json({ message: 'Erreur serveur' }); }
-        if (rows.length === 0) return res.status(404).json({ message: 'Utilisateur introuvable dans votre entreprise' });
-
-        const cible = rows[0];
-
-        const supprimer = () => {
-            db.query('DELETE FROM users WHERE id = ? AND entreprise_id = ?', [id, req.user.entreprise_id], (err, result) => {
-                if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
-                if (result.affectedRows === 0) return res.status(404).json({ message: 'Utilisateur introuvable' });
-                res.json({ message: 'Utilisateur supprimé avec succès' });
-            });
-        };
-
-        if (!cible.est_admin_entreprise) {
-            return supprimer();
-        }
-
-        // La cible est un Admin Entreprise : vérifier qu'il n'est pas le dernier
-        const sqlCountAdmins = `
-            SELECT COUNT(*) AS total
-            FROM users u
-            JOIN roles r ON u.role_id = r.id
-            WHERE u.entreprise_id = ? AND r.est_admin_entreprise = TRUE
-        `;
-        db.query(sqlCountAdmins, [req.user.entreprise_id], (errCount, countRows) => {
-            if (errCount) { console.error(errCount); return res.status(500).json({ message: 'Erreur serveur' }); }
-            if (countRows[0].total <= 1) {
-                return res.status(400).json({ message: "Impossible de supprimer le dernier compte Admin Entreprise" });
-            }
-            supprimer();
-        });
+    db.query(sqlCountAdmins, [req.user.entreprise_id], (errCount, countRows) => {
+      if (errCount) { console.error(errCount); return res.status(500).json({ message: 'Erreur serveur' }); }
+      if (countRows[0].total <= 1) {
+        return res.status(400).json({ message: "Impossible de supprimer le dernier compte Admin Entreprise" });
+      }
+      supprimer();
     });
+  });
 };
 
 // ============================================================
-// ADMIN ENTREPRISE : statistiques des comptes par rôle
-// (utilisé par le frontend pour l'onglet "Comptes utilisateurs")
+// ADMIN : statistiques des comptes
 // ============================================================
 exports.getUserStats = (req, res) => {
-    const sql = `
-        SELECT
-            COALESCE(r.nom, 'Externe / sans rôle') AS role_nom,
-            COUNT(*) AS total
-        FROM users u
-        LEFT JOIN roles r ON u.role_id = r.id
-        WHERE u.entreprise_id = ?
-        GROUP BY r.nom
-        ORDER BY total DESC
-    `;
-    db.query(sql, [req.user.entreprise_id], (err, results) => {
-        if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
+  const sql = `
+    SELECT
+      COALESCE(r.nom, 'Externe / sans rôle') AS role_nom,
+      COUNT(*) AS total
+    FROM users u
+    LEFT JOIN roles r ON u.role_id = r.id
+    WHERE u.entreprise_id = ?
+    GROUP BY r.nom
+    ORDER BY total DESC
+  `;
+  db.query(sql, [req.user.entreprise_id], (err, results) => {
+    if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
 
-        const sqlTotalExternes = 'SELECT COUNT(*) AS total FROM users WHERE entreprise_id = ? AND is_external = TRUE';
-        db.query(sqlTotalExternes, [req.user.entreprise_id], (err2, rowsExt) => {
-            if (err2) { console.error(err2); return res.status(500).json({ message: 'Erreur serveur' }); }
-            res.json({
-                stats_par_role: results,
-                total_comptes_externes: rowsExt[0].total
-            });
-        });
+    const sqlTotalExternes = 'SELECT COUNT(*) AS total FROM users WHERE entreprise_id = ? AND is_external = TRUE';
+    db.query(sqlTotalExternes, [req.user.entreprise_id], (err2, rowsExt) => {
+      if (err2) { console.error(err2); return res.status(500).json({ message: 'Erreur serveur' }); }
+      res.json({
+        stats_par_role: results,
+        total_comptes_externes: rowsExt[0].total
+      });
     });
+  });
 };

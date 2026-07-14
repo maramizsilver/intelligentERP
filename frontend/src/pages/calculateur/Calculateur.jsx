@@ -1,5 +1,5 @@
 // frontend/src/pages/calculateur/Calculateur.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import API from '../../utils/api';
@@ -11,18 +11,32 @@ import Button from '../../components/common/Button';
 import Table from '../../components/common/Table';
 import Badge from '../../components/common/Badge';
 import Input from '../../components/common/Input';
+import Modal from '../../components/common/Modal';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
+
+// ============================================================
+// COMPOSANTS INTERNES
+// ============================================================
+
+const CATEGORIES = ['TVA', 'INTERET', 'PENALITE', 'REMISE', 'TAXE', 'COMMISSION'];
 
 export default function Calculateur() {
   const { hasPermission } = useAuth();
   const navigate = useNavigate();
 
-  const [onglet, setOnglet] = useState('taux-unique');
+  // ============================================================
+  // ÉTATS
+  // ============================================================
+
+  const [onglet, setOnglet] = useState('calcul');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [resultat, setResultat] = useState(null);
+
+  // Mode de calcul
+  const [modeCalcul, setModeCalcul] = useState('manuel');
 
   // Cas n°1 : Taux unique
   const [formUnique, setFormUnique] = useState({
@@ -32,19 +46,86 @@ export default function Calculateur() {
     taux: ''
   });
 
-  // Cas n°2 : Taux variables
+  // Cas n°2 : Taux variables (manuel)
   const [formVariables, setFormVariables] = useState({
     montant: '',
-    periodes: [
-      { date_debut: '', date_fin: '', taux: '' }
-    ]
+    periodes: [{ date_debut: '', date_fin: '', taux: '' }]
   });
 
+  // Cas n°3 : Taux variables (auto)
+  const [formAuto, setFormAuto] = useState({
+    montant: '',
+    date_debut: '',
+    date_fin: '',
+    categorie: '',
+    sous_categorie: ''
+  });
+
+  // Taux de référence
+  const [tauxReference, setTauxReference] = useState([]);
+  const [showTauxModal, setShowTauxModal] = useState(false);
+  const [editingTauxId, setEditingTauxId] = useState(null);
+  const [formTaux, setFormTaux] = useState({
+    categorie: '',
+    sous_categorie: '',
+    nom: '',
+    date_debut: '',
+    date_fin: '',
+    taux: '',
+    description: '',
+    actif: true
+  });
+
+  // Historique
+  const [historique, setHistorique] = useState([]);
+  const [totalHistorique, setTotalHistorique] = useState(0);
+
   const [loadingCalcul, setLoadingCalcul] = useState(false);
+  const [loadingTaux, setLoadingTaux] = useState(false);
 
-  const peutExporter = hasPermission('Finance', 'export') || true;
+  const peutCreer = hasPermission('Finance', 'creation');
+  const peutModifier = hasPermission('Finance', 'modification');
+  const peutSupprimer = hasPermission('Finance', 'suppression');
+  const peutExporter = hasPermission('Finance', 'export');
 
-  // ============ GESTION FORMULAIRES ============
+  // ============================================================
+  // CHARGEMENT DES DONNÉES
+  // ============================================================
+
+  useEffect(() => {
+    if (onglet === 'taux') loadTauxReference();
+    if (onglet === 'historique') loadHistorique();
+  }, [onglet]);
+
+  const loadTauxReference = async () => {
+    try {
+      setLoadingTaux(true);
+      const res = await API.get('/calculateur/taux-reference');
+      setTauxReference(res.data.taux || []);
+    } catch (err) {
+      setError('Impossible de charger les taux de référence');
+    } finally {
+      setLoadingTaux(false);
+    }
+  };
+
+  const loadHistorique = async () => {
+    try {
+      setLoading(true);
+      const res = await API.get('/calculateur/historique');
+      setHistorique(res.data.historique || []);
+      setTotalHistorique(res.data.total || 0);
+    } catch (err) {
+      setError('Impossible de charger l\'historique');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ============================================================
+  // GESTION DES FORMULAIRES
+  // ============================================================
+
   const handleUniqueChange = (e) => {
     const { name, value } = e.target;
     setFormUnique({ ...formUnique, [name]: value });
@@ -75,7 +156,21 @@ export default function Calculateur() {
     setResultat(null);
   };
 
-  // ============ CALCULS ============
+  const handleAutoChange = (e) => {
+    const { name, value } = e.target;
+    setFormAuto({ ...formAuto, [name]: value });
+    setResultat(null);
+  };
+
+  const handleTauxChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormTaux({ ...formTaux, [name]: type === 'checkbox' ? checked : value });
+  };
+
+  // ============================================================
+  // CALCULS
+  // ============================================================
+
   const handleCalculUnique = async (e) => {
     e.preventDefault();
     setError('');
@@ -99,7 +194,6 @@ export default function Calculateur() {
     setSuccess('');
     setLoadingCalcul(true);
 
-    // Filtrer les périodes vides
     const periodesValides = formVariables.periodes.filter(
       p => p.date_debut && p.date_fin && p.taux
     );
@@ -124,14 +218,87 @@ export default function Calculateur() {
     }
   };
 
-  // ============ EXPORTS ============
+  const handleCalculAuto = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setLoadingCalcul(true);
+
+    try {
+      const res = await API.post('/calculateur/taux-variables-auto', formAuto);
+      setResultat(res.data);
+      setSuccess('Calcul effectué avec succès');
+    } catch (err) {
+      setError(err.response?.data?.message || err.response?.data?.message || 'Erreur lors du calcul');
+    } finally {
+      setLoadingCalcul(false);
+    }
+  };
+
+  // ============================================================
+  // GESTION DES TAUX DE RÉFÉRENCE
+  // ============================================================
+
+  const handleSubmitTaux = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoadingTaux(true);
+
+    try {
+      if (editingTauxId) {
+        await API.put(`/calculateur/taux-reference/${editingTauxId}`, formTaux);
+        setSuccess('Taux de référence mis à jour avec succès');
+      } else {
+        await API.post('/calculateur/taux-reference', formTaux);
+        setSuccess('Taux de référence créé avec succès');
+      }
+      setShowTauxModal(false);
+      setEditingTauxId(null);
+      setFormTaux({ categorie: '', sous_categorie: '', nom: '', date_debut: '', date_fin: '', taux: '', description: '', actif: true });
+      loadTauxReference();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Erreur');
+    } finally {
+      setLoadingTaux(false);
+    }
+  };
+
+  const handleEditTaux = (taux) => {
+    setFormTaux({
+      categorie: taux.categorie,
+      sous_categorie: taux.sous_categorie || '',
+      nom: taux.nom || '',
+      date_debut: taux.date_debut.slice(0, 10),
+      date_fin: taux.date_fin.slice(0, 10),
+      taux: taux.taux,
+      description: taux.description || '',
+      actif: !!taux.actif
+    });
+    setEditingTauxId(taux.id);
+    setShowTauxModal(true);
+  };
+
+  const handleDeleteTaux = async (id) => {
+    if (!window.confirm('Supprimer ce taux de référence ?')) return;
+    try {
+      await API.delete(`/calculateur/taux-reference/${id}`);
+      setSuccess('Taux de référence supprimé');
+      loadTauxReference();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Erreur');
+    }
+  };
+
+  // ============================================================
+  // EXPORTS
+  // ============================================================
+
   const exportPDF = () => {
     if (!resultat) return;
 
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
 
-    // Titre
     doc.setFontSize(20);
     doc.text('Rapport de calcul - ERP', pageWidth / 2, 20, { align: 'center' });
 
@@ -147,7 +314,6 @@ export default function Calculateur() {
       doc.setFontSize(14);
       doc.text('Cas n°1 : Taux unique', 20, y);
       y += 10;
-
       doc.setFontSize(11);
       doc.text(`Montant de base : ${resultat.montant} DT`, 20, y);
       y += 7;
@@ -159,27 +325,19 @@ export default function Calculateur() {
       y += 7;
       doc.text(`Base de calcul : ${resultat.base_jours} jours`, 20, y);
       y += 10;
-
       doc.setFontSize(16);
       doc.setTextColor(14, 165, 233);
       doc.text(`Résultat : ${resultat.resultat} DT`, 20, y);
-      doc.setTextColor(0, 0, 0);
-      y += 10;
-
-      doc.setFontSize(10);
-      doc.text(`Formule : ${resultat.formule}`, 20, y);
-    } else if (resultat.cas === 'taux_variables') {
+    } else {
       doc.setFontSize(14);
-      doc.text('Cas n°2 : Taux variables par période', 20, y);
+      doc.text('Cas n°2 : Taux variables', 20, y);
       y += 10;
-
       doc.setFontSize(11);
       doc.text(`Montant de base : ${resultat.montant} DT`, 20, y);
       y += 7;
       doc.text(`Base de calcul : ${resultat.base_jours} jours`, 20, y);
       y += 10;
 
-      // Tableau des détails
       doc.setFontSize(11);
       doc.setFont(undefined, 'bold');
       doc.text('Période', 20, y);
@@ -202,11 +360,9 @@ export default function Calculateur() {
       y += 5;
       doc.line(20, y, pageWidth - 20, y);
       y += 7;
-
       doc.setFontSize(14);
       doc.setFont(undefined, 'bold');
       doc.text(`Total : ${resultat.total} DT`, 20, y);
-      doc.setFont(undefined, 'normal');
     }
 
     doc.save(`calcul-${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -216,7 +372,6 @@ export default function Calculateur() {
     if (!resultat) return;
 
     let data = [];
-    let total = 0;
 
     if (resultat.cas === 'taux_unique') {
       data = [{
@@ -226,73 +381,82 @@ export default function Calculateur() {
         'Date fin': resultat.date_fin,
         'Nombre de jours': resultat.nbJours,
         'Taux (%)': resultat.taux,
-        'Résultat (DT)': resultat.resultat,
-        'Formule': resultat.formule
+        'Résultat (DT)': resultat.resultat
       }];
-      total = resultat.resultat;
-    } else if (resultat.cas === 'taux_variables') {
+    } else {
       data = resultat.details.map(d => ({
         'Période': `#${d.periode}`,
         'Date début': d.date_debut,
         'Date fin': d.date_fin,
         'Nombre de jours': d.nbJours,
         'Taux (%)': d.taux,
-        'Calcul': d.calcul,
         'Résultat (DT)': d.resultat
       }));
-      // Ajouter une ligne de total
       data.push({
         'Période': 'TOTAL',
         'Date début': '',
         'Date fin': '',
         'Nombre de jours': '',
         'Taux (%)': '',
-        'Calcul': '',
         'Résultat (DT)': resultat.total
       });
-      total = resultat.total;
     }
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(data);
-
-    // Ajuster la largeur des colonnes
     ws['!cols'] = [
       { wch: 12 }, { wch: 18 }, { wch: 18 },
-      { wch: 15 }, { wch: 12 }, { wch: 35 }, { wch: 15 }
+      { wch: 15 }, { wch: 12 }, { wch: 15 }
     ];
-
     XLSX.utils.book_append_sheet(wb, ws, 'Calcul');
     XLSX.writeFile(wb, `calcul-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  // ============ COLONNES TABLEAU ============
-  const columnsDetails = resultat?.cas === 'taux_variables' ? [
+  // ============================================================
+  // COLONNES TABLEAUX
+  // ============================================================
+
+  const columnsDetails = resultat?.cas !== 'taux_unique' && resultat?.details ? [
     { key: 'periode', label: 'Période', render: (row) => `#${row.periode}` },
-    {
-      key: 'date_debut',
-      label: 'Date début',
-      render: (row) => row.date_debut
-    },
-    {
-      key: 'date_fin',
-      label: 'Date fin',
-      render: (row) => row.date_fin
-    },
+    { key: 'date_debut', label: 'Date début' },
+    { key: 'date_fin', label: 'Date fin' },
     { key: 'nbJours', label: 'Jours' },
-    {
-      key: 'taux',
-      label: 'Taux',
-      render: (row) => `${row.taux}%`
-    },
-    {
-      key: 'resultat',
-      label: 'Résultat',
-      render: (row) => <strong>{row.resultat} DT</strong>
-    }
+    { key: 'taux', label: 'Taux', render: (row) => `${row.taux}%` },
+    { key: 'resultat', label: 'Résultat', render: (row) => <strong>{row.resultat} DT</strong> }
   ] : [];
 
-  // ============ RENDER ============
+  const columnsTaux = [
+    { key: 'categorie', label: 'Catégorie' },
+    { key: 'nom', label: 'Nom' },
+    { key: 'date_debut', label: 'Date début', render: (row) => new Date(row.date_debut).toLocaleDateString('fr-FR') },
+    { key: 'date_fin', label: 'Date fin', render: (row) => new Date(row.date_fin).toLocaleDateString('fr-FR') },
+    { key: 'taux', label: 'Taux', render: (row) => `${row.taux}%` },
+    { key: 'actif', label: 'Actif', render: (row) => <Badge variant={row.actif ? 'success' : 'danger'}>{row.actif ? 'Oui' : 'Non'}</Badge> }
+  ];
+
+  const actionsTaux = [];
+  if (peutModifier) actionsTaux.push({ label: 'Modifier', variant: 'primary', onClick: (r) => handleEditTaux(r) });
+  if (peutSupprimer) actionsTaux.push({ label: 'Supprimer', variant: 'danger', onClick: (r) => handleDeleteTaux(r.id) });
+
+  const columnsHistorique = [
+    { key: 'type_calcul', label: 'Type', render: (row) => {
+      const types = {
+        'taux_unique': 'Taux unique',
+        'taux_variables_manuel': 'Taux variables (manuel)',
+        'taux_variables_auto': 'Taux variables (auto)'
+      };
+      return types[row.type_calcul] || row.type_calcul;
+    }},
+    { key: 'montant', label: 'Montant', render: (row) => `${row.montant} DT` },
+    { key: 'resultat', label: 'Résultat', render: (row) => `${row.resultat} DT` },
+    { key: 'created_at', label: 'Date', render: (row) => new Date(row.created_at).toLocaleString('fr-FR') },
+    { key: 'prenom', label: 'Par', render: (row) => `${row.prenom || ''} ${row.nom || ''}` }
+  ];
+
+  // ============================================================
+  // RENDER
+  // ============================================================
+
   return (
     <div>
       {/* HEADER */}
@@ -324,59 +488,432 @@ export default function Calculateur() {
         </div>
       )}
 
-      {/* Onglets */}
+      {/* Onglets principaux */}
       <div style={styles.segmentedControl}>
         <button
-          style={{ ...styles.segment, ...(onglet === 'taux-unique' ? styles.segmentActive : {}) }}
-          onClick={() => { setOnglet('taux-unique'); setResultat(null); }}
+          style={{ ...styles.segment, ...(onglet === 'calcul' ? styles.segmentActive : {}) }}
+          onClick={() => { setOnglet('calcul'); setResultat(null); }}
         >
-          Taux unique
+          Calcul
         </button>
         <button
-          style={{ ...styles.segment, ...(onglet === 'taux-variables' ? styles.segmentActive : {}) }}
-          onClick={() => { setOnglet('taux-variables'); setResultat(null); }}
+          style={{ ...styles.segment, ...(onglet === 'taux' ? styles.segmentActive : {}) }}
+          onClick={() => { setOnglet('taux'); setResultat(null); }}
         >
-          Taux variables
+          Taux de référence
+        </button>
+        <button
+          style={{ ...styles.segment, ...(onglet === 'historique' ? styles.segmentActive : {}) }}
+          onClick={() => { setOnglet('historique'); setResultat(null); }}
+        >
+          Historique
         </button>
       </div>
 
       {/* ============================================================
-          CAS N°1 : TAUX UNIQUE
+          ONGLET : CALCUL
           ============================================================ */}
-      {onglet === 'taux-unique' && (
+      {onglet === 'calcul' && (
         <>
-          <Card title="Saisie des données" variant="primary">
-            <form onSubmit={handleCalculUnique}>
+          {/* Mode de calcul */}
+          <div style={styles.modeSelector}>
+            <button
+              style={{ ...styles.modeBtn, ...(modeCalcul === 'manuel' ? styles.modeBtnActive : {}) }}
+              onClick={() => { setModeCalcul('manuel'); setResultat(null); }}
+            >
+              Mode manuel
+            </button>
+            <button
+              style={{ ...styles.modeBtn, ...(modeCalcul === 'auto' ? styles.modeBtnActive : {}) }}
+              onClick={() => { setModeCalcul('auto'); setResultat(null); }}
+            >
+              Mode automatique (BDD)
+            </button>
+          </div>
+
+          {/* ===== MODE MANUEL ===== */}
+          {modeCalcul === 'manuel' && (
+            <>
+              <div style={styles.subSegmentedControl}>
+                <button
+                  style={{ ...styles.subSegment, ...(formUnique.active ? styles.subSegmentActive : {}) }}
+                  onClick={() => setFormUnique({ ...formUnique, active: true })}
+                >
+                  Taux unique
+                </button>
+                <button
+                  style={{ ...styles.subSegment, ...(!formUnique.active ? styles.subSegmentActive : {}) }}
+                  onClick={() => setFormUnique({ ...formUnique, active: false })}
+                >
+                  Taux variables
+                </button>
+              </div>
+
+              {/* Taux unique */}
+              {formUnique.active !== false && (
+                <Card title="Saisie des données - Taux unique" variant="primary">
+                  <form onSubmit={handleCalculUnique}>
+                    <div style={styles.formGrid}>
+                      <Input
+                        label="Montant de base (DT) *"
+                        name="montant"
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        placeholder="Ex: 10000"
+                        value={formUnique.montant}
+                        onChange={handleUniqueChange}
+                        required
+                        disabled={loadingCalcul}
+                      />
+                      <Input
+                        label="Date de début *"
+                        name="date_debut"
+                        type="date"
+                        value={formUnique.date_debut}
+                        onChange={handleUniqueChange}
+                        required
+                        disabled={loadingCalcul}
+                      />
+                      <Input
+                        label="Date de fin *"
+                        name="date_fin"
+                        type="date"
+                        value={formUnique.date_fin}
+                        onChange={handleUniqueChange}
+                        required
+                        disabled={loadingCalcul}
+                      />
+                      <Input
+                        label="Taux (%) *"
+                        name="taux"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="Ex: 10"
+                        value={formUnique.taux}
+                        onChange={handleUniqueChange}
+                        required
+                        disabled={loadingCalcul}
+                      />
+                    </div>
+                    <Button type="submit" variant="primary" loading={loadingCalcul} fullWidth>
+                      Calculer
+                    </Button>
+                  </form>
+                </Card>
+              )}
+
+              {/* Taux variables manuel */}
+              {formUnique.active === false && (
+                <Card title="Saisie des données - Taux variables" variant="primary">
+                  <form onSubmit={handleCalculVariables}>
+                    <div style={styles.formGrid}>
+                      <Input
+                        label="Montant de base (DT) *"
+                        name="montant"
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        placeholder="Ex: 10000"
+                        value={formVariables.montant}
+                        onChange={(e) => setFormVariables({ ...formVariables, montant: e.target.value })}
+                        required
+                        disabled={loadingCalcul}
+                      />
+                    </div>
+
+                    <div style={styles.periodesContainer}>
+                      <div style={styles.periodesHeader}>
+                        <span style={styles.periodesTitle}>Périodes et taux</span>
+                        <Button type="button" variant="outline" size="sm" onClick={addPeriode} icon="+">
+                          Ajouter une période
+                        </Button>
+                      </div>
+
+                      {formVariables.periodes.map((periode, index) => (
+                        <div key={index} style={styles.periodeRow}>
+                          <span style={styles.periodeNumber}>#{index + 1}</span>
+                          <input
+                            style={styles.input}
+                            type="date"
+                            placeholder="Date début"
+                            value={periode.date_debut}
+                            onChange={(e) => handlePeriodeChange(index, 'date_debut', e.target.value)}
+                            required
+                            disabled={loadingCalcul}
+                          />
+                          <input
+                            style={styles.input}
+                            type="date"
+                            placeholder="Date fin"
+                            value={periode.date_fin}
+                            onChange={(e) => handlePeriodeChange(index, 'date_fin', e.target.value)}
+                            required
+                            disabled={loadingCalcul}
+                          />
+                          <input
+                            style={{ ...styles.input, width: '100px' }}
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="Taux %"
+                            value={periode.taux}
+                            onChange={(e) => handlePeriodeChange(index, 'taux', e.target.value)}
+                            required
+                            disabled={loadingCalcul}
+                          />
+                          {formVariables.periodes.length > 1 && (
+                            <Button type="button" variant="danger" size="sm" onClick={() => removePeriode(index)}>
+                              ✕
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    <Button type="submit" variant="primary" loading={loadingCalcul} fullWidth>
+                      Calculer
+                    </Button>
+                  </form>
+                </Card>
+              )}
+            </>
+          )}
+
+          {/* ===== MODE AUTOMATIQUE (BDD) ===== */}
+          {modeCalcul === 'auto' && (
+            <Card title="Saisie des données - Taux depuis BDD" variant="primary">
+              <form onSubmit={handleCalculAuto}>
+                <div style={styles.formGrid}>
+                  <Input
+                    label="Montant de base (DT) *"
+                    name="montant"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    placeholder="Ex: 10000"
+                    value={formAuto.montant}
+                    onChange={handleAutoChange}
+                    required
+                    disabled={loadingCalcul}
+                  />
+                  <Input
+                    label="Date de début *"
+                    name="date_debut"
+                    type="date"
+                    value={formAuto.date_debut}
+                    onChange={handleAutoChange}
+                    required
+                    disabled={loadingCalcul}
+                  />
+                  <Input
+                    label="Date de fin *"
+                    name="date_fin"
+                    type="date"
+                    value={formAuto.date_fin}
+                    onChange={handleAutoChange}
+                    required
+                    disabled={loadingCalcul}
+                  />
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Catégorie *</label>
+                    <select
+                      style={styles.select}
+                      name="categorie"
+                      value={formAuto.categorie}
+                      onChange={handleAutoChange}
+                      required
+                      disabled={loadingCalcul}
+                    >
+                      <option value="">-- Choisir une catégorie --</option>
+                      {CATEGORIES.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <Input
+                    label="Sous-catégorie (optionnel)"
+                    name="sous_categorie"
+                    placeholder="Ex: Standard, Réduite..."
+                    value={formAuto.sous_categorie}
+                    onChange={handleAutoChange}
+                    disabled={loadingCalcul}
+                  />
+                </div>
+                <Button type="submit" variant="primary" loading={loadingCalcul} fullWidth>
+                  Calculer avec les taux de référence
+                </Button>
+              </form>
+            </Card>
+          )}
+
+          {/* Résultat */}
+          {resultat && (
+            <Card title="Résultat du calcul" variant="success" style={{ marginTop: '20px' }}>
+              <div style={styles.resultGrid}>
+                <div style={styles.resultItem}>
+                  <span style={styles.resultLabel}>Montant</span>
+                  <span style={styles.resultValue}>{resultat.montant} DT</span>
+                </div>
+                <div style={styles.resultItem}>
+                  <span style={styles.resultLabel}>Base de calcul</span>
+                  <span style={styles.resultValue}>{resultat.base_jours} jours</span>
+                </div>
+                {resultat.cas === 'taux_unique' && (
+                  <>
+                    <div style={styles.resultItem}>
+                      <span style={styles.resultLabel}>Période</span>
+                      <span style={styles.resultValue}>{resultat.date_debut} → {resultat.date_fin}</span>
+                    </div>
+                    <div style={styles.resultItem}>
+                      <span style={styles.resultLabel}>Nombre de jours</span>
+                      <span style={styles.resultValue}>{resultat.nbJours}</span>
+                    </div>
+                    <div style={styles.resultItem}>
+                      <span style={styles.resultLabel}>Taux</span>
+                      <span style={styles.resultValue}>{resultat.taux}%</span>
+                    </div>
+                  </>
+                )}
+                {resultat.cas === 'taux_variables_auto' && (
+                  <>
+                    <div style={styles.resultItem}>
+                      <span style={styles.resultLabel}>Catégorie</span>
+                      <span style={styles.resultValue}>{resultat.categorie}</span>
+                    </div>
+                    {resultat.sous_categorie && (
+                      <div style={styles.resultItem}>
+                        <span style={styles.resultLabel}>Sous-catégorie</span>
+                        <span style={styles.resultValue}>{resultat.sous_categorie}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+                <div style={{ ...styles.resultItem, gridColumn: '1 / -1', borderTop: '2px solid #E2E8F0', paddingTop: '16px' }}>
+                  <span style={{ ...styles.resultLabel, fontSize: '16px', fontWeight: 700 }}>
+                    Résultat final
+                  </span>
+                  <span style={{ ...styles.resultValue, fontSize: '24px', fontWeight: 700, color: '#0EA5E9' }}>
+                    {resultat.total || resultat.resultat} DT
+                  </span>
+                </div>
+              </div>
+
+              {/* Détail par période */}
+              {resultat.details && resultat.details.length > 0 && (
+                <div style={{ marginTop: '20px' }}>
+                  <h4 style={styles.detailTitle}>Détail par période</h4>
+                  <Table columns={columnsDetails} data={resultat.details} />
+                </div>
+              )}
+
+              {/* Exports */}
+              {peutExporter && (
+                <div style={styles.exportActions}>
+                  <Button variant="secondary" onClick={exportPDF} icon="📄">
+                    Exporter PDF
+                  </Button>
+                  <Button variant="secondary" onClick={exportExcel} icon="📊">
+                    Exporter Excel
+                  </Button>
+                </div>
+              )}
+            </Card>
+          )}
+        </>
+      )}
+
+      {/* ============================================================
+          ONGLET : TAUX DE RÉFÉRENCE
+          ============================================================ */}
+      {onglet === 'taux' && (
+        <>
+          <div style={styles.actionBar}>
+            {peutCreer && (
+              <Button
+                variant="primary"
+                icon="+"
+                onClick={() => {
+                  setEditingTauxId(null);
+                  setFormTaux({ categorie: '', sous_categorie: '', nom: '', date_debut: '', date_fin: '', taux: '', description: '', actif: true });
+                  setShowTauxModal(true);
+                }}
+              >
+                Nouveau taux de référence
+              </Button>
+            )}
+          </div>
+
+          <Card title="Taux de référence" variant="primary">
+            <Table columns={columnsTaux} data={tauxReference} loading={loadingTaux} actions={actionsTaux} />
+          </Card>
+
+          {/* Modal Taux */}
+          <Modal
+            isOpen={showTauxModal}
+            onClose={() => setShowTauxModal(false)}
+            title={editingTauxId ? 'Modifier le taux de référence' : 'Nouveau taux de référence'}
+            size="md"
+            actions={[
+              {
+                label: editingTauxId ? 'Mettre à jour' : 'Créer',
+                variant: 'primary',
+                onClick: handleSubmitTaux,
+                loading: loadingTaux,
+              },
+            ]}
+          >
+            <form onSubmit={handleSubmitTaux}>
               <div style={styles.formGrid}>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Catégorie *</label>
+                  <select
+                    style={styles.select}
+                    name="categorie"
+                    value={formTaux.categorie}
+                    onChange={handleTauxChange}
+                    required
+                    disabled={loadingTaux}
+                  >
+                    <option value="">-- Choisir --</option>
+                    {CATEGORIES.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
                 <Input
-                  label="Montant de base (DT) *"
-                  name="montant"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  placeholder="Ex: 10000"
-                  value={formUnique.montant}
-                  onChange={handleUniqueChange}
-                  required
-                  disabled={loadingCalcul}
+                  label="Sous-catégorie"
+                  name="sous_categorie"
+                  value={formTaux.sous_categorie}
+                  onChange={handleTauxChange}
+                  disabled={loadingTaux}
                 />
                 <Input
-                  label="Date de début *"
+                  label="Nom"
+                  name="nom"
+                  placeholder="Ex: TVA Standard"
+                  value={formTaux.nom}
+                  onChange={handleTauxChange}
+                  disabled={loadingTaux}
+                />
+                <Input
+                  label="Date début *"
                   name="date_debut"
                   type="date"
-                  value={formUnique.date_debut}
-                  onChange={handleUniqueChange}
+                  value={formTaux.date_debut}
+                  onChange={handleTauxChange}
                   required
-                  disabled={loadingCalcul}
+                  disabled={loadingTaux}
                 />
                 <Input
-                  label="Date de fin *"
+                  label="Date fin *"
                   name="date_fin"
                   type="date"
-                  value={formUnique.date_fin}
-                  onChange={handleUniqueChange}
+                  value={formTaux.date_fin}
+                  onChange={handleTauxChange}
                   required
-                  disabled={loadingCalcul}
+                  disabled={loadingTaux}
                 />
                 <Input
                   label="Taux (%) *"
@@ -384,200 +921,50 @@ export default function Calculateur() {
                   type="number"
                   step="0.01"
                   min="0"
-                  placeholder="Ex: 10"
-                  value={formUnique.taux}
-                  onChange={handleUniqueChange}
+                  value={formTaux.taux}
+                  onChange={handleTauxChange}
                   required
-                  disabled={loadingCalcul}
+                  disabled={loadingTaux}
                 />
               </div>
-              <Button type="submit" variant="primary" loading={loadingCalcul} fullWidth>
-                Calculer
-              </Button>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Description</label>
+                <textarea
+                  style={styles.textarea}
+                  name="description"
+                  value={formTaux.description}
+                  onChange={handleTauxChange}
+                  disabled={loadingTaux}
+                  rows="2"
+                />
+              </div>
+              <div style={styles.checkboxGroup}>
+                <label style={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    name="actif"
+                    checked={formTaux.actif}
+                    onChange={handleTauxChange}
+                    disabled={loadingTaux}
+                  />
+                  <span>Actif</span>
+                </label>
+              </div>
             </form>
-          </Card>
-
-          {/* Résultat */}
-          {resultat && resultat.cas === 'taux_unique' && (
-            <>
-              <Card title="Résultat du calcul" variant="success" style={{ marginTop: '20px' }}>
-                <div style={styles.resultGrid}>
-                  <div style={styles.resultItem}>
-                    <span style={styles.resultLabel}>Montant</span>
-                    <span style={styles.resultValue}>{resultat.montant} DT</span>
-                  </div>
-                  <div style={styles.resultItem}>
-                    <span style={styles.resultLabel}>Période</span>
-                    <span style={styles.resultValue}>
-                      {resultat.date_debut} → {resultat.date_fin}
-                    </span>
-                  </div>
-                  <div style={styles.resultItem}>
-                    <span style={styles.resultLabel}>Nombre de jours</span>
-                    <span style={styles.resultValue}>{resultat.nbJours}</span>
-                  </div>
-                  <div style={styles.resultItem}>
-                    <span style={styles.resultLabel}>Taux</span>
-                    <span style={styles.resultValue}>{resultat.taux}%</span>
-                  </div>
-                  <div style={styles.resultItem}>
-                    <span style={styles.resultLabel}>Base de calcul</span>
-                    <span style={styles.resultValue}>{resultat.base_jours} jours</span>
-                  </div>
-                  <div style={{ ...styles.resultItem, gridColumn: '1 / -1', borderTop: '2px solid #E2E8F0', paddingTop: '16px' }}>
-                    <span style={{ ...styles.resultLabel, fontSize: '16px', fontWeight: 700 }}>
-                      Résultat final
-                    </span>
-                    <span style={{ ...styles.resultValue, fontSize: '24px', fontWeight: 700, color: '#0EA5E9' }}>
-                      {resultat.resultat} DT
-                    </span>
-                  </div>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <span style={styles.formuleText}>Formule : {resultat.formule}</span>
-                  </div>
-                </div>
-
-                {peutExporter && (
-                  <div style={styles.exportActions}>
-                    <Button variant="secondary" onClick={exportPDF} icon="📄">
-                      Exporter PDF
-                    </Button>
-                    <Button variant="secondary" onClick={exportExcel} icon="📊">
-                      Exporter Excel
-                    </Button>
-                  </div>
-                )}
-              </Card>
-            </>
-          )}
+          </Modal>
         </>
       )}
 
       {/* ============================================================
-          CAS N°2 : TAUX VARIABLES
+          ONGLET : HISTORIQUE
           ============================================================ */}
-      {onglet === 'taux-variables' && (
-        <>
-          <Card title="Saisie des données" variant="primary">
-            <form onSubmit={handleCalculVariables}>
-              <div style={styles.formGrid}>
-                <Input
-                  label="Montant de base (DT) *"
-                  name="montant"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  placeholder="Ex: 10000"
-                  value={formVariables.montant}
-                  onChange={(e) => setFormVariables({ ...formVariables, montant: e.target.value })}
-                  required
-                  disabled={loadingCalcul}
-                />
-              </div>
-
-              <div style={styles.periodesContainer}>
-                <div style={styles.periodesHeader}>
-                  <span style={styles.periodesTitle}>Périodes et taux</span>
-                  <Button type="button" variant="outline" size="sm" onClick={addPeriode} icon="+">
-                    Ajouter une période
-                  </Button>
-                </div>
-
-                {formVariables.periodes.map((periode, index) => (
-                  <div key={index} style={styles.periodeRow}>
-                    <span style={styles.periodeNumber}>#{index + 1}</span>
-                    <input
-                      style={styles.input}
-                      type="date"
-                      placeholder="Date début"
-                      value={periode.date_debut}
-                      onChange={(e) => handlePeriodeChange(index, 'date_debut', e.target.value)}
-                      required
-                      disabled={loadingCalcul}
-                    />
-                    <input
-                      style={styles.input}
-                      type="date"
-                      placeholder="Date fin"
-                      value={periode.date_fin}
-                      onChange={(e) => handlePeriodeChange(index, 'date_fin', e.target.value)}
-                      required
-                      disabled={loadingCalcul}
-                    />
-                    <input
-                      style={{ ...styles.input, width: '100px' }}
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="Taux %"
-                      value={periode.taux}
-                      onChange={(e) => handlePeriodeChange(index, 'taux', e.target.value)}
-                      required
-                      disabled={loadingCalcul}
-                    />
-                    {formVariables.periodes.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="danger"
-                        size="sm"
-                        onClick={() => removePeriode(index)}
-                      >
-                        ✕
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <Button type="submit" variant="primary" loading={loadingCalcul} fullWidth>
-                Calculer
-              </Button>
-            </form>
-          </Card>
-
-          {/* Résultat */}
-          {resultat && resultat.cas === 'taux_variables' && (
-            <>
-              <Card title="Résultat du calcul" variant="success" style={{ marginTop: '20px' }}>
-                <div style={styles.resultGrid}>
-                  <div style={styles.resultItem}>
-                    <span style={styles.resultLabel}>Montant</span>
-                    <span style={styles.resultValue}>{resultat.montant} DT</span>
-                  </div>
-                  <div style={styles.resultItem}>
-                    <span style={styles.resultLabel}>Base de calcul</span>
-                    <span style={styles.resultValue}>{resultat.base_jours} jours</span>
-                  </div>
-                  <div style={{ ...styles.resultItem, gridColumn: '1 / -1', borderTop: '2px solid #E2E8F0', paddingTop: '16px' }}>
-                    <span style={{ ...styles.resultLabel, fontSize: '16px', fontWeight: 700 }}>
-                      Résultat total
-                    </span>
-                    <span style={{ ...styles.resultValue, fontSize: '24px', fontWeight: 700, color: '#0EA5E9' }}>
-                      {resultat.total} DT
-                    </span>
-                  </div>
-                </div>
-
-                {/* Détail par période */}
-                <div style={{ marginTop: '20px' }}>
-                  <h4 style={styles.detailTitle}>Détail par période</h4>
-                  <Table columns={columnsDetails} data={resultat.details} />
-                </div>
-
-                {peutExporter && (
-                  <div style={styles.exportActions}>
-                    <Button variant="secondary" onClick={exportPDF} icon="📄">
-                      Exporter PDF
-                    </Button>
-                    <Button variant="secondary" onClick={exportExcel} icon="📊">
-                      Exporter Excel
-                    </Button>
-                  </div>
-                )}
-              </Card>
-            </>
-          )}
-        </>
+      {onglet === 'historique' && (
+        <Card title="Historique des calculs" variant="primary">
+          <p style={styles.historiqueInfo}>
+            {totalHistorique} calcul(s) enregistré(s)
+          </p>
+          <Table columns={columnsHistorique} data={historique} loading={loading} />
+        </Card>
       )}
     </div>
   );
@@ -666,11 +1053,106 @@ const styles = {
     color: '#0F172A',
     boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
   },
+  modeSelector: {
+    display: 'flex',
+    gap: '8px',
+    marginBottom: '16px',
+  },
+  modeBtn: {
+    padding: '8px 20px',
+    border: '2px solid #E2E8F0',
+    backgroundColor: '#F8FAFC',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: 600,
+    color: '#64748B',
+    transition: 'all 0.2s ease',
+  },
+  modeBtnActive: {
+    borderColor: '#0EA5E9',
+    backgroundColor: '#F0F9FF',
+    color: '#0EA5E9',
+  },
+  subSegmentedControl: {
+    display: 'inline-flex',
+    backgroundColor: '#E2E8F0',
+    borderRadius: '8px',
+    padding: '3px',
+    marginBottom: '16px',
+    gap: '3px',
+  },
+  subSegment: {
+    padding: '6px 14px',
+    border: 'none',
+    backgroundColor: 'transparent',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    color: '#475569',
+    fontWeight: 500,
+    transition: 'all 0.2s ease',
+  },
+  subSegmentActive: {
+    backgroundColor: '#FFFFFF',
+    color: '#0F172A',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+  },
+  actionBar: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    marginBottom: '16px',
+  },
   formGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
     gap: '16px',
     marginBottom: '16px',
+  },
+  formGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  label: {
+    fontSize: '13px',
+    fontWeight: 600,
+    color: '#334155',
+  },
+  select: {
+    padding: '10px 14px',
+    borderRadius: '8px',
+    border: '2px solid #E2E8F0',
+    fontSize: '14px',
+    backgroundColor: '#F8FAFC',
+    width: '100%',
+    boxSizing: 'border-box',
+    outline: 'none',
+    transition: 'all 0.2s ease',
+  },
+  input: {
+    padding: '10px 14px',
+    borderRadius: '8px',
+    border: '2px solid #E2E8F0',
+    fontSize: '14px',
+    backgroundColor: '#FFFFFF',
+    outline: 'none',
+    transition: 'all 0.2s ease',
+    flex: 1,
+    minWidth: '120px',
+  },
+  textarea: {
+    width: '100%',
+    padding: '10px 14px',
+    borderRadius: '8px',
+    border: '2px solid #E2E8F0',
+    fontSize: '14px',
+    backgroundColor: '#F8FAFC',
+    minHeight: '60px',
+    boxSizing: 'border-box',
+    outline: 'none',
+    fontFamily: 'inherit',
+    transition: 'all 0.2s ease',
   },
   periodesContainer: {
     backgroundColor: '#F8FAFC',
@@ -702,16 +1184,16 @@ const styles = {
     fontSize: '13px',
     width: '30px',
   },
-  input: {
-    padding: '10px 14px',
-    borderRadius: '8px',
-    border: '2px solid #E2E8F0',
+  checkboxGroup: {
+    marginBottom: '16px',
+  },
+  checkboxLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
     fontSize: '14px',
-    backgroundColor: '#FFFFFF',
-    outline: 'none',
-    transition: 'all 0.2s ease',
-    flex: 1,
-    minWidth: '120px',
+    color: '#334155',
+    cursor: 'pointer',
   },
   resultGrid: {
     display: 'grid',
@@ -735,15 +1217,6 @@ const styles = {
     fontWeight: 600,
     color: '#0F172A',
   },
-  formuleText: {
-    fontSize: '13px',
-    color: '#64748B',
-    fontStyle: 'italic',
-    padding: '8px 12px',
-    backgroundColor: '#F1F5F9',
-    borderRadius: '6px',
-    display: 'inline-block',
-  },
   exportActions: {
     display: 'flex',
     gap: '8px',
@@ -757,5 +1230,10 @@ const styles = {
     fontWeight: 600,
     color: '#0F172A',
     marginBottom: '12px',
+  },
+  historiqueInfo: {
+    fontSize: '14px',
+    color: '#64748B',
+    marginBottom: '16px',
   },
 };
