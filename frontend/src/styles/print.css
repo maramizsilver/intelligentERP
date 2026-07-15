@@ -1,0 +1,69 @@
+/* frontend/src/styles/print.css */
+@media print {
+  /* Masquer les éléments non imprimables */
+  .no-print,
+  .sidebar,
+  .header,
+  .essai-banner,
+  .btn,
+  button,
+  .actions-cell,
+  .filter-section,
+  .segmented-control {
+    display: none !important;
+  }
+
+  /* Ajuster la mise en page */
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12px !important;
+  }
+
+  .main-content {
+    margin: 0 !important;
+    padding: 20px !important;
+    max-width: 100% !important;
+  }
+
+  /* Forcer l'affichage des cartes */
+  .card {
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Tables */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  th, td {
+    padding: 8px 12px !important;
+    border: 1px solid #ddd !important;
+  }
+
+  th {
+    background: #f5f5f5 !important;
+    font-weight: bold !important;
+  }
+
+  /* Badges en noir et blanc */
+  .badge {
+    border: 1px solid #ddd !important;
+    background: #f5f5f5 !important;
+    color: black !important;
+  }
+
+  /* Titres */
+  h1, h2, h3, h4 {
+    color: black !important;
+  }
+
+  /* Résultat */
+  .result-value {
+    color: black !important;
+    font-weight: bold !important;
+  }
+}

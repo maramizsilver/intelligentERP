@@ -50,6 +50,11 @@ import Documents from './pages/admin/Documents';
 import Archives from './pages/admin/Archives';
 
 // ============================================================
+// SUPERADMIN - TAUX REFERENCE  ← NOUVEAU
+// ============================================================
+import TauxReference from './pages/admin/superadmin/TauxReference';
+
+// ============================================================
 // CLIENT (portail externe)
 // ============================================================
 import ClientDashboard from './pages/client/ClientDashboard';
@@ -58,9 +63,15 @@ import ClientCommandeDetail from './pages/client/ClientCommandeDetail';
 import ClientProduits from './pages/client/ClientProduits';
 import ClientFactures from './pages/client/ClientFactures';
 import ClientProfil from './pages/client/ClientProfil';
-//Finance
+
+// ============================================================
+// FINANCE
+// ============================================================
 import Finance from './pages/Finance/Finance';
-//moteur de calcul
+
+// ============================================================
+// CALCULATEUR
+// ============================================================
 import Calculateur from './pages/calculateur/Calculateur';
 
 import './styles/global.css';
@@ -113,28 +124,48 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
-      // Route Finance avec Layout → Header + Sidebar apparaissent
-<Route
-  path="/finance"
-  element={
-    <PrivateRoute>
-      <Layout>
-        <Finance />
-      </Layout>
-    </PrivateRoute>
-  }
-/>
-//calculateur 
-<Route
-  path="/calculateur"
-  element={
-    <PrivateRoute>
-      <Layout>
-        <Calculateur />
-      </Layout>
-    </PrivateRoute>
-  }
-/>
+
+      {/* ============================================================
+          SUPER ADMIN - TAUX & PERIODES  ← NOUVEAU
+          ============================================================ */}
+      <Route
+        path="/superadmin/taux-reference"
+        element={
+          <PrivateRoute superAdminOnly>
+            <Layout>
+              <TauxReference />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+
+      {/* ============================================================
+          FINANCE
+          ============================================================ */}
+      <Route
+        path="/finance"
+        element={
+          <PrivateRoute>
+            <Layout>
+              <Finance />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+
+      {/* ============================================================
+          CALCULATEUR
+          ============================================================ */}
+      <Route
+        path="/calculateur"
+        element={
+          <PrivateRoute>
+            <Layout>
+              <Calculateur />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
 
       {/* ============================================================
           CLIENT (portail externe)

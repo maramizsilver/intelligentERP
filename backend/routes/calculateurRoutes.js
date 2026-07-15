@@ -1,57 +1,43 @@
-// backend/routes/calculateurRoutes.js
 const express = require('express');
 const router = express.Router();
 const {
-  calculTauxUnique,
-  calculTauxVariables,
-  calculTauxVariablesAuto,
-  getTauxReference,
-  createTauxReference,
-  updateTauxReference,
-  deleteTauxReference,
-  getHistoriqueCalculs,
-  calculSimple
+    calculTauxUnique,
+    calculTauxVariables,
+    calculTauxVariablesAuto,
+    getTauxReference,
+    getHistoriqueTauxUnique,
+    getHistoriqueTauxVariable,
+    calculSimple
 } = require('../controllers/calculateurController');
+const {
+    exporterCalculPDF,
+    exporterCalculWord,
+    exporterHistoriquePDF,
+    exporterHistoriqueWord
+} = require('../controllers/exportCalculController');
 const authMiddleware = require('../middleware/authMiddleware');
 const checkEssaiActif = require('../middleware/checkEssaiActif');
 const checkPermission = require('../middleware/permissionMiddleware');
+const { validate } = require('../middleware/validate.middleware');
+const { calculTauxUniqueSchema, calculTauxVariablesSchema } = require('../middleware/validate.middleware');
 
-// TOUTES LES ROUTES NÉCESSITENT AUTH + ESSAI ACTIF
 router.use(authMiddleware);
 router.use(checkEssaiActif);
 
-// ROUTES DE CALCUL
-
-
-// Cas n°1 : Taux unique
-router.post('/taux-unique', checkPermission('Finance', 'consultation'), calculTauxUnique);
-
-// Cas n°2 : Taux variables (manuel)
-router.post('/taux-variables', checkPermission('Finance', 'consultation'), calculTauxVariables);
-
-// Cas n°3 : Taux variables (auto depuis BDD)
+router.post('/taux-unique', checkPermission('Finance', 'consultation'), validate(calculTauxUniqueSchema), calculTauxUnique);
+router.post('/taux-variables', checkPermission('Finance', 'consultation'), validate(calculTauxVariablesSchema), calculTauxVariables);
 router.post('/taux-variables-auto', checkPermission('Finance', 'consultation'), calculTauxVariablesAuto);
-
-// Calcul simple (composant réutilisable)
 router.post('/calcul-simple', checkPermission('Finance', 'consultation'), calculSimple);
 
-
-// GESTION DES TAUX DE RÉFÉRENCE (CRUD)
-
-// Liste des taux
 router.get('/taux-reference', checkPermission('Finance', 'consultation'), getTauxReference);
 
-// Créer un taux
-router.post('/taux-reference', checkPermission('Finance', 'creation'), createTauxReference);
 
-// Modifier un taux
-router.put('/taux-reference/:id', checkPermission('Finance', 'modification'), updateTauxReference);
+router.get('/historique/taux-unique', checkPermission('Finance', 'consultation'), getHistoriqueTauxUnique);
+router.get('/historique/taux-variable', checkPermission('Finance', 'consultation'), getHistoriqueTauxVariable);
 
-// Supprimer un taux
-router.delete('/taux-reference/:id', checkPermission('Finance', 'suppression'), deleteTauxReference);
-
-// HISTORIQUE
-
-router.get('/historique', checkPermission('Finance', 'consultation'), getHistoriqueCalculs);
+router.post('/export/pdf', checkPermission('Finance', 'export'), exporterCalculPDF);
+router.post('/export/word', checkPermission('Finance', 'export'), exporterCalculWord);
+router.get('/historique/:id/export/pdf', checkPermission('Finance', 'export'), exporterHistoriquePDF);
+router.get('/historique/:id/export/word', checkPermission('Finance', 'export'), exporterHistoriqueWord);
 
 module.exports = router;

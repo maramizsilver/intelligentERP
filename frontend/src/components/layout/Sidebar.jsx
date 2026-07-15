@@ -1,4 +1,5 @@
-// src/components/layout/Sidebar.jsx
+
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -29,6 +30,9 @@ export default function Sidebar() {
   };
 
   const getMenuItems = () => {
+    // ============================================================
+    // SUPER ADMIN
+    // ============================================================
     if (user?.is_super_admin) {
       return [
         {
@@ -40,11 +44,20 @@ export default function Sidebar() {
               icon: '🏢',
               description: 'Gérer les entreprises'
             },
+            { 
+              path: '/superadmin/taux-reference', 
+              label: 'Taux & Périodes', 
+              icon: '📊',
+              description: 'Gérer les taux de référence'
+            },
           ]
         }
       ];
     }
 
+    // ============================================================
+    // UTILISATEUR INTERNE (entreprise)
+    // ============================================================
     const sections = [];
 
     // Dashboard
@@ -83,7 +96,9 @@ export default function Sidebar() {
         ]
       });
     }
- if (hasPermission('Finance', 'consultation')) {
+
+    // Finance
+    if (hasPermission('Finance', 'consultation')) {
       sections.push({
         section: 'Finance',
         items: [
@@ -96,6 +111,7 @@ export default function Sidebar() {
         ]
       });
     }
+
     // Stock
     if (hasPermission('Stock', 'consultation')) {
       const stockItems = [

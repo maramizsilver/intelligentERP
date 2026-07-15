@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import API from '../../utils/api';
-import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 
 import Card from '../../components/common/Card';
@@ -11,18 +10,21 @@ import Button from '../../components/common/Button';
 import Table from '../../components/common/Table';
 import Badge from '../../components/common/Badge';
 import Input from '../../components/common/Input';
-import Modal from '../../components/common/Modal';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
 
 // ============================================================
-// COMPOSANTS INTERNES
+// CONSTANTES
 // ============================================================
 
 const CATEGORIES = ['TVA', 'INTERET', 'PENALITE', 'REMISE', 'TAXE', 'COMMISSION'];
 
+// ============================================================
+// COMPOSANT PRINCIPAL
+// ============================================================
+
 export default function Calculateur() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const navigate = useNavigate();
 
   // ============================================================
@@ -61,32 +63,24 @@ export default function Calculateur() {
     sous_categorie: ''
   });
 
-  // Taux de référence
+  // Taux de référence (lecture seule)
   const [tauxReference, setTauxReference] = useState([]);
-  const [showTauxModal, setShowTauxModal] = useState(false);
-  const [editingTauxId, setEditingTauxId] = useState(null);
-  const [formTaux, setFormTaux] = useState({
-    categorie: '',
-    sous_categorie: '',
-    nom: '',
-    date_debut: '',
-    date_fin: '',
-    taux: '',
-    description: '',
-    actif: true
-  });
-
-  // Historique
-  const [historique, setHistorique] = useState([]);
-  const [totalHistorique, setTotalHistorique] = useState(0);
-
-  const [loadingCalcul, setLoadingCalcul] = useState(false);
   const [loadingTaux, setLoadingTaux] = useState(false);
 
-  const peutCreer = hasPermission('Finance', 'creation');
-  const peutModifier = hasPermission('Finance', 'modification');
-  const peutSupprimer = hasPermission('Finance', 'suppression');
+  // Historiques séparés
+  const [historiqueUnique, setHistoriqueUnique] = useState([]);
+  const [historiqueVariable, setHistoriqueVariable] = useState([]);
+  const [totalUnique, setTotalUnique] = useState(0);
+  const [totalVariable, setTotalVariable] = useState(0);
+  const [sousOngletHistorique, setSousOngletHistorique] = useState('unique');
+
+  // Export
+  const [typeRapport, setTypeRapport] = useState('detaille');
+
+  const [loadingCalcul, setLoadingCalcul] = useState(false);
+
   const peutExporter = hasPermission('Finance', 'export');
+  const isSuperAdmin = user?.is_super_admin;
 
   // ============================================================
   // CHARGEMENT DES DONNÉES
@@ -94,7 +88,10 @@ export default function Calculateur() {
 
   useEffect(() => {
     if (onglet === 'taux') loadTauxReference();
-    if (onglet === 'historique') loadHistorique();
+    if (onglet === 'historique') {
+      loadHistoriqueUnique();
+      loadHistoriqueVariable();
+    }
   }, [onglet]);
 
   const loadTauxReference = async () => {
@@ -109,16 +106,23 @@ export default function Calculateur() {
     }
   };
 
-  const loadHistorique = async () => {
+  const loadHistoriqueUnique = async () => {
     try {
-      setLoading(true);
-      const res = await API.get('/calculateur/historique');
-      setHistorique(res.data.historique || []);
-      setTotalHistorique(res.data.total || 0);
+      const res = await API.get('/calculateur/historique/taux-unique');
+      setHistoriqueUnique(res.data.historique || []);
+      setTotalUnique(res.data.total || 0);
     } catch (err) {
-      setError('Impossible de charger l\'historique');
-    } finally {
-      setLoading(false);
+      setError('Impossible de charger l\'historique des taux uniques');
+    }
+  };
+
+  const loadHistoriqueVariable = async () => {
+    try {
+      const res = await API.get('/calculateur/historique/taux-variable');
+      setHistoriqueVariable(res.data.historique || []);
+      setTotalVariable(res.data.total || 0);
+    } catch (err) {
+      setError('Impossible de charger l\'historique des taux variables');
     }
   };
 
@@ -162,11 +166,6 @@ export default function Calculateur() {
     setResultat(null);
   };
 
-  const handleTauxChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormTaux({ ...formTaux, [name]: type === 'checkbox' ? checked : value });
-  };
-
   // ============================================================
   // CALCULS
   // ============================================================
@@ -179,7 +178,7 @@ export default function Calculateur() {
 
     try {
       const res = await API.post('/calculateur/taux-unique', formUnique);
-      setResultat(res.data);
+      setResultat({ ...res.data, type_calcul: 'taux_unique' });
       setSuccess('Calcul effectué avec succès');
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors du calcul');
@@ -209,7 +208,7 @@ export default function Calculateur() {
         montant: formVariables.montant,
         periodes: periodesValides
       });
-      setResultat(res.data);
+      setResultat({ ...res.data, type_calcul: 'taux_variables_manuel' });
       setSuccess('Calcul effectué avec succès');
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors du calcul');
@@ -226,7 +225,7 @@ export default function Calculateur() {
 
     try {
       const res = await API.post('/calculateur/taux-variables-auto', formAuto);
-      setResultat(res.data);
+      setResultat({ ...res.data, type_calcul: 'taux_variables_auto' });
       setSuccess('Calcul effectué avec succès');
     } catch (err) {
       setError(err.response?.data?.message || err.response?.data?.message || 'Erreur lors du calcul');
@@ -236,143 +235,155 @@ export default function Calculateur() {
   };
 
   // ============================================================
-  // GESTION DES TAUX DE RÉFÉRENCE
+  // EXPORTS (PDF + Word + Impression)
   // ============================================================
 
-  const handleSubmitTaux = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoadingTaux(true);
-
+  const handleExportPDF = async () => {
+    if (!resultat) {
+      setError('Aucun résultat à exporter');
+      return;
+    }
+    
+    console.log('📄 Export PDF - Type rapport:', typeRapport);
+    console.log('📄 Données:', resultat);
+    
     try {
-      if (editingTauxId) {
-        await API.put(`/calculateur/taux-reference/${editingTauxId}`, formTaux);
-        setSuccess('Taux de référence mis à jour avec succès');
-      } else {
-        await API.post('/calculateur/taux-reference', formTaux);
-        setSuccess('Taux de référence créé avec succès');
-      }
-      setShowTauxModal(false);
-      setEditingTauxId(null);
-      setFormTaux({ categorie: '', sous_categorie: '', nom: '', date_debut: '', date_fin: '', taux: '', description: '', actif: true });
-      loadTauxReference();
+      setLoadingCalcul(true);
+      
+      const response = await API.post('/calculateur/export/pdf', {
+        data: resultat,
+        type_rapport: typeRapport
+      }, { responseType: 'blob' });
+
+      console.log('✅ Réponse PDF reçue, status:', response.status);
+
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `calcul-${new Date().toISOString().slice(0, 10)}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      setSuccess('✅ PDF exporté avec succès');
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur');
+      console.error('❌ Erreur export PDF:', err);
+      setError(err.response?.data?.message || 'Erreur lors de l\'export PDF');
     } finally {
-      setLoadingTaux(false);
+      setLoadingCalcul(false);
     }
   };
 
-  const handleEditTaux = (taux) => {
-    setFormTaux({
-      categorie: taux.categorie,
-      sous_categorie: taux.sous_categorie || '',
-      nom: taux.nom || '',
-      date_debut: taux.date_debut.slice(0, 10),
-      date_fin: taux.date_fin.slice(0, 10),
-      taux: taux.taux,
-      description: taux.description || '',
-      actif: !!taux.actif
-    });
-    setEditingTauxId(taux.id);
-    setShowTauxModal(true);
-  };
-
-  const handleDeleteTaux = async (id) => {
-    if (!window.confirm('Supprimer ce taux de référence ?')) return;
+  const handleExportWord = async () => {
+    if (!resultat) {
+      setError('Aucun résultat à exporter');
+      return;
+    }
+    
+    console.log('📝 Export Word - Type rapport:', typeRapport);
+    console.log('📝 Données:', resultat);
+    
     try {
-      await API.delete(`/calculateur/taux-reference/${id}`);
-      setSuccess('Taux de référence supprimé');
-      loadTauxReference();
+      setLoadingCalcul(true);
+      
+      const response = await API.post('/calculateur/export/word', {
+        data: resultat,
+        type_rapport: typeRapport
+      }, { responseType: 'blob' });
+
+      console.log('✅ Réponse Word reçue, status:', response.status);
+
+      const blob = new Blob([response.data], { 
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      });
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `calcul-${new Date().toISOString().slice(0, 10)}.docx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      setSuccess('✅ Word exporté avec succès');
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur');
+      console.error('❌ Erreur export Word:', err);
+      setError(err.response?.data?.message || 'Erreur lors de l\'export Word');
+    } finally {
+      setLoadingCalcul(false);
     }
   };
 
-  // ============================================================
-  // EXPORTS
-  // ============================================================
-
-  const exportPDF = () => {
-    if (!resultat) return;
-
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-
-    doc.setFontSize(20);
-    doc.text('Rapport de calcul - ERP', pageWidth / 2, 20, { align: 'center' });
-
-    doc.setFontSize(12);
-    doc.text(`Date : ${new Date().toLocaleDateString('fr-FR')}`, pageWidth / 2, 30, { align: 'center' });
-
-    doc.setLineWidth(0.5);
-    doc.line(20, 35, pageWidth - 20, 35);
-
-    let y = 45;
-
-    if (resultat.cas === 'taux_unique') {
-      doc.setFontSize(14);
-      doc.text('Cas n°1 : Taux unique', 20, y);
-      y += 10;
-      doc.setFontSize(11);
-      doc.text(`Montant de base : ${resultat.montant} DT`, 20, y);
-      y += 7;
-      doc.text(`Période : ${resultat.date_debut} → ${resultat.date_fin}`, 20, y);
-      y += 7;
-      doc.text(`Nombre de jours : ${resultat.nbJours}`, 20, y);
-      y += 7;
-      doc.text(`Taux appliqué : ${resultat.taux}%`, 20, y);
-      y += 7;
-      doc.text(`Base de calcul : ${resultat.base_jours} jours`, 20, y);
-      y += 10;
-      doc.setFontSize(16);
-      doc.setTextColor(14, 165, 233);
-      doc.text(`Résultat : ${resultat.resultat} DT`, 20, y);
-    } else {
-      doc.setFontSize(14);
-      doc.text('Cas n°2 : Taux variables', 20, y);
-      y += 10;
-      doc.setFontSize(11);
-      doc.text(`Montant de base : ${resultat.montant} DT`, 20, y);
-      y += 7;
-      doc.text(`Base de calcul : ${resultat.base_jours} jours`, 20, y);
-      y += 10;
-
-      doc.setFontSize(11);
-      doc.setFont(undefined, 'bold');
-      doc.text('Période', 20, y);
-      doc.text('Jours', 70, y);
-      doc.text('Taux', 110, y);
-      doc.text('Résultat', 150, y);
-      doc.setFont(undefined, 'normal');
-      y += 7;
-      doc.line(20, y, pageWidth - 20, y);
-      y += 5;
-
-      resultat.details.forEach((d) => {
-        doc.text(`#${d.periode} ${d.date_debut}→${d.date_fin}`, 20, y);
-        doc.text(String(d.nbJours), 70, y);
-        doc.text(`${d.taux}%`, 110, y);
-        doc.text(`${d.resultat} DT`, 150, y);
-        y += 7;
+  const handleExportHistoriquePDF = async (id) => {
+    console.log('📄 Export Historique PDF - ID:', id, '- Type rapport:', typeRapport);
+    
+    try {
+      const response = await API.get(`/calculateur/historique/${id}/export/pdf`, {
+        params: { type_rapport: typeRapport },
+        responseType: 'blob'
       });
 
-      y += 5;
-      doc.line(20, y, pageWidth - 20, y);
-      y += 7;
-      doc.setFontSize(14);
-      doc.setFont(undefined, 'bold');
-      doc.text(`Total : ${resultat.total} DT`, 20, y);
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `historique-${id}-${new Date().toISOString().slice(0, 10)}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      setSuccess('✅ PDF historique exporté avec succès');
+    } catch (err) {
+      console.error('❌ Erreur export PDF historique:', err);
+      setError('Erreur lors de l\'export PDF');
     }
-
-    doc.save(`calcul-${new Date().toISOString().slice(0, 10)}.pdf`);
   };
+
+  const handleExportHistoriqueWord = async (id) => {
+    console.log('📝 Export Historique Word - ID:', id, '- Type rapport:', typeRapport);
+    
+    try {
+      const response = await API.get(`/calculateur/historique/${id}/export/word`, {
+        params: { type_rapport: typeRapport },
+        responseType: 'blob'
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data], { 
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `historique-${id}-${new Date().toISOString().slice(0, 10)}.docx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      setSuccess('✅ Word historique exporté avec succès');
+    } catch (err) {
+      console.error('❌ Erreur export Word historique:', err);
+      setError('Erreur lors de l\'export Word');
+    }
+  };
+
+  const handlePrint = () => {
+    document.body.classList.add('printing');
+    setTimeout(() => {
+      window.print();
+      document.body.classList.remove('printing');
+    }, 100);
+  };
+
+  // ============================================================
+  // EXPORT EXCEL
+  // ============================================================
 
   const exportExcel = () => {
     if (!resultat) return;
 
     let data = [];
-
     if (resultat.cas === 'taux_unique') {
       data = [{
         'Cas': 'Taux unique',
@@ -404,10 +415,6 @@ export default function Calculateur() {
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(data);
-    ws['!cols'] = [
-      { wch: 12 }, { wch: 18 }, { wch: 18 },
-      { wch: 15 }, { wch: 12 }, { wch: 15 }
-    ];
     XLSX.utils.book_append_sheet(wb, ws, 'Calcul');
     XLSX.writeFile(wb, `calcul-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
@@ -434,11 +441,8 @@ export default function Calculateur() {
     { key: 'actif', label: 'Actif', render: (row) => <Badge variant={row.actif ? 'success' : 'danger'}>{row.actif ? 'Oui' : 'Non'}</Badge> }
   ];
 
-  const actionsTaux = [];
-  if (peutModifier) actionsTaux.push({ label: 'Modifier', variant: 'primary', onClick: (r) => handleEditTaux(r) });
-  if (peutSupprimer) actionsTaux.push({ label: 'Supprimer', variant: 'danger', onClick: (r) => handleDeleteTaux(r.id) });
-
   const columnsHistorique = [
+    { key: 'id', label: '#' },
     { key: 'type_calcul', label: 'Type', render: (row) => {
       const types = {
         'taux_unique': 'Taux unique',
@@ -453,6 +457,20 @@ export default function Calculateur() {
     { key: 'prenom', label: 'Par', render: (row) => `${row.prenom || ''} ${row.nom || ''}` }
   ];
 
+  const actionsHistorique = [];
+  if (peutExporter) {
+    actionsHistorique.push({
+      label: 'PDF',
+      variant: 'primary',
+      onClick: (row) => handleExportHistoriquePDF(row.id)
+    });
+    actionsHistorique.push({
+      label: 'Word',
+      variant: 'secondary',
+      onClick: (row) => handleExportHistoriqueWord(row.id)
+    });
+  }
+
   // ============================================================
   // RENDER
   // ============================================================
@@ -462,7 +480,7 @@ export default function Calculateur() {
       {/* HEADER */}
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>🧮 Moteur de calcul</h1>
+          <h1 style={styles.title}>Moteur de calcul</h1>
           <p style={styles.subtitle}>
             Calcul automatique basé sur les périodes et les taux (%)
           </p>
@@ -477,13 +495,13 @@ export default function Calculateur() {
       {/* Messages */}
       {error && (
         <div style={styles.errorContainer}>
-          <span>❌</span>
+          <span style={styles.errorIcon}>✕</span>
           <span style={styles.errorText}>{error}</span>
         </div>
       )}
       {success && (
         <div style={styles.successContainer}>
-          <span>✅</span>
+          <span style={styles.successIcon}>✓</span>
           <span style={styles.successText}>{success}</span>
         </div>
       )}
@@ -536,13 +554,13 @@ export default function Calculateur() {
             <>
               <div style={styles.subSegmentedControl}>
                 <button
-                  style={{ ...styles.subSegment, ...(formUnique.active ? styles.subSegmentActive : {}) }}
+                  style={{ ...styles.subSegment, ...(formUnique.active !== false ? styles.subSegmentActive : {}) }}
                   onClick={() => setFormUnique({ ...formUnique, active: true })}
                 >
                   Taux unique
                 </button>
                 <button
-                  style={{ ...styles.subSegment, ...(!formUnique.active ? styles.subSegmentActive : {}) }}
+                  style={{ ...styles.subSegment, ...(formUnique.active === false ? styles.subSegmentActive : {}) }}
                   onClick={() => setFormUnique({ ...formUnique, active: false })}
                 >
                   Taux variables
@@ -626,8 +644,8 @@ export default function Calculateur() {
                     <div style={styles.periodesContainer}>
                       <div style={styles.periodesHeader}>
                         <span style={styles.periodesTitle}>Périodes et taux</span>
-                        <Button type="button" variant="outline" size="sm" onClick={addPeriode} icon="+">
-                          Ajouter une période
+                        <Button type="button" variant="outline" size="sm" onClick={addPeriode}>
+                          + Ajouter une période
                         </Button>
                       </div>
 
@@ -751,6 +769,40 @@ export default function Calculateur() {
           {/* Résultat */}
           {resultat && (
             <Card title="Résultat du calcul" variant="success" style={{ marginTop: '20px' }}>
+              {/* Options d'export */}
+              {peutExporter && (
+                <div style={styles.exportOptions}>
+                  <div style={styles.exportTypeSelector}>
+                    <label style={styles.exportLabel}>Type de rapport :</label>
+                    <select
+                      style={styles.selectSmall}
+                      value={typeRapport}
+                      onChange={(e) => {
+                        console.log('🔄 Type de rapport changé:', e.target.value);
+                        setTypeRapport(e.target.value);
+                      }}
+                    >
+                      <option value="detaille">Rapport détaillé</option>
+                      <option value="simplifie">Rapport simplifié</option>
+                    </select>
+                  </div>
+                  <div style={styles.exportButtons}>
+                    <Button variant="secondary" size="sm" onClick={handlePrint}>
+                      Imprimer
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={handleExportPDF}>
+                      PDF
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={handleExportWord}>
+                      Word
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={exportExcel}>
+                      Excel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               <div style={styles.resultGrid}>
                 <div style={styles.resultItem}>
                   <span style={styles.resultLabel}>Montant</span>
@@ -807,164 +859,118 @@ export default function Calculateur() {
                   <Table columns={columnsDetails} data={resultat.details} />
                 </div>
               )}
-
-              {/* Exports */}
-              {peutExporter && (
-                <div style={styles.exportActions}>
-                  <Button variant="secondary" onClick={exportPDF} icon="📄">
-                    Exporter PDF
-                  </Button>
-                  <Button variant="secondary" onClick={exportExcel} icon="📊">
-                    Exporter Excel
-                  </Button>
-                </div>
-              )}
             </Card>
           )}
         </>
       )}
 
       {/* ============================================================
-          ONGLET : TAUX DE RÉFÉRENCE
+          ONGLET : TAUX DE RÉFÉRENCE (lecture seule pour les internes)
           ============================================================ */}
       {onglet === 'taux' && (
         <>
           <div style={styles.actionBar}>
-            {peutCreer && (
+            {isSuperAdmin && (
               <Button
                 variant="primary"
-                icon="+"
-                onClick={() => {
-                  setEditingTauxId(null);
-                  setFormTaux({ categorie: '', sous_categorie: '', nom: '', date_debut: '', date_fin: '', taux: '', description: '', actif: true });
-                  setShowTauxModal(true);
-                }}
+                onClick={() => navigate('/superadmin/taux-reference')}
               >
-                Nouveau taux de référence
+                Gérer les taux (Admin)
               </Button>
+            )}
+            {!isSuperAdmin && (
+              <Badge variant="secondary" style={{ padding: '8px 16px' }}>
+                Lecture seule - Les taux sont gérés par le SuperAdmin
+              </Badge>
             )}
           </div>
 
-          <Card title="Taux de référence" variant="primary">
-            <Table columns={columnsTaux} data={tauxReference} loading={loadingTaux} actions={actionsTaux} />
+          <Card title="Taux de référence centralisés" variant="primary">
+            <Table columns={columnsTaux} data={tauxReference} loading={loadingTaux} />
           </Card>
-
-          {/* Modal Taux */}
-          <Modal
-            isOpen={showTauxModal}
-            onClose={() => setShowTauxModal(false)}
-            title={editingTauxId ? 'Modifier le taux de référence' : 'Nouveau taux de référence'}
-            size="md"
-            actions={[
-              {
-                label: editingTauxId ? 'Mettre à jour' : 'Créer',
-                variant: 'primary',
-                onClick: handleSubmitTaux,
-                loading: loadingTaux,
-              },
-            ]}
-          >
-            <form onSubmit={handleSubmitTaux}>
-              <div style={styles.formGrid}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Catégorie *</label>
-                  <select
-                    style={styles.select}
-                    name="categorie"
-                    value={formTaux.categorie}
-                    onChange={handleTauxChange}
-                    required
-                    disabled={loadingTaux}
-                  >
-                    <option value="">-- Choisir --</option>
-                    {CATEGORIES.map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-                <Input
-                  label="Sous-catégorie"
-                  name="sous_categorie"
-                  value={formTaux.sous_categorie}
-                  onChange={handleTauxChange}
-                  disabled={loadingTaux}
-                />
-                <Input
-                  label="Nom"
-                  name="nom"
-                  placeholder="Ex: TVA Standard"
-                  value={formTaux.nom}
-                  onChange={handleTauxChange}
-                  disabled={loadingTaux}
-                />
-                <Input
-                  label="Date début *"
-                  name="date_debut"
-                  type="date"
-                  value={formTaux.date_debut}
-                  onChange={handleTauxChange}
-                  required
-                  disabled={loadingTaux}
-                />
-                <Input
-                  label="Date fin *"
-                  name="date_fin"
-                  type="date"
-                  value={formTaux.date_fin}
-                  onChange={handleTauxChange}
-                  required
-                  disabled={loadingTaux}
-                />
-                <Input
-                  label="Taux (%) *"
-                  name="taux"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formTaux.taux}
-                  onChange={handleTauxChange}
-                  required
-                  disabled={loadingTaux}
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Description</label>
-                <textarea
-                  style={styles.textarea}
-                  name="description"
-                  value={formTaux.description}
-                  onChange={handleTauxChange}
-                  disabled={loadingTaux}
-                  rows="2"
-                />
-              </div>
-              <div style={styles.checkboxGroup}>
-                <label style={styles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    name="actif"
-                    checked={formTaux.actif}
-                    onChange={handleTauxChange}
-                    disabled={loadingTaux}
-                  />
-                  <span>Actif</span>
-                </label>
-              </div>
-            </form>
-          </Modal>
         </>
       )}
 
       {/* ============================================================
-          ONGLET : HISTORIQUE
+          ONGLET : HISTORIQUE (séparé en deux sous-onglets)
           ============================================================ */}
       {onglet === 'historique' && (
-        <Card title="Historique des calculs" variant="primary">
-          <p style={styles.historiqueInfo}>
-            {totalHistorique} calcul(s) enregistré(s)
-          </p>
-          <Table columns={columnsHistorique} data={historique} loading={loading} />
-        </Card>
+        <>
+          <div style={styles.subSegmentedControl}>
+            <button
+              style={{ ...styles.subSegment, ...(sousOngletHistorique === 'unique' ? styles.subSegmentActive : {}) }}
+              onClick={() => setSousOngletHistorique('unique')}
+            >
+              Taux unique ({totalUnique})
+            </button>
+            <button
+              style={{ ...styles.subSegment, ...(sousOngletHistorique === 'variable' ? styles.subSegmentActive : {}) }}
+              onClick={() => setSousOngletHistorique('variable')}
+            >
+              Taux variables ({totalVariable})
+            </button>
+          </div>
+
+          {sousOngletHistorique === 'unique' ? (
+            <Card title="Historique - Taux unique" variant="primary">
+              <div style={styles.historiqueActions}>
+                <span style={styles.historiqueInfo}>
+                  {totalUnique} calcul(s) enregistré(s)
+                </span>
+                {peutExporter && (
+                  <div style={styles.exportTypeSelectorInline}>
+                    <select
+                      style={styles.selectSmall}
+                      value={typeRapport}
+                      onChange={(e) => {
+                        console.log('🔄 Type de rapport (historique) changé:', e.target.value);
+                        setTypeRapport(e.target.value);
+                      }}
+                    >
+                      <option value="detaille">Rapport détaillé</option>
+                      <option value="simplifie">Rapport simplifié</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+              <Table 
+                columns={columnsHistorique} 
+                data={historiqueUnique} 
+                loading={loading} 
+                actions={actionsHistorique}
+              />
+            </Card>
+          ) : (
+            <Card title="Historique - Taux variables" variant="primary">
+              <div style={styles.historiqueActions}>
+                <span style={styles.historiqueInfo}>
+                  {totalVariable} calcul(s) enregistré(s)
+                </span>
+                {peutExporter && (
+                  <div style={styles.exportTypeSelectorInline}>
+                    <select
+                      style={styles.selectSmall}
+                      value={typeRapport}
+                      onChange={(e) => {
+                        console.log('🔄 Type de rapport (historique) changé:', e.target.value);
+                        setTypeRapport(e.target.value);
+                      }}
+                    >
+                      <option value="detaille">Rapport détaillé</option>
+                      <option value="simplifie">Rapport simplifié</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+              <Table 
+                columns={columnsHistorique} 
+                data={historiqueVariable} 
+                loading={loading} 
+                actions={actionsHistorique}
+              />
+            </Card>
+          )}
+        </>
       )}
     </div>
   );
@@ -1008,6 +1014,11 @@ const styles = {
     padding: '12px 16px',
     marginBottom: '16px',
   },
+  errorIcon: {
+    color: '#991B1B',
+    fontSize: '16px',
+    fontWeight: 'bold',
+  },
   errorText: {
     color: '#991B1B',
     fontSize: '13px',
@@ -1022,6 +1033,11 @@ const styles = {
     borderRadius: '8px',
     padding: '12px 16px',
     marginBottom: '16px',
+  },
+  successIcon: {
+    color: '#065F46',
+    fontSize: '16px',
+    fontWeight: 'bold',
   },
   successText: {
     color: '#065F46',
@@ -1100,8 +1116,11 @@ const styles = {
   },
   actionBar: {
     display: 'flex',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: '16px',
+    flexWrap: 'wrap',
+    gap: '12px',
   },
   formGrid: {
     display: 'grid',
@@ -1130,6 +1149,14 @@ const styles = {
     outline: 'none',
     transition: 'all 0.2s ease',
   },
+  selectSmall: {
+    padding: '6px 12px',
+    borderRadius: '6px',
+    border: '1px solid #E2E8F0',
+    fontSize: '12px',
+    backgroundColor: '#F8FAFC',
+    outline: 'none',
+  },
   input: {
     padding: '10px 14px',
     borderRadius: '8px',
@@ -1140,19 +1167,6 @@ const styles = {
     transition: 'all 0.2s ease',
     flex: 1,
     minWidth: '120px',
-  },
-  textarea: {
-    width: '100%',
-    padding: '10px 14px',
-    borderRadius: '8px',
-    border: '2px solid #E2E8F0',
-    fontSize: '14px',
-    backgroundColor: '#F8FAFC',
-    minHeight: '60px',
-    boxSizing: 'border-box',
-    outline: 'none',
-    fontFamily: 'inherit',
-    transition: 'all 0.2s ease',
   },
   periodesContainer: {
     backgroundColor: '#F8FAFC',
@@ -1184,17 +1198,6 @@ const styles = {
     fontSize: '13px',
     width: '30px',
   },
-  checkboxGroup: {
-    marginBottom: '16px',
-  },
-  checkboxLabel: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    fontSize: '14px',
-    color: '#334155',
-    cursor: 'pointer',
-  },
   resultGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -1217,23 +1220,52 @@ const styles = {
     fontWeight: 600,
     color: '#0F172A',
   },
-  exportActions: {
-    display: 'flex',
-    gap: '8px',
-    marginTop: '16px',
-    paddingTop: '16px',
-    borderTop: '1px solid #E2E8F0',
-    flexWrap: 'wrap',
-  },
   detailTitle: {
     fontSize: '14px',
     fontWeight: 600,
     color: '#0F172A',
     marginBottom: '12px',
   },
+  exportOptions: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '12px',
+    marginBottom: '16px',
+    paddingBottom: '16px',
+    borderBottom: '1px solid #E2E8F0',
+  },
+  exportTypeSelector: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  exportTypeSelectorInline: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  exportLabel: {
+    fontSize: '13px',
+    fontWeight: 500,
+    color: '#334155',
+  },
+  exportButtons: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
+  },
+  historiqueActions: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '16px',
+    flexWrap: 'wrap',
+    gap: '12px',
+  },
   historiqueInfo: {
     fontSize: '14px',
     color: '#64748B',
-    marginBottom: '16px',
   },
 };
