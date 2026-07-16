@@ -1,4 +1,4 @@
-// backend/controllers/authController.js
+const databaseService = require('../services/database.service');
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -13,9 +13,30 @@ function validateRegisterInput({ nom, prenom, email, password }) {
   if (!password || password.length < 8) errors.push('Le mot de passe doit contenir au moins 8 caractères');
   return errors;
 }
-
 // ============================================================
-// INSCRIPTION D'UNE NOUVELLE ENTREPRISE
+// VÉRIFICATION BLOCAGE COMPTE
+// ============================================================
+async function checkAccountBlocked(db, email) {
+    try {
+        const [rows] = await db.promise().query(
+            'SELECT locked_until FROM users WHERE email = ?',
+            [email]
+        );
+        
+        if (rows.length === 0) return null;
+        
+        const lockedUntil = rows[0].locked_until;
+        if (lockedUntil && new Date(lockedUntil) > new Date()) {
+            return lockedUntil;
+        }
+        return null;
+    } catch (err) {
+        console.error('Erreur checkAccountBlocked:', err);
+        return null;
+    }
+}
+// ============================================================
+// INSCRIPTION D'UNE NOUVELLE ENTREPRISE (CORRIGÉE)
 // ============================================================
 exports.registerEntreprise = async (req, res) => {
   const { entreprise_nom, nom, prenom, email, password, plan_type } = req.body;
@@ -32,173 +53,281 @@ exports.registerEntreprise = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const cleanEmail = email.trim().toLowerCase();
 
-    db.query(
+    // ============================================================
+    // 1. CRÉER L'ENTREPRISE (avec promisePoolMaster)
+    // ============================================================
+    const [result] = await db.promisePoolMaster.query(
       'INSERT INTO entreprises (nom, email, statut, plan_type) VALUES (?, ?, ?, ?)',
-      [entreprise_nom.trim(), cleanEmail, 'en_attente', planChoisi],
-      (errEnt, resEnt) => {
-        if (errEnt) {
-          console.error(errEnt);
-          return res.status(500).json({ message: 'Erreur serveur' });
-        }
-        const entrepriseId = resEnt.insertId;
-
-        // 2. Créer le rôle Admin Entreprise
-        db.query(
-          'INSERT INTO roles (entreprise_id, nom, est_admin_entreprise) VALUES (?, ?, TRUE)',
-          [entrepriseId, 'Admin Entreprise'],
-          (errRole, resRole) => {
-            if (errRole) {
-              console.error(errRole);
-              db.query('DELETE FROM entreprises WHERE id = ?', [entrepriseId], () => {});
-              return res.status(500).json({ message: 'Erreur serveur' });
-            }
-            const roleId = resRole.insertId;
-
-            // ============================================================
-            // 🔥 AJOUT AUTOMATIQUE DES PERMISSIONS
-            // ============================================================
-            db.query(
-              `INSERT INTO permissions (role_id, module_id, consultation, creation, modification, suppression, validation, export)
-               SELECT ?, m.id, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE
-               FROM modules m`,
-              [roleId],
-              (errPerm) => {
-                if (errPerm) {
-                  console.error('Erreur lors de l\'ajout des permissions:', errPerm);
-                  db.query('DELETE FROM roles WHERE id = ?', [roleId], () => {});
-                  db.query('DELETE FROM entreprises WHERE id = ?', [entrepriseId], () => {});
-                  return res.status(500).json({ message: 'Erreur serveur lors de l\'ajout des permissions' });
-                }
-
-                // 4. Créer l'utilisateur Admin
-                db.query(
-                  'INSERT INTO users (entreprise_id, role_id, nom, prenom, email, password) VALUES (?, ?, ?, ?, ?, ?)',
-                  [entrepriseId, roleId, nom.trim(), prenom.trim(), cleanEmail, hashedPassword],
-                  (errUser) => {
-                    if (errUser) {
-                      db.query('DELETE FROM permissions WHERE role_id = ?', [roleId], () => {});
-                      db.query('DELETE FROM roles WHERE id = ?', [roleId], () => {});
-                      db.query('DELETE FROM entreprises WHERE id = ?', [entrepriseId], () => {});
-                      if (errUser.code === 'ER_DUP_ENTRY') {
-                        return res.status(400).json({ message: 'Email déjà utilisé' });
-                      }
-                      console.error(errUser);
-                      return res.status(500).json({ message: 'Erreur serveur' });
-                    }
-                    res.status(201).json({
-                      message: "Inscription envoyée avec succès. Votre entreprise est en attente de validation par l'administrateur de la plateforme."
-                    });
-                  }
-                );
-              }
-            );
-          }
-        );
-      }
+      [entreprise_nom.trim(), cleanEmail, 'en_attente', planChoisi]
     );
+    const entrepriseId = result.insertId;
+
+    // ============================================================
+    // 2. PROVISIONING TENANT (création de la base dédiée)
+    // ============================================================
+    const dbName = databaseService.generateDbName(entreprise_nom, entrepriseId);
+    await databaseService.createTenantDatabase(entrepriseId, dbName);
+
+    await db.promisePoolMaster.query(
+      'UPDATE entreprises SET db_name = ? WHERE id = ?',
+      [dbName, entrepriseId]
+    );
+
+    // ============================================================
+    // 3. CRÉER LE RÔLE ADMIN (dans la base tenant)
+    // ============================================================
+    const clientPool = db.getClientPool(entrepriseId, dbName);
+    const [roleResult] = await clientPool.promise().query(
+      'INSERT INTO roles (nom, est_admin_entreprise) VALUES (?, TRUE)',
+      ['Admin Entreprise']
+    );
+    const roleId = roleResult.insertId;
+
+    // ============================================================
+    // 4. AJOUTER LES PERMISSIONS
+    // ============================================================
+    await clientPool.promise().query(
+      `INSERT INTO permissions (role_id, module_id, consultation, creation, modification, suppression, validation, export)
+       SELECT ?, m.id, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE
+       FROM modules m`,
+      [roleId]
+    );
+
+    // ============================================================
+    // 5. CRÉER L'UTILISATEUR ADMIN
+    // ============================================================
+    await clientPool.promise().query(
+      'INSERT INTO users (entreprise_id, role_id, nom, prenom, email, password) VALUES (?, ?, ?, ?, ?, ?)',
+      [entrepriseId, roleId, nom.trim(), prenom.trim(), cleanEmail, hashedPassword]
+    );
+
+    res.status(201).json({
+      message: "Inscription réussie. Votre entreprise est en attente de validation par l'administrateur de la plateforme."
+    });
+
   } catch (err) {
-    console.error(err);
+    console.error('❌ Erreur inscription:', err);
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ message: 'Email déjà utilisé' });
+    }
     res.status(500).json({ message: 'Erreur serveur' });
   }
 };
 
 // ============================================================
-// LOGIN
+// LOGIN (AVEC GESTION DU SUPERADMIN)
 // ============================================================
-exports.login = (req, res) => {
-  const { email, password } = req.body;
+exports.login = async (req, res) => {
+    const { email, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Email et mot de passe requis' });
-  }
-
-  const sql = `
-    SELECT u.*, r.nom AS role_nom, e.nom AS entreprise_nom, e.statut AS entreprise_statut,
-           e.plan_type, e.connexions_utilisees, e.limite_connexions_essai
-    FROM users u
-    LEFT JOIN roles r ON u.role_id = r.id
-    LEFT JOIN entreprises e ON u.entreprise_id = e.id
-    WHERE u.email = ?
-  `;
-  db.query(sql, [email.trim().toLowerCase()], async (err, results) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ message: 'Erreur serveur' });
-    }
-    if (results.length === 0) return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
-
-    const user = results[0];
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
-
-    if (!user.is_super_admin && user.entreprise_statut !== 'actif') {
-      return res.status(403).json({
-        message: user.entreprise_statut === 'en_attente'
-          ? 'Votre entreprise est en attente de validation par la plateforme'
-          : 'Votre entreprise est suspendue, contactez le support'
-      });
+    if (!email || !password) {
+        return res.status(400).json({ message: 'Email et mot de passe requis' });
     }
 
-    // Gestion de l'essai gratuit
-    let essaiExpire = false;
-    let connexionsRestantes = null;
-    let messageEssai = null;
+    const cleanEmail = email.trim().toLowerCase();
 
-    if (!user.is_super_admin && user.plan_type === 'essai') {
-      const dejaExpire = user.connexions_utilisees >= user.limite_connexions_essai;
+    try {
+        // ============================================================
+        // 1. RÉCUPÉRER L'UTILISATEUR DEPUIS LA BASE MASTER
+        // ============================================================
+        const sql = `
+            SELECT u.*, r.nom AS role_nom, e.nom AS entreprise_nom, e.statut AS entreprise_statut,
+                   e.plan_type, e.connexions_utilisees, e.limite_connexions_essai, e.db_name
+            FROM users u
+            LEFT JOIN roles r ON u.role_id = r.id
+            LEFT JOIN entreprises e ON u.entreprise_id = e.id
+            WHERE u.email = ?
+        `;
+        
+        const [results] = await db.promisePoolMaster.query(sql, [cleanEmail]);
 
-      if (dejaExpire) {
-        essaiExpire = true;
-        connexionsRestantes = 0;
-      } else {
-        const nouveauCompteur = user.connexions_utilisees + 1;
-        await new Promise((resolve) => {
-          db.query('UPDATE entreprises SET connexions_utilisees = ? WHERE id = ?',
-            [nouveauCompteur, user.entreprise_id], () => resolve());
+        if (results.length === 0) {
+            return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
+        }
+
+        const user = results[0];
+
+        // ============================================================
+        // 2. CAS SUPERADMIN (pas d'entreprise_id)
+        // ============================================================
+        if (user.is_super_admin) {
+            // Vérifier le mot de passe directement dans la base master
+            const isMatch = await bcrypt.compare(password, user.password);
+            
+            if (!isMatch) {
+                return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
+            }
+
+            // Générer le token pour SuperAdmin
+            const token = jwt.sign(
+                {
+                    id: user.id,
+                    is_super_admin: true,
+                    entreprise_id: null,
+                    db_name: null
+                },
+                process.env.JWT_SECRET,
+                { expiresIn: '24h' }
+            );
+
+            return res.json({
+                message: 'Connexion réussie',
+                token,
+                user: {
+                    id: user.id,
+                    nom: user.nom,
+                    prenom: user.prenom,
+                    email: user.email,
+                    role: 'SuperAdmin Plateforme',
+                    is_super_admin: true,
+                    is_external: false
+                }
+            });
+        }
+
+        // ============================================================
+        // 3. CAS UTILISATEUR NORMAL (vérification dans base tenant)
+        // ============================================================
+        
+        // Vérifier que l'utilisateur a une entreprise
+        if (!user.entreprise_id || !user.db_name) {
+            console.error(' Configuration utilisateur incomplète:', {
+                user_id: user.id,
+                email: user.email,
+                entreprise_id: user.entreprise_id,
+                db_name: user.db_name
+            });
+            return res.status(500).json({
+                message: 'Configuration de l\'utilisateur incomplète. Contactez le support.'
+            });
+        }
+
+        // Vérifier si le compte est bloqué
+        if (user.locked_until && new Date(user.locked_until) > new Date()) {
+            return res.status(403).json({
+                message: 'Compte bloqué. Réessayez plus tard.',
+                locked_until: user.locked_until,
+                remaining_minutes: Math.ceil((new Date(user.locked_until) - new Date()) / 60000)
+            });
+        }
+
+        // Vérifier le mot de passe dans la base tenant
+        const clientPool = db.getClientPool(user.entreprise_id, user.db_name);
+        const [userRows] = await clientPool.promise().query(
+            'SELECT * FROM users WHERE id = ?',
+            [user.id]
+        );
+        
+        if (userRows.length === 0) {
+            return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
+        }
+
+        const userData = userRows[0];
+        const isMatch = await bcrypt.compare(password, userData.password);
+        
+        if (!isMatch) {
+            const attempts = (userData.login_attempts || 0) + 1;
+            let lockedUntil = null;
+            let remainingAttempts = 5 - attempts;
+            
+            if (attempts >= 5) {
+                lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+                remainingAttempts = 0;
+            }
+            
+            await clientPool.promise().query(
+                'UPDATE users SET login_attempts = ?, locked_until = ? WHERE id = ?',
+                [attempts, lockedUntil, user.id]
+            );
+            
+            return res.status(401).json({
+                message: 'Email ou mot de passe incorrect',
+                attempts_remaining: remainingAttempts,
+                locked: lockedUntil !== null,
+                locked_until: lockedUntil
+            });
+        }
+
+        // Réinitialiser les tentatives
+        await clientPool.promise().query(
+            'UPDATE users SET login_attempts = 0, locked_until = NULL, last_login = NOW() WHERE id = ?',
+            [user.id]
+        );
+
+        // Vérifier le statut de l'entreprise
+        if (user.entreprise_statut !== 'actif') {
+            return res.status(403).json({
+                message: user.entreprise_statut === 'en_attente'
+                    ? 'Votre entreprise est en attente de validation'
+                    : 'Votre entreprise est suspendue'
+            });
+        }
+
+        // Gestion de l'essai gratuit
+        let essaiExpire = false;
+        let connexionsRestantes = null;
+        let messageEssai = null;
+
+        if (user.plan_type === 'essai') {
+            const dejaExpire = user.connexions_utilisees >= user.limite_connexions_essai;
+
+            if (dejaExpire) {
+                essaiExpire = true;
+                connexionsRestantes = 0;
+            } else {
+                const nouveauCompteur = user.connexions_utilisees + 1;
+                await db.promisePoolMaster.query(
+                    'UPDATE entreprises SET connexions_utilisees = ? WHERE id = ?',
+                    [nouveauCompteur, user.entreprise_id]
+                );
+                connexionsRestantes = user.limite_connexions_essai - nouveauCompteur;
+                essaiExpire = connexionsRestantes <= 0;
+                messageEssai = essaiExpire
+                    ? "C'était votre dernière connexion d'essai gratuite."
+                    : `Il vous reste ${connexionsRestantes} connexion(s) avant l'expiration.`;
+            }
+        }
+
+        // Générer le token
+        const token = jwt.sign(
+            {
+                id: user.id,
+                entreprise_id: user.entreprise_id,
+                role_id: user.role_id,
+                is_super_admin: false,
+                is_external: user.is_external || false,
+                client_id: user.client_id || null,
+                essai_expire: essaiExpire,
+                db_name: user.db_name
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        res.json({
+            message: 'Connexion réussie',
+            messageEssai,
+            token,
+            user: {
+                id: user.id,
+                nom: user.nom,
+                prenom: user.prenom,
+                email: user.email,
+                role: user.role_nom || 'Utilisateur',
+                entreprise: user.entreprise_nom || null,
+                is_super_admin: false,
+                is_external: user.is_external || false,
+                plan_type: user.plan_type || null,
+                essai_expire: essaiExpire,
+                connexions_restantes: connexionsRestantes
+            }
         });
-        connexionsRestantes = user.limite_connexions_essai - nouveauCompteur;
-        essaiExpire = connexionsRestantes <= 0;
-        messageEssai = essaiExpire
-          ? "C'était votre dernière connexion d'essai gratuite. Vos données sont conservées ; souscrivez à un abonnement pour continuer, ou exportez vos données."
-          : `Période d'essai gratuite : il vous reste ${connexionsRestantes} connexion(s) avant l'expiration.`;
-      }
+
+    } catch (err) {
+        console.error(' Erreur login:', err);
+        res.status(500).json({ message: 'Erreur serveur' });
     }
-
-    const token = jwt.sign(
-      {
-        id: user.id,
-        entreprise_id: user.entreprise_id,
-        role_id: user.role_id,
-        is_super_admin: !!user.is_super_admin,
-        is_external: !!user.is_external,
-        client_id: user.client_id || null,
-        essai_expire: essaiExpire
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-
-    res.json({
-      message: 'Connexion réussie',
-      messageEssai,
-      token,
-      user: {
-        id: user.id,
-        nom: user.nom,
-        prenom: user.prenom,
-        email: user.email,
-        role: user.is_super_admin ? 'SuperAdmin Plateforme' : user.role_nom,
-        entreprise: user.entreprise_nom || null,
-        is_super_admin: !!user.is_super_admin,
-        is_external: !!user.is_external,
-        plan_type: user.plan_type || null,
-        essai_expire: essaiExpire,
-        connexions_restantes: connexionsRestantes
-      }
-    });
-  });
 };
-
 // ============================================================
 // ME — utilisateur courant
 // ============================================================

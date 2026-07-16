@@ -6,9 +6,11 @@ const {
 const authMiddleware = require('../middleware/authMiddleware');
 const checkPermission = require('../middleware/permissionMiddleware');
 const checkEssaiActif = require('../middleware/checkEssaiActif');
+const tenantMiddleware = require('../middleware/tenant.middleware');
 
 router.use(authMiddleware);
 router.use(checkEssaiActif);
+router.use(tenantMiddleware);
 
 router.get('/', checkPermission('Stock', 'consultation'), getAllProduits);
 router.get('/:id', checkPermission('Stock', 'consultation'), getProduitById);

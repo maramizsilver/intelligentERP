@@ -6,10 +6,11 @@ const {
 const authMiddleware = require('../middleware/authMiddleware');
 const checkPermission = require('../middleware/permissionMiddleware');
 const checkEssaiActif = require('../middleware/checkEssaiActif');
+const tenantMiddleware = require('../middleware/tenant.middleware');
 
 router.use(authMiddleware);
 router.use(checkEssaiActif);
-
+router.use(tenantMiddleware);
 router.get('/', checkPermission('Documents', 'consultation'), getAllArchives);
 router.get('/:id', checkPermission('Documents', 'consultation'), getArchiveById);
 router.post('/', checkPermission('Documents', 'creation'), archiverEntite);

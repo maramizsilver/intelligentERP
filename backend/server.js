@@ -31,7 +31,7 @@ app.use('/api/finance', require('./routes/financeRoutes'));
 
 app.use('/api/calculateur', require('./routes/calculateurRoutes'));
 app.use('/api/admin/taux-reference', require('./routes/tauxReferenceAdminRoutes'));
-
+app.use('/api/audit', require('./routes/auditRoutes'));
 app.get('/', (req, res) => {
     res.json({ message: 'Serveur ERP fonctionne !' });
 });

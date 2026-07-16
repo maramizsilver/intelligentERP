@@ -6,6 +6,7 @@ const {
 const authMiddleware = require('../middleware/authMiddleware');
 const checkPermission = require('../middleware/permissionMiddleware');
 const checkEssaiActif = require('../middleware/checkEssaiActif');
+const tenantMiddleware = require('../middleware/tenant.middleware');
 
 // Les utilisateurs EXTERNES (portail client) n'ont pas de role_id/permissions :
 // ils ont un accès direct mais restreint à LEURS PROPRES commandes (filtré dans le contrôleur).
@@ -20,6 +21,7 @@ function externeOuPermission(action) {
 
 router.use(authMiddleware);
 router.use(checkEssaiActif);
+router.use(tenantMiddleware);
 
 router.get('/', externeOuPermission('consultation'), getAllCommandes);
 router.get('/:id', externeOuPermission('consultation'), getCommandeById);

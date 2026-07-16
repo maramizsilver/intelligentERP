@@ -1,69 +1,16 @@
-const db = require('../config/db');
 
-// ============================================================
-// FIX BUG #2 : génération de numéro atomique via transaction +
-// verrouillage de ligne (SELECT ... FOR UPDATE), au lieu d'un COUNT(*)
-// qui pouvait recréer un numéro déjà utilisé après une suppression.
-//
-// NB : nécessite que `db` expose bien `.getConnection()` (pool mysql2).
-// Si `db` est une connexion unique (pas un pool), remplacer
-// db.getConnection(cb) par un simple usage direct de `db` (db supporte
-// déjà beginTransaction/commit/rollback dans ce cas).
-// ============================================================
-function genererNumeroBC(entrepriseId) {
-    return new Promise((resolve, reject) => {
-        db.getConnection((errConn, connection) => {
-            if (errConn) return reject(errConn);
+const SequenceService = require('../services/sequence.service');
 
-            connection.beginTransaction((errTx) => {
-                if (errTx) { connection.release(); return reject(errTx); }
-
-                connection.query(
-                    'SELECT dernier_numero_bc FROM entreprises WHERE id = ? FOR UPDATE',
-                    [entrepriseId],
-                    (errSel, rows) => {
-                        if (errSel) {
-                            return connection.rollback(() => { connection.release(); reject(errSel); });
-                        }
-
-                        const numero = (rows[0]?.dernier_numero_bc || 0) + 1;
-
-                        connection.query(
-                            'UPDATE entreprises SET dernier_numero_bc = ? WHERE id = ?',
-                            [numero, entrepriseId],
-                            (errUpd) => {
-                                if (errUpd) {
-                                    return connection.rollback(() => { connection.release(); reject(errUpd); });
-                                }
-                                connection.commit((errCommit) => {
-                                    connection.release();
-                                    if (errCommit) return reject(errCommit);
-
-                                    const annee = new Date().getFullYear();
-                                    const mois = String(new Date().getMonth() + 1).padStart(2, '0');
-                                    resolve(`BC-${annee}${mois}-${String(numero).padStart(4, '0')}`);
-                                });
-                            }
-                        );
-                    }
-                );
-            });
-        });
-    });
-}
-
-// ============================================================
 // GET TOUS LES BONS DE COMMANDE FOURNISSEURS
-// ============================================================
 exports.getAllAchats = (req, res) => {
+    const db = req.db;
     const sql = `
         SELECT a.*, f.nom AS fournisseur_nom
         FROM achats a
         JOIN fournisseurs f ON a.fournisseur_id = f.id
-        WHERE a.entreprise_id = ?
         ORDER BY a.id DESC
     `;
-    db.query(sql, [req.user.entreprise_id], (err, results) => {
+    db.query(sql, (err, results) => {
         if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
         res.json({ achats: results });
     });
@@ -73,13 +20,14 @@ exports.getAllAchats = (req, res) => {
 // GET UN ACHAT AVEC SES LIGNES
 // ============================================================
 exports.getAchatById = (req, res) => {
+    const db = req.db;
     const sqlAchat = `
         SELECT a.*, f.nom AS fournisseur_nom
         FROM achats a
         JOIN fournisseurs f ON a.fournisseur_id = f.id
-        WHERE a.id = ? AND a.entreprise_id = ?
+        WHERE a.id = ?
     `;
-    db.query(sqlAchat, [req.params.id, req.user.entreprise_id], (err, results) => {
+    db.query(sqlAchat, [req.params.id], (err, results) => {
         if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
         if (results.length === 0) return res.status(404).json({ message: 'Achat introuvable' });
 
@@ -98,9 +46,10 @@ exports.getAchatById = (req, res) => {
 };
 
 // ============================================================
-// CREER UN ACHAT
+// CREER UN ACHAT (MIGRÉ)
 // ============================================================
 exports.createAchat = async (req, res) => {
+    const db = req.db;
     const { fournisseur_id, lignes, date_livraison_prevue, notes } = req.body;
 
     if (!fournisseur_id) return res.status(400).json({ message: 'Le fournisseur est requis' });
@@ -108,16 +57,17 @@ exports.createAchat = async (req, res) => {
         return res.status(400).json({ message: 'L\'achat doit contenir au moins un produit' });
     }
 
-    db.query('SELECT id FROM fournisseurs WHERE id = ? AND entreprise_id = ?', [fournisseur_id, req.user.entreprise_id], async (errCheck, fournisseurs) => {
+    // Vérifier le fournisseur (plus de WHERE entreprise_id)
+    db.query('SELECT id FROM fournisseurs WHERE id = ?', [fournisseur_id], async (errCheck, fournisseurs) => {
         if (errCheck) { console.error(errCheck); return res.status(500).json({ message: 'Erreur serveur' }); }
         if (fournisseurs.length === 0) return res.status(400).json({ message: 'Fournisseur invalide' });
 
         try {
-            const numero_bc = await genererNumeroBC(req.user.entreprise_id);
+            const numero_bc = await SequenceService.genererNumeroBC(db, req.user.entreprise_id);
 
             const produitsIds = lignes.map(l => l.produit_id);
-            const sqlPrix = 'SELECT id, prix FROM produits WHERE id IN (?) AND entreprise_id = ?';
-            db.query(sqlPrix, [produitsIds, req.user.entreprise_id], (err, produits) => {
+            const sqlPrix = 'SELECT id, prix FROM produits WHERE id IN (?)';
+            db.query(sqlPrix, [produitsIds], (err, produits) => {
                 if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
                 if (produits.length !== produitsIds.length) {
                     return res.status(400).json({ message: 'Un ou plusieurs produits sont introuvables' });
@@ -137,11 +87,12 @@ exports.createAchat = async (req, res) => {
 
                 const total_ttc = total_ht;
 
+                // PLUS de entreprise_id dans l'insertion !
                 const sqlAchat = `
-                    INSERT INTO achats (entreprise_id, fournisseur_id, numero_bc, date_livraison_prevue, total_ht, total_ttc, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO achats (fournisseur_id, numero_bc, date_livraison_prevue, total_ht, total_ttc, notes)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 `;
-                db.query(sqlAchat, [req.user.entreprise_id, fournisseur_id, numero_bc, date_livraison_prevue || null, total_ht, total_ttc, notes || null], (err2, result) => {
+                db.query(sqlAchat, [fournisseur_id, numero_bc, date_livraison_prevue || null, total_ht, total_ttc, notes || null], (err2, result) => {
                     if (err2) { console.error(err2); return res.status(500).json({ message: 'Erreur serveur' }); }
 
                     const achatId = result.insertId;
@@ -160,14 +111,15 @@ exports.createAchat = async (req, res) => {
     });
 };
 
-// ============================================================
+// 
 // RECEVOIR UNE COMMANDE (mise à jour du stock)
-// ============================================================
-exports.recevoirAchat = (req, res) => {
-    const { id } = req.params;
-    const { quantites_recues } = req.body; // { produit_id: quantite_recue }
 
-    db.query('SELECT * FROM achats WHERE id = ? AND entreprise_id = ?', [id, req.user.entreprise_id], (err, achats) => {
+exports.recevoirAchat = (req, res) => {
+    const db = req.db;
+    const { id } = req.params;
+    const { quantites_recues } = req.body;
+
+    db.query('SELECT * FROM achats WHERE id = ?', [id], (err, achats) => {
         if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
         if (achats.length === 0) return res.status(404).json({ message: 'Achat introuvable' });
 
@@ -188,25 +140,24 @@ exports.recevoirAchat = (req, res) => {
 
                 db.query('UPDATE achat_produits SET quantite_recue = ? WHERE id = ?', [nouvelleQteRecue, ligne.id], () => {});
 
+                // Mise à jour du stock (plus de WHERE entreprise_id)
                 db.query(
-                    'UPDATE produits SET quantite_stock = quantite_stock + ? WHERE id = ? AND entreprise_id = ?',
-                    [qteRecue, ligne.produit_id, req.user.entreprise_id],
+                    'UPDATE produits SET quantite_stock = quantite_stock + ? WHERE id = ?',
+                    [qteRecue, ligne.produit_id],
                     () => {}
                 );
 
                 db.query(
-                    `INSERT INTO mouvements_stock (entreprise_id, produit_id, type, quantite, reference_id, reference_type, ancien_stock, nouveau_stock, motif, created_by)
-                     SELECT ?, ?, 'achat_fournisseur', ?, ?, 'achat', quantite_stock - ?, quantite_stock, ?, ? FROM produits WHERE id = ? AND entreprise_id = ?`,
+                    `INSERT INTO mouvements_stock (produit_id, type, quantite, reference_id, reference_type, ancien_stock, nouveau_stock, motif, created_by)
+                     SELECT ?, 'achat_fournisseur', ?, ?, 'achat', quantite_stock - ?, quantite_stock, ?, ? FROM produits WHERE id = ?`,
                     [
-                        req.user.entreprise_id,
                         ligne.produit_id,
                         qteRecue,
                         id,
                         qteRecue,
                         `Réception commande fournisseur #${achat.numero_bc}`,
                         req.user.id,
-                        ligne.produit_id,
-                        req.user.entreprise_id
+                        ligne.produit_id
                     ],
                     () => {}
                 );
@@ -227,11 +178,11 @@ exports.recevoirAchat = (req, res) => {
 // SUPPRIMER UN ACHAT
 // ============================================================
 exports.deleteAchat = (req, res) => {
-    const sql = 'DELETE FROM achats WHERE id = ? AND entreprise_id = ?';
-    db.query(sql, [req.params.id, req.user.entreprise_id], (err, result) => {
+    const db = req.db;
+    const sql = 'DELETE FROM achats WHERE id = ?';
+    db.query(sql, [req.params.id], (err, result) => {
         if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
         if (result.affectedRows === 0) return res.status(404).json({ message: 'Achat introuvable' });
         res.json({ message: 'Bon de commande supprimé avec succès' });
     });
 };
-

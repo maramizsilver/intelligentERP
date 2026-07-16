@@ -6,6 +6,7 @@ const {
 const authMiddleware = require('../middleware/authMiddleware');
 const checkPermission = require('../middleware/permissionMiddleware');
 const checkEssaiActif = require('../middleware/checkEssaiActif');
+const tenantMiddleware = require('../middleware/tenant.middleware');
 
 // ============================================================
 // FIX BUG #3 : /valider était protégée par checkPermission('Ventes', 'consultation'),
@@ -25,7 +26,7 @@ function externeOuPermission(action) {
 
 router.use(authMiddleware);
 router.use(checkEssaiActif);
-
+router.use(tenantMiddleware);
 router.get('/', checkPermission('Ventes', 'consultation'), getAllPromotions);
 router.get('/:id', checkPermission('Ventes', 'consultation'), getPromotionById);
 router.post('/', checkPermission('Ventes', 'creation'), createPromotion);

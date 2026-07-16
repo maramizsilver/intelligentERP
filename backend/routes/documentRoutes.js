@@ -9,6 +9,7 @@ const {
 const authMiddleware = require('../middleware/authMiddleware');
 const checkPermission = require('../middleware/permissionMiddleware');
 const checkEssaiActif = require('../middleware/checkEssaiActif');
+const tenantMiddleware = require('../middleware/tenant.middleware');
 
 // Stockage disque local, isolé par entreprise (adapter vers S3/Cloud si besoin
 // en remplaçant seulement ce storage — le reste du contrôleur ne change pas).
@@ -40,7 +41,7 @@ const upload = multer({
 
 router.use(authMiddleware);
 router.use(checkEssaiActif);
-
+router.use(tenantMiddleware);
 router.get('/', checkPermission('Documents', 'consultation'), getAllDocuments);
 router.get('/:id', checkPermission('Documents', 'consultation'), getDocumentById);
 router.get('/:id/telecharger', checkPermission('Documents', 'consultation'), telechargerDocument);

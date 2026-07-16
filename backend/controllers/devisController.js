@@ -1,62 +1,23 @@
-const db = require('../config/db');
+
+const SequenceService = require('../services/sequence.service');
 
 // ============================================================
-// FIX BUG #2 : même correctif que achatController (compteur atomique)
+// PLUS de la fonction genererNumeroDevis() ici !!
+// Utilise désormais SequenceService.genererNumeroDevis()
 // ============================================================
-function genererNumeroDevis(entrepriseId) {
-    return new Promise((resolve, reject) => {
-        db.getConnection((errConn, connection) => {
-            if (errConn) return reject(errConn);
-
-            connection.beginTransaction((errTx) => {
-                if (errTx) { connection.release(); return reject(errTx); }
-
-                connection.query(
-                    'SELECT dernier_numero_devis FROM entreprises WHERE id = ? FOR UPDATE',
-                    [entrepriseId],
-                    (errSel, rows) => {
-                        if (errSel) {
-                            return connection.rollback(() => { connection.release(); reject(errSel); });
-                        }
-
-                        const numero = (rows[0]?.dernier_numero_devis || 0) + 1;
-
-                        connection.query(
-                            'UPDATE entreprises SET dernier_numero_devis = ? WHERE id = ?',
-                            [numero, entrepriseId],
-                            (errUpd) => {
-                                if (errUpd) {
-                                    return connection.rollback(() => { connection.release(); reject(errUpd); });
-                                }
-                                connection.commit((errCommit) => {
-                                    connection.release();
-                                    if (errCommit) return reject(errCommit);
-
-                                    const annee = new Date().getFullYear();
-                                    const mois = String(new Date().getMonth() + 1).padStart(2, '0');
-                                    resolve(`DEV-${annee}${mois}-${String(numero).padStart(4, '0')}`);
-                                });
-                            }
-                        );
-                    }
-                );
-            });
-        });
-    });
-}
 
 // ============================================================
 // GET TOUS LES DEVIS
 // ============================================================
 exports.getAllDevis = (req, res) => {
+    const db = req.db;
     const sql = `
         SELECT d.*, c.nom AS client_nom
         FROM devis d
         JOIN clients c ON d.client_id = c.id
-        WHERE d.entreprise_id = ?
         ORDER BY d.id DESC
     `;
-    db.query(sql, [req.user.entreprise_id], (err, results) => {
+    db.query(sql, (err, results) => {
         if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
         res.json({ devis: results });
     });
@@ -66,13 +27,14 @@ exports.getAllDevis = (req, res) => {
 // GET UN DEVIS AVEC SES LIGNES
 // ============================================================
 exports.getDevisById = (req, res) => {
+    const db = req.db;
     const sqlDevis = `
         SELECT d.*, c.nom AS client_nom
         FROM devis d
         JOIN clients c ON d.client_id = c.id
-        WHERE d.id = ? AND d.entreprise_id = ?
+        WHERE d.id = ?
     `;
-    db.query(sqlDevis, [req.params.id, req.user.entreprise_id], (err, results) => {
+    db.query(sqlDevis, [req.params.id], (err, results) => {
         if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
         if (results.length === 0) return res.status(404).json({ message: 'Devis introuvable' });
 
@@ -91,9 +53,10 @@ exports.getDevisById = (req, res) => {
 };
 
 // ============================================================
-// CREER UN DEVIS
+// CREER UN DEVIS (MIGRÉ)
 // ============================================================
 exports.createDevis = async (req, res) => {
+    const db = req.db;
     const { client_id, lignes, date_validite, remise, notes } = req.body;
 
     if (!client_id) return res.status(400).json({ message: 'Le client est requis' });
@@ -102,17 +65,18 @@ exports.createDevis = async (req, res) => {
     }
     if (!date_validite) return res.status(400).json({ message: 'La date de validité est requise' });
 
-    db.query('SELECT id FROM clients WHERE id = ? AND entreprise_id = ?', [client_id, req.user.entreprise_id], async (errClient, clients) => {
+    db.query('SELECT id FROM clients WHERE id = ?', [client_id], async (errClient, clients) => {
         if (errClient) { console.error(errClient); return res.status(500).json({ message: 'Erreur serveur' }); }
         if (clients.length === 0) return res.status(400).json({ message: 'Client invalide pour votre entreprise' });
 
         try {
-            const numero_devis = await genererNumeroDevis(req.user.entreprise_id);
+            // 🆕 Utiliser SequenceService au lieu de genererNumeroDevis()
+            const numero_devis = await SequenceService.genererNumeroDevis(db, req.user.entreprise_id);
 
             let total_ht = 0;
             const produitsIds = lignes.map(l => l.produit_id);
-            const sqlPrix = 'SELECT id, prix FROM produits WHERE id IN (?) AND entreprise_id = ?';
-            db.query(sqlPrix, [produitsIds, req.user.entreprise_id], (err, produits) => {
+            const sqlPrix = 'SELECT id, prix FROM produits WHERE id IN (?)';
+            db.query(sqlPrix, [produitsIds], (err, produits) => {
                 if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
                 if (produits.length !== produitsIds.length) {
                     return res.status(400).json({ message: 'Un ou plusieurs produits sont introuvables' });
@@ -133,11 +97,12 @@ exports.createDevis = async (req, res) => {
                 const remiseTotale = Number(remise) || 0;
                 const total_ttc = total_ht * (1 - remiseTotale / 100);
 
+                // PLUS de entreprise_id dans l'insertion !
                 const sqlDevis = `
-                    INSERT INTO devis (entreprise_id, client_id, numero_devis, date_validite, total_ht, total_ttc, remise, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO devis (client_id, numero_devis, date_validite, total_ht, total_ttc, remise, notes)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                 `;
-                db.query(sqlDevis, [req.user.entreprise_id, client_id, numero_devis, date_validite, total_ht, total_ttc, remiseTotale, notes || null], (err2, result) => {
+                db.query(sqlDevis, [client_id, numero_devis, date_validite, total_ht, total_ttc, remiseTotale, notes || null], (err2, result) => {
                     if (err2) { console.error(err2); return res.status(500).json({ message: 'Erreur serveur' }); }
 
                     const devisId = result.insertId;
@@ -160,6 +125,7 @@ exports.createDevis = async (req, res) => {
 // METTRE À JOUR LE STATUT D'UN DEVIS
 // ============================================================
 exports.updateDevisStatut = (req, res) => {
+    const db = req.db;
     const { statut } = req.body;
     const statutsValides = ['brouillon', 'envoye', 'accepte', 'refuse', 'expire'];
 
@@ -167,8 +133,8 @@ exports.updateDevisStatut = (req, res) => {
         return res.status(400).json({ message: 'Statut invalide' });
     }
 
-    const sql = 'UPDATE devis SET statut = ? WHERE id = ? AND entreprise_id = ?';
-    db.query(sql, [statut, req.params.id, req.user.entreprise_id], (err, result) => {
+    const sql = 'UPDATE devis SET statut = ? WHERE id = ?';
+    db.query(sql, [statut, req.params.id], (err, result) => {
         if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
         if (result.affectedRows === 0) return res.status(404).json({ message: 'Devis introuvable' });
         res.json({ message: 'Statut mis à jour avec succès' });
@@ -177,32 +143,24 @@ exports.updateDevisStatut = (req, res) => {
 
 // ============================================================
 // TRANSFORMER UN DEVIS EN COMMANDE
-//
-// FIX BUG #1 : chaque ligne de la commande générée utilisait
-// `devis.prix_unitaire`, qui correspond en réalité au prix de la
-// PREMIÈRE ligne du devis (results[0], à cause du LEFT JOIN + d.*).
-// Toutes les lignes héritaient donc du même prix, faussant le total
-// de la commande générée. Correctif : on utilise le prix propre à
-// chaque ligne (r.prix_unitaire), alias explicitement pour éviter
-// toute ambiguïté avec un futur champ du même nom sur `devis`.
 // ============================================================
 exports.devisToCommande = (req, res) => {
+    const db = req.db;
     const { id } = req.params;
 
     const sqlDevis = `
         SELECT d.*, dp.produit_id, dp.quantite, dp.prix_unitaire AS ligne_prix_unitaire
         FROM devis d
         LEFT JOIN devis_produits dp ON d.id = dp.devis_id
-        WHERE d.id = ? AND d.entreprise_id = ? AND d.statut = 'accepte'
+        WHERE d.id = ? AND d.statut = 'accepte'
     `;
-    db.query(sqlDevis, [id, req.user.entreprise_id], (err, results) => {
+    db.query(sqlDevis, [id], (err, results) => {
         if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
         if (results.length === 0) {
             return res.status(404).json({ message: 'Devis introuvable ou non accepté' });
         }
 
         const devis = results[0];
-        // Chaque ligne conserve désormais SON PROPRE prix unitaire
         const lignes = results.map(r => ({
             produit_id: r.produit_id,
             quantite: r.quantite,
@@ -215,13 +173,9 @@ exports.devisToCommande = (req, res) => {
 
             const commandeId = result.insertId;
             const sqlLignes = 'INSERT INTO commande_produits (commande_id, produit_id, quantite, prix_unitaire) VALUES ?';
-            // Chaque ligne utilise maintenant l.prix_unitaire (propre à la ligne), plus devis.prix_unitaire
             const values = lignes.map(l => [commandeId, l.produit_id, l.quantite, l.prix_unitaire]);
             db.query(sqlLignes, [values], (err3) => {
                 if (err3) { console.error(err3); return res.status(500).json({ message: 'Erreur serveur' }); }
-
-                db.query('UPDATE devis SET statut = ? WHERE id = ?', ['accepte', id], () => {});
-
                 res.status(201).json({
                     message: 'Commande créée à partir du devis',
                     commande_id: commandeId,
@@ -236,8 +190,9 @@ exports.devisToCommande = (req, res) => {
 // SUPPRIMER UN DEVIS
 // ============================================================
 exports.deleteDevis = (req, res) => {
-    const sql = 'DELETE FROM devis WHERE id = ? AND entreprise_id = ?';
-    db.query(sql, [req.params.id, req.user.entreprise_id], (err, result) => {
+    const db = req.db;
+    const sql = 'DELETE FROM devis WHERE id = ?';
+    db.query(sql, [req.params.id], (err, result) => {
         if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
         if (result.affectedRows === 0) return res.status(404).json({ message: 'Devis introuvable' });
         res.json({ message: 'Devis supprimé avec succès' });
