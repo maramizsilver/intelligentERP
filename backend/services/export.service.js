@@ -144,9 +144,7 @@ class ExportService {
         });
     }
 
-    // ============================================================
-    // EXPORT WORD (DOCX) - AVEC RÉSULTAT SOULIGNÉ SANS GRAS
-    // ============================================================
+  
     static async exportWord(data, options = {}) {
         try {
             console.log(' Début export Word...');

@@ -1,7 +1,7 @@
 // backend/controllers/tauxReferenceAdminController.js
 const db = require('../config/db');
 const { AppError } = require('../middleware/errorHandler.middleware');
-// GET - Tous les taux de référence (SuperAdmin)
+0// GET - Tous les taux de référence (SuperAdmin)
 exports.getAllTauxAdmin = (req, res, next) => {
     const { categorie, actif } = req.query;
     let sql = 'SELECT * FROM taux_reference_central WHERE 1=1';
@@ -62,8 +62,6 @@ exports.createTauxAdmin = (req, res, next) => {
     if (new Date(date_debut) >= new Date(date_fin)) {
         return next(new AppError('La date de début doit être antérieure à la date de fin', 400));
     }
-
-    // Vérifier les chevauchements
     const checkSql = `
         SELECT * FROM taux_reference_central 
         WHERE categorie = ? 
@@ -103,8 +101,6 @@ exports.createTauxAdmin = (req, res, next) => {
                 console.error(err);
                 return next(new AppError('Erreur lors de la création du taux', 500));
             }
-
-            // Audit
             db.query(
                 `INSERT INTO taux_reference_audit (taux_id, action, nouvelles_valeurs, modified_by)
                  VALUES (?, 'CREATE', ?, ?)`,
@@ -139,8 +135,6 @@ exports.updateTauxAdmin = (req, res, next) => {
             if (ancien.length === 0) {
                 return next(new AppError('Taux de référence introuvable', 404));
             }
-
-            // Validation
             if (categorie && new Date(date_debut) >= new Date(date_fin)) {
                 return next(new AppError('La date de début doit être antérieure à la date de fin', 400));
             }
@@ -178,8 +172,6 @@ exports.updateTauxAdmin = (req, res, next) => {
                 if (result.affectedRows === 0) {
                     return next(new AppError('Taux de référence introuvable', 404));
                 }
-
-                // Audit
                 const nouvellesValeurs = { categorie, sous_categorie, nom, description, taux, date_debut, date_fin, actif };
                 db.query(
                     `INSERT INTO taux_reference_audit (taux_id, action, anciennes_valeurs, nouvelles_valeurs, modified_by)
@@ -218,8 +210,6 @@ exports.deleteTauxAdmin = (req, res, next) => {
                         console.error(err);
                         return next(new AppError('Erreur lors de la suppression du taux', 500));
                     }
-
-                    // Audit
                     db.query(
                         `INSERT INTO taux_reference_audit (taux_id, action, anciennes_valeurs, modified_by)
                          VALUES (?, 'DELETE', ?, ?)`,

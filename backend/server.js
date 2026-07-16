@@ -30,11 +30,7 @@ app.use('/api/archives', require('./routes/archivageRoutes'));
 app.use('/api/finance', require('./routes/financeRoutes'));
 
 app.use('/api/calculateur', require('./routes/calculateurRoutes'));
-
-// SUPERADMIN - Gestion des taux centralisés
 app.use('/api/admin/taux-reference', require('./routes/tauxReferenceAdminRoutes'));
-
-// HEALTH CHECK
 
 app.get('/', (req, res) => {
     res.json({ message: 'Serveur ERP fonctionne !' });
@@ -44,5 +40,5 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(`🚀Serveur démarré sur le port ${PORT}`);
+    console.log(`Serveur démarré sur le port ${PORT}`);
 });

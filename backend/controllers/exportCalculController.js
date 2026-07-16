@@ -55,7 +55,6 @@ exports.exporterCalculWord = async (req, res, next) => {
 
     } catch (err) {
         console.error(' Erreur export Word:', err);
-        // Afficher l'erreur complète pour le débogage
         console.error('Stack:', err.stack);
         return next(new AppError('Erreur lors de la génération du document Word: ' + err.message, 500));
     }
