@@ -1,57 +1,65 @@
-const db = require('../config/db');
-
-// ============================================================
-// GET TOUTES LES PROMOTIONS
-// ============================================================
 exports.getAllPromotions = (req, res) => {
-    const sql = 'SELECT * FROM promotions WHERE entreprise_id = ? ORDER BY id DESC';
-    db.query(sql, [req.user.entreprise_id], (err, results) => {
-        if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
+    const db = req.db;
+    
+    const sql = 'SELECT * FROM promotions ORDER BY id DESC';
+    db.query(sql, (err, results) => {
+        if (err) {
+            console.error('Erreur getAllPromotions:', err);
+            return res.status(500).json({ message: 'Erreur serveur' });
+        }
         res.json({ promotions: results });
     });
 };
 
-// ============================================================
-// GET UNE PROMOTION PAR ID
-// ============================================================
 exports.getPromotionById = (req, res) => {
-    const sql = 'SELECT * FROM promotions WHERE id = ? AND entreprise_id = ?';
-    db.query(sql, [req.params.id, req.user.entreprise_id], (err, results) => {
-        if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
-        if (results.length === 0) return res.status(404).json({ message: 'Promotion introuvable' });
+    const db = req.db;
+    
+    const sql = 'SELECT * FROM promotions WHERE id = ?';
+    db.query(sql, [req.params.id], (err, results) => {
+        if (err) {
+            console.error('Erreur getPromotionById:', err);
+            return res.status(500).json({ message: 'Erreur serveur' });
+        }
+        if (results.length === 0) {
+            return res.status(404).json({ message: 'Promotion introuvable' });
+        }
         res.json({ promotion: results[0] });
     });
 };
 
-// ============================================================
-// CRÉER UNE PROMOTION
-// ============================================================
 exports.createPromotion = (req, res) => {
+    const db = req.db;
+    
     const {
         code, nom, description, type, valeur,
         date_debut, date_fin, utilisation_max,
         produits_concernes, clients_concernes
     } = req.body;
 
-    if (!code || code.trim().length < 2) return res.status(400).json({ message: 'Le code est requis' });
-    if (!nom || nom.trim().length < 2) return res.status(400).json({ message: 'Le nom est requis' });
+    if (!code || code.trim().length < 2) {
+        return res.status(400).json({ message: 'Le code est requis' });
+    }
+    if (!nom || nom.trim().length < 2) {
+        return res.status(400).json({ message: 'Le nom est requis' });
+    }
     if (!type || !['pourcentage', 'fixe', 'livraison_offerte'].includes(type)) {
         return res.status(400).json({ message: 'Type invalide' });
     }
     if (valeur === undefined || isNaN(valeur) || valeur <= 0) {
-        return res.status(400).json({ message: 'La valeur doit être un nombre positif' });
+        return res.status(400).json({ message: 'La valeur doit etre un nombre positif' });
     }
-    if (!date_debut || !date_fin) return res.status(400).json({ message: 'Les dates sont requises' });
+    if (!date_debut || !date_fin) {
+        return res.status(400).json({ message: 'Les dates sont requises' });
+    }
 
     const sql = `
         INSERT INTO promotions (
-            entreprise_id, code, nom, description, type, valeur,
+            code, nom, description, type, valeur,
             date_debut, date_fin, utilisation_max,
             produits_concernes, clients_concernes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     db.query(sql, [
-        req.user.entreprise_id,
         code.trim().toUpperCase(),
         nom.trim(),
         description || null,
@@ -65,19 +73,18 @@ exports.createPromotion = (req, res) => {
     ], (err, result) => {
         if (err) {
             if (err.code === 'ER_DUP_ENTRY') {
-                return res.status(400).json({ message: 'Ce code promotionnel existe déjà' });
+                return res.status(400).json({ message: 'Ce code promotionnel existe deja' });
             }
-            console.error(err);
+            console.error('Erreur createPromotion:', err);
             return res.status(500).json({ message: 'Erreur serveur' });
         }
-        res.status(201).json({ message: 'Promotion créée avec succès', id: result.insertId });
+        res.status(201).json({ message: 'Promotion cree avec succes', id: result.insertId });
     });
 };
 
-// ============================================================
-// METTRE À JOUR UNE PROMOTION
-// ============================================================
 exports.updatePromotion = (req, res) => {
+    const db = req.db;
+    
     const {
         code, nom, description, type, valeur,
         date_debut, date_fin, utilisation_max, actif,
@@ -89,7 +96,7 @@ exports.updatePromotion = (req, res) => {
             code = ?, nom = ?, description = ?, type = ?, valeur = ?,
             date_debut = ?, date_fin = ?, utilisation_max = ?, actif = ?,
             produits_concernes = ?, clients_concernes = ?
-        WHERE id = ? AND entreprise_id = ?
+        WHERE id = ?
     `;
     db.query(sql, [
         code.trim().toUpperCase(),
@@ -103,76 +110,83 @@ exports.updatePromotion = (req, res) => {
         actif !== undefined ? actif : true,
         produits_concernes ? JSON.stringify(produits_concernes) : null,
         clients_concernes ? JSON.stringify(clients_concernes) : null,
-        req.params.id,
-        req.user.entreprise_id
+        req.params.id
     ], (err, result) => {
         if (err) {
             if (err.code === 'ER_DUP_ENTRY') {
-                return res.status(400).json({ message: 'Ce code promotionnel existe déjà' });
+                return res.status(400).json({ message: 'Ce code promotionnel existe deja' });
             }
-            console.error(err);
+            console.error('Erreur updatePromotion:', err);
             return res.status(500).json({ message: 'Erreur serveur' });
         }
-        if (result.affectedRows === 0) return res.status(404).json({ message: 'Promotion introuvable' });
-        res.json({ message: 'Promotion mise à jour avec succès' });
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Promotion introuvable' });
+        }
+        res.json({ message: 'Promotion mise a jour avec succes' });
     });
 };
 
-// ============================================================
-// SUPPRIMER UNE PROMOTION
-// ============================================================
 exports.deletePromotion = (req, res) => {
-    const sql = 'DELETE FROM promotions WHERE id = ? AND entreprise_id = ?';
-    db.query(sql, [req.params.id, req.user.entreprise_id], (err, result) => {
-        if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
-        if (result.affectedRows === 0) return res.status(404).json({ message: 'Promotion introuvable' });
-        res.json({ message: 'Promotion supprimée avec succès' });
+    const db = req.db;
+    
+    const sql = 'DELETE FROM promotions WHERE id = ?';
+    db.query(sql, [req.params.id], (err, result) => {
+        if (err) {
+            console.error('Erreur deletePromotion:', err);
+            return res.status(500).json({ message: 'Erreur serveur' });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Promotion introuvable' });
+        }
+        res.json({ message: 'Promotion supprimee avec succes' });
     });
 };
 
-// ============================================================
-// VALIDER UN CODE PROMOTIONNEL
-// ============================================================
 exports.validerCodePromo = (req, res) => {
+    const db = req.db;
+    
     const { code, produit_id, client_id } = req.body;
 
-    if (!code) return res.status(400).json({ message: 'Code requis' });
+    if (!code) {
+        return res.status(400).json({ message: 'Code requis' });
+    }
 
     const sql = `
         SELECT * FROM promotions
-        WHERE entreprise_id = ?
-        AND code = ?
+        WHERE code = ?
         AND actif = TRUE
         AND date_debut <= NOW()
         AND date_fin >= NOW()
         AND (utilisation_max IS NULL OR utilisation_count < utilisation_max)
     `;
-    db.query(sql, [req.user.entreprise_id, code.trim().toUpperCase()], (err, results) => {
-        if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
+    db.query(sql, [code.trim().toUpperCase()], (err, results) => {
+        if (err) {
+            console.error('Erreur validerCodePromo:', err);
+            return res.status(500).json({ message: 'Erreur serveur' });
+        }
         if (results.length === 0) {
-            return res.status(404).json({ message: 'Code promotionnel invalide ou expiré' });
+            return res.status(404).json({ message: 'Code promotionnel invalide ou expire' });
         }
 
         const promo = results[0];
 
-        // Vérifier si le client est concerné
         if (promo.clients_concernes) {
             const clients = JSON.parse(promo.clients_concernes);
             if (client_id && !clients.includes(client_id)) {
-                return res.status(400).json({ message: 'Cette promotion ne s\'applique pas à ce client' });
+                return res.status(400).json({ message: 'Cette promotion ne s\'applique pas a ce client' });
             }
         }
 
-        // Vérifier si le produit est concerné
         if (promo.produits_concernes) {
             const produits = JSON.parse(promo.produits_concernes);
             if (produit_id && !produits.includes(produit_id)) {
-                return res.status(400).json({ message: 'Cette promotion ne s\'applique pas à ce produit' });
+                return res.status(400).json({ message: 'Cette promotion ne s\'applique pas a ce produit' });
             }
         }
 
-        // Incrémenter le compteur d'utilisation
-        db.query('UPDATE promotions SET utilisation_count = utilisation_count + 1 WHERE id = ?', [promo.id], () => {});
+        db.query('UPDATE promotions SET utilisation_count = utilisation_count + 1 WHERE id = ?', [promo.id], (err) => {
+            if (err) console.error('Erreur increment utilisation:', err);
+        });
 
         res.json({
             valid: true,

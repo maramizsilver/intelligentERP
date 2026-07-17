@@ -1,69 +1,215 @@
 /* frontend/src/styles/print.css */
+
 @media print {
-  /* Masquer les éléments non imprimables */
-  .no-print,
+  /* ============================================================
+     MASQUER TOUS LES ELEMENTS NON IMPRIMABLES
+     ============================================================ */
+  
   .sidebar,
+  aside,
   .header,
+  header,
   .essai-banner,
+  .banner,
+  .no-print,
   .btn,
   button,
   .actions-cell,
   .filter-section,
-  .segmented-control {
+  .segmented-control,
+  .mode-selector,
+  .sub-segmented-control,
+  .export-options,
+  .action-bar,
+  .hamburger-btn,
+  .toggle-btn,
+  nav,
+  .nav,
+  .navigation,
+  .menu,
+  .footer,
+  .user-info,
+  .user-avatar,
+  .user-details,
+  .user-name,
+  .user-role {
     display: none !important;
   }
 
-  /* Ajuster la mise en page */
-  body {
-    background: white !important;
-    color: black !important;
-    font-size: 12px !important;
+  /* ============================================================
+     FORCER LE CONTENU A PRENDRE TOUTE LA LARGEUR
+     ============================================================ */
+  
+  .container,
+  .app-container,
+  [style*="display: flex"] {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   .main-content {
-    margin: 0 !important;
+    margin: 0 auto !important;
+    margin-left: 0 !important;        /* ← CRUCIAL */
     padding: 20px !important;
-    max-width: 100% !important;
+    max-width: 800px !important;      /* ← CENTRE AVEC UNE LARGEUR RAISONNABLE */
+    width: 100% !important;
+    display: block !important;
+    background: white !important;
+    float: none !important;
+    position: relative !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    transform: none !important;
   }
 
-  /* Forcer l'affichage des cartes */
+  .main {
+    margin: 0 auto !important;
+    padding: 20px !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    background: white !important;
+  }
+
+  .content {
+    margin: 0 auto !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    background: white !important;
+  }
+
+  /* ============================================================
+     FORCER LE TEXTE EN NOIR
+     ============================================================ */
+  
+  body,
+  .main-content,
+  .main,
+  .content,
+  .card,
+  .result-grid,
+  .result-item,
+  table,
+  th,
+  td,
+  p,
+  span,
+  div,
+  h1, h2, h3, h4, h5, h6,
+  label,
+  input,
+  select,
+  textarea {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* ============================================================
+     CARTES ET TABLEAUX
+     ============================================================ */
+  
   .card {
     border: 1px solid #ddd !important;
     box-shadow: none !important;
     page-break-inside: avoid !important;
+    margin-bottom: 20px !important;
+    background: white !important;
+    width: 100% !important;
   }
 
-  /* Tables */
   table {
     width: 100% !important;
     border-collapse: collapse !important;
+    background: white !important;
   }
 
   th, td {
     padding: 8px 12px !important;
     border: 1px solid #ddd !important;
+    background: white !important;
+    color: black !important;
   }
 
   th {
     background: #f5f5f5 !important;
     font-weight: bold !important;
+    color: black !important;
   }
 
-  /* Badges en noir et blanc */
+  /* ============================================================
+     BADGES
+     ============================================================ */
+  
   .badge {
     border: 1px solid #ddd !important;
     background: #f5f5f5 !important;
     color: black !important;
   }
 
-  /* Titres */
-  h1, h2, h3, h4 {
-    color: black !important;
+  /* ============================================================
+     DESACTIVER LES ANIMATIONS
+     ============================================================ */
+  
+  .fade-in-up,
+  .fade-in,
+  [class*="fade"] {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
+}
 
-  /* Résultat */
-  .result-value {
-    color: black !important;
-    font-weight: bold !important;
-  }
+/* ============================================================
+   CLASSE POUR L'IMPRESSION
+   ============================================================ */
+body.printing .sidebar,
+body.printing aside,
+body.printing .header,
+body.printing header,
+body.printing .essai-banner,
+body.printing .banner,
+body.printing .no-print,
+body.printing .btn,
+body.printing button,
+body.printing nav,
+body.printing .hamburger-btn,
+body.printing .toggle-btn,
+body.printing .footer,
+body.printing .user-info,
+body.printing .user-avatar,
+body.printing .user-details,
+body.printing .user-name,
+body.printing .user-role {
+  display: none !important;
+}
+
+body.printing .main-content {
+  margin: 0 auto !important;
+  margin-left: 0 !important;
+  padding: 20px !important;
+  max-width: 800px !important;
+  width: 100% !important;
+  background: white !important;
+}
+
+body.printing .main {
+  margin: 0 auto !important;
+  padding: 20px !important;
+  width: 100% !important;
+  background: white !important;
+}
+
+body.printing .content {
+  background: white !important;
+  width: 100% !important;
+  margin: 0 auto !important;
+}
+
+body.printing * {
+  color: black !important;
 }

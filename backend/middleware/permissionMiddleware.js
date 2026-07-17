@@ -1,14 +1,5 @@
-const db = require('../config/db');
-
-// Actions autorisées = les 6 colonnes de la table permissions.
-// Whitelist obligatoire car ce nom de colonne est injecté dans le SQL (impossible
-// de le passer en paramètre préparé classique) : sans cette liste, on ouvrirait
-// une injection SQL via le nom de l'action.
 const ACTIONS_VALIDES = ['consultation', 'creation', 'modification', 'suppression', 'validation', 'export'];
 
-// Usage : checkPermission('Ventes', 'creation')
-// -> vérifie que le rôle de l'utilisateur connecté a la permission "creation"
-//    sur le module "Ventes", DANS SON ENTREPRISE.
 module.exports = function checkPermission(moduleNom, action) {
   if (!ACTIONS_VALIDES.includes(action)) {
     throw new Error(`Action de permission invalide : ${action}`);
@@ -17,7 +8,6 @@ module.exports = function checkPermission(moduleNom, action) {
   return (req, res, next) => {
     const { is_super_admin, role_id } = req.user || {};
 
-    // Le SuperAdmin plateforme n'a jamais accès aux données métier des entreprises
     if (is_super_admin) {
       return res.status(403).json({ message: "Le SuperAdmin n'a pas accès aux données métier des entreprises" });
     }
@@ -25,6 +15,8 @@ module.exports = function checkPermission(moduleNom, action) {
     if (!role_id) {
       return res.status(403).json({ message: 'Aucun rôle assigné à ce compte' });
     }
+
+    const db = req.db || require('../config/db');
 
     const sql = `
       SELECT p.${action} AS autorise
@@ -34,7 +26,7 @@ module.exports = function checkPermission(moduleNom, action) {
     `;
     db.query(sql, [role_id, moduleNom], (err, results) => {
       if (err) {
-        console.error(err);
+        console.error('Erreur permission:', err);
         return res.status(500).json({ message: 'Erreur serveur' });
       }
       if (results.length === 0 || !results[0].autorise) {

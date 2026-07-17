@@ -1,7 +1,6 @@
-const db = require('../config/db');
 const { AppError } = require('../middleware/errorHandler.middleware');
 const ExportService = require('../services/export.service');
-// UTILITAIRES
+
 function calculerNbJours(dateDebut, dateFin) {
     const d1 = new Date(dateDebut);
     const d2 = new Date(dateFin);
@@ -18,8 +17,9 @@ function arrondir(valeur) {
     return Math.round(valeur * 100) / 100;
 }
 
-// RÉCUPÉRER LES TAUX DE RÉFÉRENCE (lecture seule - tous les internes)
 exports.getTauxReference = (req, res, next) => {
+    const db = req.db;
+    
     const { categorie, actif } = req.query;
     let sql = 'SELECT * FROM taux_reference_central WHERE 1=1';
     const params = [];
@@ -37,25 +37,26 @@ exports.getTauxReference = (req, res, next) => {
 
     db.query(sql, params, (err, results) => {
         if (err) {
-            console.error(err);
+            console.error('Erreur getTauxReference:', err);
             return next(new AppError('Erreur lors du chargement des taux', 500));
         }
         res.json({ taux: results });
     });
 };
 
-// CALCUL - TAUX UNIQUE
 exports.calculTauxUnique = (req, res, next) => {
+    const db = req.db;
+    
     const { montant, date_debut, date_fin, taux } = req.body;
 
     if (!montant || isNaN(montant) || montant <= 0) {
-        return next(new AppError('Le montant doit être un nombre positif', 400));
+        return next(new AppError('Le montant doit etre un nombre positif', 400));
     }
     if (!date_debut || !date_fin) {
-        return next(new AppError('Les dates de début et fin sont requises', 400));
+        return next(new AppError('Les dates de debut et fin sont requises', 400));
     }
     if (!taux || isNaN(taux) || taux < 0) {
-        return next(new AppError('Le taux doit être un nombre positif ou nul', 400));
+        return next(new AppError('Le taux doit etre un nombre positif ou nul', 400));
     }
 
     try {
@@ -63,22 +64,22 @@ exports.calculTauxUnique = (req, res, next) => {
         const resultat = Number(montant) * (Number(taux) / 100) * (nbJours / 365);
         const arrondi = arrondir(resultat);
 
-        // Journalisation avec type détaillé
         const sqlLog = `
             INSERT INTO logs_calculs 
-            (entreprise_id, utilisateur_id, type_calcul, type_calcul_detaille, 
+            (utilisateur_id, type_calcul, type_calcul_detaille, 
              montant, taux, nb_jours, resultat, details)
-            VALUES (?, ?, 'taux_unique', 'taux_unique', ?, ?, ?, ?, ?)
+            VALUES (?, 'taux_unique', 'taux_unique', ?, ?, ?, ?, ?)
         `;
         db.query(sqlLog, [
-            req.user.entreprise_id,
             req.user.id,
             Number(montant),
             Number(taux),
             nbJours,
             arrondi,
             JSON.stringify({ date_debut, date_fin })
-        ], () => {});
+        ], (err) => {
+            if (err) console.error('Erreur log calcul:', err);
+        });
 
         res.json({
             cas: 'taux_unique',
@@ -95,19 +96,21 @@ exports.calculTauxUnique = (req, res, next) => {
         });
 
     } catch (err) {
-        console.error(err);
+        console.error('Erreur calculTauxUnique:', err);
         return next(new AppError('Erreur lors du calcul', 500));
     }
 };
-// CALCUL - TAUX VARIABLES (manuel)
+
 exports.calculTauxVariables = (req, res, next) => {
+    const db = req.db;
+    
     const { montant, periodes } = req.body;
 
     if (!montant || isNaN(montant) || montant <= 0) {
-        return next(new AppError('Le montant doit être un nombre positif', 400));
+        return next(new AppError('Le montant doit etre un nombre positif', 400));
     }
     if (!Array.isArray(periodes) || periodes.length === 0) {
-        return next(new AppError('Au moins une période est requise', 400));
+        return next(new AppError('Au moins une periode est requise', 400));
     }
 
     try {
@@ -129,21 +132,21 @@ exports.calculTauxVariables = (req, res, next) => {
 
         const total = details.reduce((sum, d) => sum + d.resultat, 0);
 
-        // Journalisation
         const sqlLog = `
             INSERT INTO logs_calculs 
-            (entreprise_id, utilisateur_id, type_calcul, type_calcul_detaille,
+            (utilisateur_id, type_calcul, type_calcul_detaille,
              montant, nb_jours, resultat, details)
-            VALUES (?, ?, 'taux_variables_manuel', 'taux_variable', ?, ?, ?, ?)
+            VALUES (?, 'taux_variables_manuel', 'taux_variable', ?, ?, ?, ?)
         `;
         db.query(sqlLog, [
-            req.user.entreprise_id,
             req.user.id,
             Number(montant),
             details.reduce((sum, d) => sum + d.nbJours, 0),
             arrondir(total),
             JSON.stringify(details)
-        ], () => {});
+        ], (err) => {
+            if (err) console.error('Erreur log calcul:', err);
+        });
 
         res.json({
             cas: 'taux_variables_manuel',
@@ -155,25 +158,26 @@ exports.calculTauxVariables = (req, res, next) => {
         });
 
     } catch (err) {
-        console.error(err);
+        console.error('Erreur calculTauxVariables:', err);
         return next(new AppError('Erreur lors du calcul', 500));
     }
 };
-// CALCUL - TAUX VARIABLES (AUTO depuis base centralisée)
+
 exports.calculTauxVariablesAuto = (req, res, next) => {
+    const db = req.db;
+    
     const { montant, date_debut, date_fin, categorie, sous_categorie } = req.body;
 
     if (!montant || isNaN(montant) || montant <= 0) {
-        return next(new AppError('Le montant doit être un nombre positif', 400));
+        return next(new AppError('Le montant doit etre un nombre positif', 400));
     }
     if (!date_debut || !date_fin) {
-        return next(new AppError('Les dates de début et fin sont requises', 400));
+        return next(new AppError('Les dates de debut et fin sont requises', 400));
     }
     if (!categorie) {
-        return next(new AppError('La catégorie est requise', 400));
+        return next(new AppError('La categorie est requise', 400));
     }
 
-    // Récupérer les taux depuis la base centralisée
     let sql = `
         SELECT * FROM taux_reference_central
         WHERE categorie = ? AND actif = TRUE
@@ -189,13 +193,13 @@ exports.calculTauxVariablesAuto = (req, res, next) => {
 
     db.query(sql, params, (err, tauxRefs) => {
         if (err) {
-            console.error(err);
-            return next(new AppError('Erreur lors de la récupération des taux', 500));
+            console.error('Erreur recuperation taux:', err);
+            return next(new AppError('Erreur lors de la recuperation des taux', 500));
         }
 
         if (tauxRefs.length === 0) {
             return next(new AppError(
-                `Aucun taux de référence trouvé pour la catégorie "${categorie}"`,
+                `Aucun taux de reference trouve pour la categorie "${categorie}"`,
                 404
             ));
         }
@@ -212,7 +216,7 @@ exports.calculTauxVariablesAuto = (req, res, next) => {
 
             if (tauxApplicables.length === 0) {
                 return next(new AppError(
-                    'Aucun taux applicable sur la période demandée',
+                    'Aucun taux applicable sur la periode demandee',
                     404
                 ));
             }
@@ -242,22 +246,22 @@ exports.calculTauxVariablesAuto = (req, res, next) => {
 
             const total = details.reduce((sum, d) => sum + d.resultat, 0);
 
-            // Journalisation
             const sqlLog = `
                 INSERT INTO logs_calculs 
-                (entreprise_id, utilisateur_id, type_calcul, type_calcul_detaille,
+                (utilisateur_id, type_calcul, type_calcul_detaille,
                  montant, nb_jours, resultat, details, taux_reference_used)
-                VALUES (?, ?, 'taux_variables_auto', 'taux_variable', ?, ?, ?, ?, ?)
+                VALUES (?, 'taux_variables_auto', 'taux_variable', ?, ?, ?, ?, ?)
             `;
             db.query(sqlLog, [
-                req.user.entreprise_id,
                 req.user.id,
                 Number(montant),
                 details.reduce((sum, d) => sum + d.nbJours, 0),
                 arrondir(total),
                 JSON.stringify({ categorie, sous_categorie, details }),
                 JSON.stringify(tauxRefs.map(t => ({ id: t.id, nom: t.nom, taux: t.taux })))
-            ], () => {});
+            ], (err) => {
+                if (err) console.error('Erreur log calcul:', err);
+            });
 
             res.json({
                 cas: 'taux_variables_auto',
@@ -271,37 +275,37 @@ exports.calculTauxVariablesAuto = (req, res, next) => {
             });
 
         } catch (err) {
-            console.error(err);
+            console.error('Erreur calculTauxVariablesAuto:', err);
             return next(new AppError('Erreur lors du calcul', 500));
         }
     });
 };
 
-// HISTORIQUE - TAUX UNIQUE (indépendant)
 exports.getHistoriqueTauxUnique = (req, res, next) => {
+    const db = req.db;
+    
     const { limit = 50, offset = 0 } = req.query;
 
     const sql = `
         SELECT l.*, u.nom, u.prenom
         FROM logs_calculs l
         LEFT JOIN users u ON l.utilisateur_id = u.id
-        WHERE l.entreprise_id = ? 
-        AND l.type_calcul_detaille = 'taux_unique'
+        WHERE l.type_calcul_detaille = 'taux_unique'
         ORDER BY l.created_at DESC
         LIMIT ? OFFSET ?
     `;
-    db.query(sql, [req.user.entreprise_id, parseInt(limit), parseInt(offset)], (err, results) => {
+    db.query(sql, [parseInt(limit), parseInt(offset)], (err, results) => {
         if (err) {
-            console.error(err);
+            console.error('Erreur getHistoriqueTauxUnique:', err);
             return next(new AppError('Erreur lors du chargement de l\'historique', 500));
         }
 
         db.query(
-            'SELECT COUNT(*) AS total FROM logs_calculs WHERE entreprise_id = ? AND type_calcul_detaille = ?',
-            [req.user.entreprise_id, 'taux_unique'],
+            'SELECT COUNT(*) AS total FROM logs_calculs WHERE type_calcul_detaille = ?',
+            ['taux_unique'],
             (err2, countResult) => {
                 if (err2) {
-                    console.error(err2);
+                    console.error('Erreur comptage historique:', err2);
                     return next(new AppError('Erreur lors du comptage', 500));
                 }
                 res.json({
@@ -314,32 +318,32 @@ exports.getHistoriqueTauxUnique = (req, res, next) => {
         );
     });
 };
-// HISTORIQUE - TAUX VARIABLE (indépendant)
 
 exports.getHistoriqueTauxVariable = (req, res, next) => {
+    const db = req.db;
+    
     const { limit = 50, offset = 0 } = req.query;
 
     const sql = `
         SELECT l.*, u.nom, u.prenom
         FROM logs_calculs l
         LEFT JOIN users u ON l.utilisateur_id = u.id
-        WHERE l.entreprise_id = ? 
-        AND l.type_calcul_detaille = 'taux_variable'
+        WHERE l.type_calcul_detaille = 'taux_variable'
         ORDER BY l.created_at DESC
         LIMIT ? OFFSET ?
     `;
-    db.query(sql, [req.user.entreprise_id, parseInt(limit), parseInt(offset)], (err, results) => {
+    db.query(sql, [parseInt(limit), parseInt(offset)], (err, results) => {
         if (err) {
-            console.error(err);
+            console.error('Erreur getHistoriqueTauxVariable:', err);
             return next(new AppError('Erreur lors du chargement de l\'historique', 500));
         }
 
         db.query(
-            'SELECT COUNT(*) AS total FROM logs_calculs WHERE entreprise_id = ? AND type_calcul_detaille = ?',
-            [req.user.entreprise_id, 'taux_variable'],
+            'SELECT COUNT(*) AS total FROM logs_calculs WHERE type_calcul_detaille = ?',
+            ['taux_variable'],
             (err2, countResult) => {
                 if (err2) {
-                    console.error(err2);
+                    console.error('Erreur comptage historique:', err2);
                     return next(new AppError('Erreur lors du comptage', 500));
                 }
                 res.json({
@@ -353,8 +357,9 @@ exports.getHistoriqueTauxVariable = (req, res, next) => {
     });
 };
 
-// CALCUL SIMPLE (pour composant réutilisable)
 exports.calculSimple = (req, res, next) => {
+    const db = req.db;
+    
     const { montant, taux, nb_jours } = req.body;
 
     if (!montant || isNaN(montant) || montant <= 0) {

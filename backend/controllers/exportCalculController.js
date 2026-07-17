@@ -1,12 +1,7 @@
-// backend/controllers/exportCalculController.js
-const db = require('../config/db');
 const { AppError } = require('../middleware/errorHandler.middleware');
 const ExportService = require('../services/export.service');
 
-// ============================================================
 // EXPORTER UN CALCUL EN COURS (body reçu)
-// ============================================================
-
 exports.exporterCalculPDF = async (req, res, next) => {
     const { data, type_rapport = 'detaille' } = req.body;
 
@@ -31,6 +26,8 @@ exports.exporterCalculPDF = async (req, res, next) => {
     }
 };
 
+// EXPORTER UN CALCUL EN WORD
+
 exports.exporterCalculWord = async (req, res, next) => {
     const { data, type_rapport = 'detaille' } = req.body;
 
@@ -47,7 +44,7 @@ exports.exporterCalculWord = async (req, res, next) => {
             title: 'Rapport de calcul'
         });
 
-        console.log(' Word généré, taille:', buffer.length);
+        console.log('Word généré, taille:', buffer.length);
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         res.setHeader('Content-Disposition', `attachment; filename=calcul-${Date.now()}.docx`);
@@ -60,9 +57,10 @@ exports.exporterCalculWord = async (req, res, next) => {
     }
 };
 
-// EXPORTER UNE ENTRÉE D'HISTORIQUE (par ID)
-
+// EXPORTER UNE ENTRÉE D'HISTORIQUE EN PDF
 exports.exporterHistoriquePDF = async (req, res, next) => {
+    const db = req.db;
+    
     const { id } = req.params;
     const { type_rapport = 'detaille' } = req.query;
 
@@ -71,7 +69,7 @@ exports.exporterHistoriquePDF = async (req, res, next) => {
         [id, req.user.entreprise_id],
         async (err, results) => {
             if (err) {
-                console.error(err);
+                console.error(' Erreur exporterHistoriquePDF:', err);
                 return next(new AppError('Erreur lors du chargement de l\'historique', 500));
             }
             if (results.length === 0) {
@@ -107,14 +105,18 @@ exports.exporterHistoriquePDF = async (req, res, next) => {
                 res.send(buffer);
 
             } catch (err) {
-                console.error(err);
+                console.error(' Erreur export PDF:', err);
                 return next(new AppError('Erreur lors de la génération du PDF', 500));
             }
         }
     );
 };
 
+// EXPORTER UNE ENTRÉE D'HISTORIQUE EN WORD
+
 exports.exporterHistoriqueWord = async (req, res, next) => {
+    const db = req.db;
+    
     const { id } = req.params;
     const { type_rapport = 'detaille' } = req.query;
 
@@ -123,7 +125,7 @@ exports.exporterHistoriqueWord = async (req, res, next) => {
         [id, req.user.entreprise_id],
         async (err, results) => {
             if (err) {
-                console.error(err);
+                console.error(' Erreur exporterHistoriqueWord:', err);
                 return next(new AppError('Erreur lors du chargement de l\'historique', 500));
             }
             if (results.length === 0) {
@@ -159,7 +161,7 @@ exports.exporterHistoriqueWord = async (req, res, next) => {
                 res.send(buffer);
 
             } catch (err) {
-                console.error(err);
+                console.error(' Erreur export Word:', err);
                 return next(new AppError('Erreur lors de la génération du document Word', 500));
             }
         }

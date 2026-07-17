@@ -1,3 +1,8 @@
+// ============================================================
+// FICHIER: backend/controllers/authController.js
+// VERSION CORRIGEE COMPLETE
+// ============================================================
+
 const databaseService = require('../services/database.service');
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
@@ -7,15 +12,13 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function validateRegisterInput({ nom, prenom, email, password }) {
   const errors = [];
-  if (!nom || nom.trim().length < 2) errors.push('Le nom est requis (min 2 caractères)');
-  if (!prenom || prenom.trim().length < 2) errors.push('Le prénom est requis (min 2 caractères)');
+  if (!nom || nom.trim().length < 2) errors.push('Le nom est requis (min 2 caracteres)');
+  if (!prenom || prenom.trim().length < 2) errors.push('Le prenom est requis (min 2 caracteres)');
   if (!email || !EMAIL_REGEX.test(email.trim())) errors.push('Email invalide');
-  if (!password || password.length < 8) errors.push('Le mot de passe doit contenir au moins 8 caractères');
+  if (!password || password.length < 8) errors.push('Le mot de passe doit contenir au moins 8 caracteres');
   return errors;
 }
-// ============================================================
-// VÉRIFICATION BLOCAGE COMPTE
-// ============================================================
+
 async function checkAccountBlocked(db, email) {
     try {
         const [rows] = await db.promise().query(
@@ -35,36 +38,28 @@ async function checkAccountBlocked(db, email) {
         return null;
     }
 }
-// ============================================================
-// INSCRIPTION D'UNE NOUVELLE ENTREPRISE (CORRIGÉE)
-// ============================================================
+
 exports.registerEntreprise = async (req, res) => {
   const { entreprise_nom, nom, prenom, email, password, plan_type } = req.body;
   const errors = validateRegisterInput({ nom, prenom, email, password });
   if (!entreprise_nom || entreprise_nom.trim().length < 2) {
-    errors.push("Le nom de l'entreprise est requis (min 2 caractères)");
+    errors.push("Le nom de l'entreprise est requis (min 2 caracteres)");
   }
   const planChoisi = plan_type === 'payant' ? 'payant' : 'essai';
   if (errors.length > 0) {
-    return res.status(400).json({ message: 'Données invalides', errors });
+    return res.status(400).json({ message: 'Donnees invalides', errors });
   }
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const cleanEmail = email.trim().toLowerCase();
 
-    // ============================================================
-    // 1. CRÉER L'ENTREPRISE (avec promisePoolMaster)
-    // ============================================================
     const [result] = await db.promisePoolMaster.query(
       'INSERT INTO entreprises (nom, email, statut, plan_type) VALUES (?, ?, ?, ?)',
       [entreprise_nom.trim(), cleanEmail, 'en_attente', planChoisi]
     );
     const entrepriseId = result.insertId;
 
-    // ============================================================
-    // 2. PROVISIONING TENANT (création de la base dédiée)
-    // ============================================================
     const dbName = databaseService.generateDbName(entreprise_nom, entrepriseId);
     await databaseService.createTenantDatabase(entrepriseId, dbName);
 
@@ -73,9 +68,6 @@ exports.registerEntreprise = async (req, res) => {
       [dbName, entrepriseId]
     );
 
-    // ============================================================
-    // 3. CRÉER LE RÔLE ADMIN (dans la base tenant)
-    // ============================================================
     const clientPool = db.getClientPool(entrepriseId, dbName);
     const [roleResult] = await clientPool.promise().query(
       'INSERT INTO roles (nom, est_admin_entreprise) VALUES (?, TRUE)',
@@ -83,9 +75,6 @@ exports.registerEntreprise = async (req, res) => {
     );
     const roleId = roleResult.insertId;
 
-    // ============================================================
-    // 4. AJOUTER LES PERMISSIONS
-    // ============================================================
     await clientPool.promise().query(
       `INSERT INTO permissions (role_id, module_id, consultation, creation, modification, suppression, validation, export)
        SELECT ?, m.id, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE
@@ -93,30 +82,44 @@ exports.registerEntreprise = async (req, res) => {
       [roleId]
     );
 
-    // ============================================================
-    // 5. CRÉER L'UTILISATEUR ADMIN
-    // ============================================================
     await clientPool.promise().query(
-      'INSERT INTO users (entreprise_id, role_id, nom, prenom, email, password) VALUES (?, ?, ?, ?, ?, ?)',
-      [entrepriseId, roleId, nom.trim(), prenom.trim(), cleanEmail, hashedPassword]
+      'INSERT INTO users (role_id, nom, prenom, email, password) VALUES (?, ?, ?, ?, ?)',
+      [roleId, nom.trim(), prenom.trim(), cleanEmail, hashedPassword]
     );
 
+    await db.promisePoolMaster.query(
+      `INSERT INTO users (entreprise_id, nom, prenom, email, password, is_super_admin, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+      [entrepriseId, nom.trim(), prenom.trim(), cleanEmail, hashedPassword, 0]
+    );
+
+    try {
+      await clientPool.promise().query(
+        `INSERT INTO taux_reference_central 
+         (categorie, sous_categorie, nom, description, taux, date_debut, date_fin, actif, version, created_by, created_at)
+         SELECT 
+            categorie, sous_categorie, nom, description, taux, date_debut, date_fin, actif, version, created_by, NOW()
+         FROM erp_db.taux_reference_central
+         WHERE actif = 1`
+      );
+      console.log('Taux de reference copies pour entreprise', entrepriseId);
+    } catch (copyErr) {
+      console.error('Erreur copie des taux de reference:', copyErr);
+    }
+
     res.status(201).json({
-      message: "Inscription réussie. Votre entreprise est en attente de validation par l'administrateur de la plateforme."
+      message: "Inscription reussie. Votre entreprise est en attente de validation par l'administrateur de la plateforme."
     });
 
   } catch (err) {
-    console.error('❌ Erreur inscription:', err);
+    console.error('Erreur inscription:', err);
     if (err.code === 'ER_DUP_ENTRY') {
-      return res.status(400).json({ message: 'Email déjà utilisé' });
+      return res.status(400).json({ message: 'Email deja utilise' });
     }
     res.status(500).json({ message: 'Erreur serveur' });
   }
 };
 
-// ============================================================
-// LOGIN (AVEC GESTION DU SUPERADMIN)
-// ============================================================
 exports.login = async (req, res) => {
     const { email, password } = req.body;
 
@@ -127,9 +130,6 @@ exports.login = async (req, res) => {
     const cleanEmail = email.trim().toLowerCase();
 
     try {
-        // ============================================================
-        // 1. RÉCUPÉRER L'UTILISATEUR DEPUIS LA BASE MASTER
-        // ============================================================
         const sql = `
             SELECT u.*, r.nom AS role_nom, e.nom AS entreprise_nom, e.statut AS entreprise_statut,
                    e.plan_type, e.connexions_utilisees, e.limite_connexions_essai, e.db_name
@@ -147,18 +147,13 @@ exports.login = async (req, res) => {
 
         const user = results[0];
 
-        // ============================================================
-        // 2. CAS SUPERADMIN (pas d'entreprise_id)
-        // ============================================================
         if (user.is_super_admin) {
-            // Vérifier le mot de passe directement dans la base master
             const isMatch = await bcrypt.compare(password, user.password);
             
             if (!isMatch) {
                 return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
             }
 
-            // Générer le token pour SuperAdmin
             const token = jwt.sign(
                 {
                     id: user.id,
@@ -171,7 +166,7 @@ exports.login = async (req, res) => {
             );
 
             return res.json({
-                message: 'Connexion réussie',
+                message: 'Connexion reussie',
                 token,
                 user: {
                     id: user.id,
@@ -185,37 +180,30 @@ exports.login = async (req, res) => {
             });
         }
 
-        // ============================================================
-        // 3. CAS UTILISATEUR NORMAL (vérification dans base tenant)
-        // ============================================================
-        
-        // Vérifier que l'utilisateur a une entreprise
         if (!user.entreprise_id || !user.db_name) {
-            console.error(' Configuration utilisateur incomplète:', {
+            console.error('Configuration utilisateur incomplete:', {
                 user_id: user.id,
                 email: user.email,
                 entreprise_id: user.entreprise_id,
                 db_name: user.db_name
             });
             return res.status(500).json({
-                message: 'Configuration de l\'utilisateur incomplète. Contactez le support.'
+                message: 'Configuration de l\'utilisateur incomplete. Contactez le support.'
             });
         }
 
-        // Vérifier si le compte est bloqué
         if (user.locked_until && new Date(user.locked_until) > new Date()) {
             return res.status(403).json({
-                message: 'Compte bloqué. Réessayez plus tard.',
+                message: 'Compte bloque. Reessayez plus tard.',
                 locked_until: user.locked_until,
                 remaining_minutes: Math.ceil((new Date(user.locked_until) - new Date()) / 60000)
             });
         }
 
-        // Vérifier le mot de passe dans la base tenant
         const clientPool = db.getClientPool(user.entreprise_id, user.db_name);
         const [userRows] = await clientPool.promise().query(
-            'SELECT * FROM users WHERE id = ?',
-            [user.id]
+            'SELECT * FROM users WHERE email = ?',
+            [cleanEmail]
         );
         
         if (userRows.length === 0) {
@@ -237,7 +225,7 @@ exports.login = async (req, res) => {
             
             await clientPool.promise().query(
                 'UPDATE users SET login_attempts = ?, locked_until = ? WHERE id = ?',
-                [attempts, lockedUntil, user.id]
+                [attempts, lockedUntil, userData.id]
             );
             
             return res.status(401).json({
@@ -248,13 +236,11 @@ exports.login = async (req, res) => {
             });
         }
 
-        // Réinitialiser les tentatives
         await clientPool.promise().query(
             'UPDATE users SET login_attempts = 0, locked_until = NULL, last_login = NOW() WHERE id = ?',
-            [user.id]
+            [userData.id]
         );
 
-        // Vérifier le statut de l'entreprise
         if (user.entreprise_statut !== 'actif') {
             return res.status(403).json({
                 message: user.entreprise_statut === 'en_attente'
@@ -263,7 +249,6 @@ exports.login = async (req, res) => {
             });
         }
 
-        // Gestion de l'essai gratuit
         let essaiExpire = false;
         let connexionsRestantes = null;
         let messageEssai = null;
@@ -283,20 +268,19 @@ exports.login = async (req, res) => {
                 connexionsRestantes = user.limite_connexions_essai - nouveauCompteur;
                 essaiExpire = connexionsRestantes <= 0;
                 messageEssai = essaiExpire
-                    ? "C'était votre dernière connexion d'essai gratuite."
+                    ? "C'etait votre derniere connexion d'essai gratuite."
                     : `Il vous reste ${connexionsRestantes} connexion(s) avant l'expiration.`;
             }
         }
 
-        // Générer le token
         const token = jwt.sign(
             {
-                id: user.id,
+                id: userData.id,
                 entreprise_id: user.entreprise_id,
-                role_id: user.role_id,
+                role_id: userData.role_id,
                 is_super_admin: false,
-                is_external: user.is_external || false,
-                client_id: user.client_id || null,
+                is_external: userData.is_external || false,
+                client_id: userData.client_id || null,
                 essai_expire: essaiExpire,
                 db_name: user.db_name
             },
@@ -305,18 +289,18 @@ exports.login = async (req, res) => {
         );
 
         res.json({
-            message: 'Connexion réussie',
+            message: 'Connexion reussie',
             messageEssai,
             token,
             user: {
-                id: user.id,
-                nom: user.nom,
-                prenom: user.prenom,
-                email: user.email,
+                id: userData.id,
+                nom: userData.nom,
+                prenom: userData.prenom,
+                email: userData.email,
                 role: user.role_nom || 'Utilisateur',
                 entreprise: user.entreprise_nom || null,
                 is_super_admin: false,
-                is_external: user.is_external || false,
+                is_external: userData.is_external || false,
                 plan_type: user.plan_type || null,
                 essai_expire: essaiExpire,
                 connexions_restantes: connexionsRestantes
@@ -324,14 +308,14 @@ exports.login = async (req, res) => {
         });
 
     } catch (err) {
-        console.error(' Erreur login:', err);
+        console.error('Erreur login:', err);
         res.status(500).json({ message: 'Erreur serveur' });
     }
 };
-// ============================================================
-// ME — utilisateur courant
-// ============================================================
+
 exports.getMe = (req, res) => {
+  const db = req.db;  
+  
   const sql = `
     SELECT u.id, u.nom, u.prenom, u.email, u.is_super_admin, u.is_external, u.client_id,
            r.id AS role_id, r.nom AS role_nom,
@@ -351,10 +335,9 @@ exports.getMe = (req, res) => {
   });
 };
 
-// ============================================================
-// MES PERMISSIONS
-// ============================================================
 exports.getMesPermissions = (req, res) => {
+  const db = req.db;
+  
   if (req.user.is_super_admin || req.user.is_external || !req.user.role_id) {
     return res.json({ permissions: [] });
   }
@@ -365,23 +348,25 @@ exports.getMesPermissions = (req, res) => {
     WHERE p.role_id = ?
   `;
   db.query(sql, [req.user.role_id], (err, results) => {
-    if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
+    if (err) { 
+      console.error('Erreur getMesPermissions:', err); 
+      return res.status(500).json({ message: 'Erreur serveur' }); 
+    }
     res.json({ permissions: results });
   });
 };
 
-// ============================================================
-// METTRE À JOUR MON PROFIL
-// ============================================================
 exports.updateMe = async (req, res) => {
+  const db = req.db; 
+  
   const { nom, prenom, email, password } = req.body;
   const errors = [];
-  if (!nom || nom.trim().length < 2) errors.push('Le nom est requis (min 2 caractères)');
-  if (!prenom || prenom.trim().length < 2) errors.push('Le prénom est requis (min 2 caractères)');
+  if (!nom || nom.trim().length < 2) errors.push('Le nom est requis (min 2 caracteres)');
+  if (!prenom || prenom.trim().length < 2) errors.push('Le prenom est requis (min 2 caracteres)');
   if (!email || !EMAIL_REGEX.test(email.trim())) errors.push('Email invalide');
-  if (password && password.length < 8) errors.push('Le mot de passe doit contenir au moins 8 caractères');
+  if (password && password.length < 8) errors.push('Le mot de passe doit contenir au moins 8 caracteres');
   if (errors.length > 0) {
-    return res.status(400).json({ message: 'Données invalides', errors });
+    return res.status(400).json({ message: 'Donnees invalides', errors });
   }
 
   try {
@@ -389,11 +374,11 @@ exports.updateMe = async (req, res) => {
     const finaliser = (sql, params) => {
       db.query(sql, params, (err) => {
         if (err) {
-          if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Email déjà utilisé' });
+          if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Email deja utilise' });
           console.error(err);
           return res.status(500).json({ message: 'Erreur serveur' });
         }
-        res.json({ message: 'Profil mis à jour avec succès' });
+        res.json({ message: 'Profil mis a jour avec succes' });
       });
     };
 
@@ -411,10 +396,9 @@ exports.updateMe = async (req, res) => {
   }
 };
 
-// ============================================================
-// ADMIN : lister les utilisateurs de l'entreprise
-// ============================================================
 exports.getUsersEntreprise = (req, res) => {
+  const db = req.db;  
+  
   const sql = `
     SELECT u.id, u.nom, u.prenom, u.email, u.is_external, u.created_at,
            r.id AS role_id, r.nom AS role_nom
@@ -429,15 +413,14 @@ exports.getUsersEntreprise = (req, res) => {
   });
 };
 
-// ============================================================
-// ADMIN : créer un utilisateur INTERNE
-// ============================================================
 exports.createUserByAdmin = async (req, res) => {
+  const db = req.db;  
+  
   const { nom, prenom, email, password, role_id } = req.body;
   const errors = validateRegisterInput({ nom, prenom, email, password });
-  if (!role_id) errors.push('Le rôle est requis');
+  if (!role_id) errors.push('Le role est requis');
   if (errors.length > 0) {
-    return res.status(400).json({ message: 'Données invalides', errors });
+    return res.status(400).json({ message: 'Donnees invalides', errors });
   }
 
   db.query(
@@ -449,7 +432,7 @@ exports.createUserByAdmin = async (req, res) => {
         return res.status(500).json({ message: 'Erreur serveur' });
       }
       if (roles.length === 0) {
-        return res.status(400).json({ message: 'Rôle invalide pour votre entreprise' });
+        return res.status(400).json({ message: 'Role invalide pour votre entreprise' });
       }
 
       try {
@@ -460,12 +443,12 @@ exports.createUserByAdmin = async (req, res) => {
           [req.user.entreprise_id, role_id, nom.trim(), prenom.trim(), cleanEmail, hashedPassword, req.user.id],
           (err, result) => {
             if (err) {
-              if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Email déjà utilisé' });
+              if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Email deja utilise' });
               console.error(err);
               return res.status(500).json({ message: 'Erreur serveur' });
             }
-            console.log(`[AUDIT] Admin id=${req.user.id} a créé le compte ${cleanEmail} (role_id=${role_id})`);
-            res.status(201).json({ message: 'Utilisateur créé avec succès', id: result.insertId });
+            console.log(`[AUDIT] Admin id=${req.user.id} a cree le compte ${cleanEmail} (role_id=${role_id})`);
+            res.status(201).json({ message: 'Utilisateur cree avec succes', id: result.insertId });
           }
         );
       } catch (err) {
@@ -476,15 +459,14 @@ exports.createUserByAdmin = async (req, res) => {
   );
 };
 
-// ============================================================
-// ADMIN : créer un compte EXTERNE
-// ============================================================
 exports.createExternalUser = async (req, res) => {
+  const db = req.db;  
+  
   const { nom, prenom, email, password, client_id } = req.body;
   const errors = validateRegisterInput({ nom, prenom, email, password });
   if (!client_id) errors.push('client_id est requis pour un compte externe');
   if (errors.length > 0) {
-    return res.status(400).json({ message: 'Données invalides', errors });
+    return res.status(400).json({ message: 'Donnees invalides', errors });
   }
 
   db.query(
@@ -507,11 +489,11 @@ exports.createExternalUser = async (req, res) => {
           [req.user.entreprise_id, nom.trim(), prenom.trim(), cleanEmail, hashedPassword, client_id, req.user.id],
           (err, result) => {
             if (err) {
-              if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Email déjà utilisé' });
+              if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Email deja utilise' });
               console.error(err);
               return res.status(500).json({ message: 'Erreur serveur' });
             }
-            res.status(201).json({ message: 'Compte externe créé avec succès', id: result.insertId });
+            res.status(201).json({ message: 'Compte externe cree avec succes', id: result.insertId });
           }
         );
       } catch (err) {
@@ -522,10 +504,9 @@ exports.createExternalUser = async (req, res) => {
   );
 };
 
-// ============================================================
-// ADMIN : changer le rôle d'un utilisateur
-// ============================================================
 exports.updateUserRole = (req, res) => {
+  const db = req.db;  
+  
   const { id } = req.params;
   const { role_id } = req.body;
   if (!role_id) {
@@ -541,7 +522,7 @@ exports.updateUserRole = (req, res) => {
         return res.status(500).json({ message: 'Erreur serveur' });
       }
       if (roles.length === 0) {
-        return res.status(400).json({ message: 'Rôle invalide pour votre entreprise' });
+        return res.status(400).json({ message: 'Role invalide pour votre entreprise' });
       }
 
       db.query(
@@ -555,17 +536,15 @@ exports.updateUserRole = (req, res) => {
           if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'Utilisateur introuvable dans votre entreprise' });
           }
-          res.json({ message: 'Rôle mis à jour avec succès' });
+          res.json({ message: 'Role mis a jour avec succes' });
         }
       );
     }
   );
 };
 
-// ============================================================
-// ADMIN : supprimer un utilisateur
-// ============================================================
 exports.deleteUser = (req, res) => {
+  const db = req.db;  
   const { id } = req.params;
 
   if (Number(id) === req.user.id) {
@@ -588,7 +567,7 @@ exports.deleteUser = (req, res) => {
       db.query('DELETE FROM users WHERE id = ? AND entreprise_id = ?', [id, req.user.entreprise_id], (err, result) => {
         if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
         if (result.affectedRows === 0) return res.status(404).json({ message: 'Utilisateur introuvable' });
-        res.json({ message: 'Utilisateur supprimé avec succès' });
+        res.json({ message: 'Utilisateur supprime avec succes' });
       });
     };
 
@@ -612,13 +591,11 @@ exports.deleteUser = (req, res) => {
   });
 };
 
-// ============================================================
-// ADMIN : statistiques des comptes
-// ============================================================
 exports.getUserStats = (req, res) => {
+  const db = req.db; 
   const sql = `
     SELECT
-      COALESCE(r.nom, 'Externe / sans rôle') AS role_nom,
+      COALESCE(r.nom, 'Externe / sans role') AS role_nom,
       COUNT(*) AS total
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id

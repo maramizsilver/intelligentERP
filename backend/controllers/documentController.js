@@ -1,25 +1,39 @@
-const db = require('../config/db');
 const fs = require('fs');
 const path = require('path');
 
 const TYPES_VALIDES = ['facture', 'contrat', 'bon_commande', 'devis', 'identite', 'autre'];
 
 // ============================================================
-// GET TOUS LES DOCUMENTS (filtres optionnels : type, reference_type, reference_id)
+// GET TOUS LES DOCUMENTS
 // ============================================================
 exports.getAllDocuments = (req, res) => {
+    const db = req.db;
+    
     const { type, reference_type, reference_id } = req.query;
 
-    let sql = 'SELECT id, nom, type_document, reference_type, reference_id, nom_original, mime_type, taille_octets, uploaded_by, created_at FROM documents WHERE entreprise_id = ?';
+    let sql = `SELECT id, nom, type_document, reference_type, reference_id, nom_original, mime_type, taille_octets, uploaded_by, created_at 
+               FROM documents WHERE entreprise_id = ?`;
     const params = [req.user.entreprise_id];
 
-    if (type) { sql += ' AND type_document = ?'; params.push(type); }
-    if (reference_type) { sql += ' AND reference_type = ?'; params.push(reference_type); }
-    if (reference_id) { sql += ' AND reference_id = ?'; params.push(reference_id); }
+    if (type) { 
+        sql += ' AND type_document = ?'; 
+        params.push(type); 
+    }
+    if (reference_type) { 
+        sql += ' AND reference_type = ?'; 
+        params.push(reference_type); 
+    }
+    if (reference_id) { 
+        sql += ' AND reference_id = ?'; 
+        params.push(reference_id); 
+    }
     sql += ' ORDER BY created_at DESC';
 
     db.query(sql, params, (err, results) => {
-        if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
+        if (err) {
+            console.error(' Erreur getAllDocuments:', err);
+            return res.status(500).json({ message: 'Erreur serveur' });
+        }
         res.json({ documents: results });
     });
 };
@@ -28,35 +42,57 @@ exports.getAllDocuments = (req, res) => {
 // GET UN DOCUMENT (métadonnées)
 // ============================================================
 exports.getDocumentById = (req, res) => {
-    db.query('SELECT * FROM documents WHERE id = ? AND entreprise_id = ?', [req.params.id, req.user.entreprise_id], (err, results) => {
-        if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
-        if (results.length === 0) return res.status(404).json({ message: 'Document introuvable' });
-        res.json({ document: results[0] });
-    });
+    const db = req.db;
+    
+    db.query(
+        'SELECT * FROM documents WHERE id = ? AND entreprise_id = ?',
+        [req.params.id, req.user.entreprise_id],
+        (err, results) => {
+            if (err) {
+                console.error(' Erreur getDocumentById:', err);
+                return res.status(500).json({ message: 'Erreur serveur' });
+            }
+            if (results.length === 0) {
+                return res.status(404).json({ message: 'Document introuvable' });
+            }
+            res.json({ document: results[0] });
+        }
+    );
 };
 
 // ============================================================
 // TÉLÉCHARGER LE FICHIER D'UN DOCUMENT
 // ============================================================
 exports.telechargerDocument = (req, res) => {
-    db.query('SELECT * FROM documents WHERE id = ? AND entreprise_id = ?', [req.params.id, req.user.entreprise_id], (err, results) => {
-        if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
-        if (results.length === 0) return res.status(404).json({ message: 'Document introuvable' });
+    const db = req.db;
+    
+    db.query(
+        'SELECT * FROM documents WHERE id = ? AND entreprise_id = ?',
+        [req.params.id, req.user.entreprise_id],
+        (err, results) => {
+            if (err) {
+                console.error(' Erreur telechargerDocument:', err);
+                return res.status(500).json({ message: 'Erreur serveur' });
+            }
+            if (results.length === 0) {
+                return res.status(404).json({ message: 'Document introuvable' });
+            }
 
-        const doc = results[0];
-        if (!fs.existsSync(doc.chemin_fichier)) {
-            return res.status(404).json({ message: 'Fichier introuvable sur le serveur' });
+            const doc = results[0];
+            if (!fs.existsSync(doc.chemin_fichier)) {
+                return res.status(404).json({ message: 'Fichier introuvable sur le serveur' });
+            }
+            res.download(doc.chemin_fichier, doc.nom_original);
         }
-        res.download(doc.chemin_fichier, doc.nom_original);
-    });
+    );
 };
 
 // ============================================================
-// UPLOADER UN DOCUMENT (le fichier est déjà déposé sur disque par multer,
-// disponible dans req.file — voir documentRoutes.js)
-// body: { nom, type_document, reference_type?, reference_id? }
+// UPLOADER UN DOCUMENT
 // ============================================================
 exports.uploadDocument = (req, res) => {
+    const db = req.db;
+    
     if (!req.file) {
         return res.status(400).json({ message: 'Aucun fichier fourni' });
     }
@@ -82,11 +118,15 @@ exports.uploadDocument = (req, res) => {
         req.user.id
     ], (err, result) => {
         if (err) {
-            console.error(err);
+            console.error(' Erreur uploadDocument:', err);
+            // Supprimer le fichier en cas d'erreur
             fs.unlink(req.file.path, () => {});
             return res.status(500).json({ message: 'Erreur serveur' });
         }
-        res.status(201).json({ message: 'Document téléversé avec succès', id: result.insertId });
+        res.status(201).json({ 
+            message: 'Document téléversé avec succès', 
+            id: result.insertId 
+        });
     });
 };
 
@@ -94,17 +134,41 @@ exports.uploadDocument = (req, res) => {
 // SUPPRIMER UN DOCUMENT (métadonnée + fichier disque)
 // ============================================================
 exports.deleteDocument = (req, res) => {
-    db.query('SELECT chemin_fichier FROM documents WHERE id = ? AND entreprise_id = ?', [req.params.id, req.user.entreprise_id], (errSel, results) => {
-        if (errSel) { console.error(errSel); return res.status(500).json({ message: 'Erreur serveur' }); }
-        if (results.length === 0) return res.status(404).json({ message: 'Document introuvable' });
-
-        const cheminFichier = results[0].chemin_fichier;
-        db.query('DELETE FROM documents WHERE id = ? AND entreprise_id = ?', [req.params.id, req.user.entreprise_id], (err, result) => {
-            if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
-            if (cheminFichier && fs.existsSync(cheminFichier)) {
-                fs.unlink(cheminFichier, () => {});
+    const db = req.db;
+    
+    db.query(
+        'SELECT chemin_fichier FROM documents WHERE id = ? AND entreprise_id = ?',
+        [req.params.id, req.user.entreprise_id],
+        (errSel, results) => {
+            if (errSel) {
+                console.error(' Erreur deleteDocument - select:', errSel);
+                return res.status(500).json({ message: 'Erreur serveur' });
             }
-            res.json({ message: 'Document supprimé avec succès' });
-        });
-    });
+            if (results.length === 0) {
+                return res.status(404).json({ message: 'Document introuvable' });
+            }
+
+            const cheminFichier = results[0].chemin_fichier;
+            
+            db.query(
+                'DELETE FROM documents WHERE id = ? AND entreprise_id = ?',
+                [req.params.id, req.user.entreprise_id],
+                (err, result) => {
+                    if (err) {
+                        console.error(' Erreur deleteDocument - delete:', err);
+                        return res.status(500).json({ message: 'Erreur serveur' });
+                    }
+                    // Supprimer le fichier physique
+                    if (cheminFichier && fs.existsSync(cheminFichier)) {
+                        fs.unlink(cheminFichier, (unlinkErr) => {
+                            if (unlinkErr) {
+                                console.error('Erreur suppression fichier:', unlinkErr);
+                            }
+                        });
+                    }
+                    res.json({ message: 'Document supprimé avec succès' });
+                }
+            );
+        }
+    );
 };

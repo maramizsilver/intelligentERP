@@ -1,4 +1,3 @@
-// src/App.js
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -50,7 +49,7 @@ import Documents from './pages/admin/Documents';
 import Archives from './pages/admin/Archives';
 
 // ============================================================
-// SUPERADMIN - TAUX REFERENCE  ← NOUVEAU
+// SUPERADMIN - TAUX REFERENCE
 // ============================================================
 import TauxReference from './pages/admin/superadmin/TauxReference';
 
@@ -74,7 +73,9 @@ import Finance from './pages/Finance/Finance';
 // ============================================================
 import Calculateur from './pages/calculateur/Calculateur';
 
+// 
 import './styles/global.css';
+import './styles/print.css';  
 
 function App() {
   return (
@@ -126,7 +127,7 @@ function AppRoutes() {
       />
 
       {/* ============================================================
-          SUPER ADMIN - TAUX & PERIODES  ← NOUVEAU
+          SUPER ADMIN - TAUX & PERIODES
           ============================================================ */}
       <Route
         path="/superadmin/taux-reference"
