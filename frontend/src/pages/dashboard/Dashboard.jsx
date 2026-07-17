@@ -1,4 +1,3 @@
-// src/pages/dashboard/Dashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -76,7 +75,6 @@ export default function Dashboard() {
     }
   };
 
-  // Redirections
   if (user?.is_external) {
     navigate('/client/dashboard');
     return null;
@@ -90,59 +88,54 @@ export default function Dashboard() {
     return <LoadingSpinner size="lg" text="Chargement de votre espace..." />;
   }
 
-  // Menu items avec permissions
   const menuItems = [];
 
-  // Ventes
   if (hasPermission('Ventes', 'consultation')) {
     menuItems.push(
-      { path: '/clients', label: ' Clients', desc: `${stats.clients} enregistrés` },
-      { path: '/devis', label: ' Devis', desc: `${stats.devis} total · ${stats.devisEnAttente} en attente` },
-      { path: '/commandes', label: ' Commandes', desc: `${stats.commandes} total · ${stats.commandesEnAttente} en attente` },
+      { path: '/clients', label: 'Clients', desc: `${stats.clients} enregistres` },
+      { path: '/devis', label: 'Devis', desc: `${stats.devis} total · ${stats.devisEnAttente} en attente` },
+      { path: '/commandes', label: 'Commandes', desc: `${stats.commandes} total · ${stats.commandesEnAttente} en attente` },
       { path: '/promotions', label: 'Promotions', desc: `${stats.promotionsActives} actives` }
     );
   }
 
-  // Achats
   if (hasPermission('Achats', 'consultation')) {
     menuItems.push(
-      { path: '/fournisseurs', label: 'Fournisseurs', desc: `${stats.fournisseurs} enregistrés` },
-      { path: '/achats', label: ' Achats', desc: `${stats.achatsEnCours} en cours` }
+      { path: '/fournisseurs', label: 'Fournisseurs', desc: `${stats.fournisseurs} enregistres` },
+      { path: '/achats', label: 'Achats', desc: `${stats.achatsEnCours} en cours` }
     );
   }
 
-  // Stock
   if (hasPermission('Stock', 'consultation')) {
     menuItems.push(
-      { path: '/produits', label: ' Produits', desc: `${stats.produits} références` },
+      { path: '/produits', label: 'Produits', desc: `${stats.produits} references` },
       { path: '/mouvements-stock', label: 'Mouvements', desc: 'Historique des stocks' },
       { 
         path: '/alertes-stock', 
-        label: ' Alertes', 
+        label: 'Alertes', 
         desc: stats.alertesStock > 0 ? `${stats.alertesStock} produit(s) critique(s)` : 'Aucune alerte',
         danger: stats.alertesStock > 0
       },
-      { path: '/entrepots', label: ' Entrepôts', desc: 'Gestion des entrepôts' },
+      { path: '/entrepots', label: 'Entrepots', desc: 'Gestion des entrepots' },
+      { path: '/calculateur', label: 'Calculateur', desc: 'Moteur de calcul' },
       { path: '/inventaires', label: 'Inventaires', desc: 'Gestion des inventaires' }
     );
   }
 
-  // Administration
   if (hasPermission('Utilisateurs', 'consultation')) {
     menuItems.push(
-      { path: '/utilisateurs', label: ' Utilisateurs', desc: 'Gestion des accès' }
+      { path: '/utilisateurs', label: 'Utilisateurs', desc: 'Gestion des acces' }
     );
   }
   if (hasPermission('Documents', 'consultation')) {
     menuItems.push(
       { path: '/documents', label: 'Documents', desc: 'Gestion documentaire' },
-      { path: '/archives', label: ' Archives', desc: 'Archivage numérique' }
+      { path: '/archives', label: 'Archives', desc: 'Archivage numerique' }
     );
   }
 
   return (
     <div>
-      {/* En-tête */}
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Tableau de bord</h1>
@@ -151,12 +144,11 @@ export default function Dashboard() {
             {user?.entreprise && ` · ${user.entreprise}`}
           </p>
         </div>
-        <Button variant="secondary" onClick={loadStats} icon="⟳">
+        <Button variant="secondary" onClick={loadStats} size="sm">
           Actualiser
         </Button>
       </div>
 
-      {/* Statistiques */}
       <div style={styles.statsGrid}>
         <div style={styles.statCard}>
           <div style={styles.statNumber}>{stats.clients}</div>
@@ -175,7 +167,7 @@ export default function Dashboard() {
           <div style={styles.statLabel}>
             Commandes
             {stats.commandesEnAttente > 0 && (
-              <Badge variant="warning" style={{ marginLeft: '8px' }}>
+              <Badge variant="warning" style={{ marginLeft: '6px' }}>
                 {stats.commandesEnAttente} en attente
               </Badge>
             )}
@@ -186,7 +178,7 @@ export default function Dashboard() {
           <div style={styles.statLabel}>
             Devis
             {stats.devisEnAttente > 0 && (
-              <Badge variant="warning" style={{ marginLeft: '8px' }}>
+              <Badge variant="warning" style={{ marginLeft: '6px' }}>
                 {stats.devisEnAttente} en attente
               </Badge>
             )}
@@ -197,13 +189,13 @@ export default function Dashboard() {
           <div style={styles.statLabel}>Promotions actives</div>
         </div>
         <div style={{ ...styles.statCard, ...(stats.alertesStock > 0 ? styles.statCardDanger : {}) }}>
-          <div style={{ ...styles.statNumber, color: stats.alertesStock > 0 ? '#EF4444' : '#0F172A' }}>
+          <div style={{ ...styles.statNumber, color: stats.alertesStock > 0 ? '#DC2626' : '#0F172A' }}>
             {stats.alertesStock}
           </div>
           <div style={styles.statLabel}>
             Alertes stock
             {stats.alertesStock > 0 && (
-              <Badge variant="danger" style={{ marginLeft: '8px' }}>rupture</Badge>
+              <Badge variant="danger" style={{ marginLeft: '6px' }}>rupture</Badge>
             )}
           </div>
         </div>
@@ -213,8 +205,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Menu */}
-      <Card title=" Accès rapide" variant="primary">
+      <Card title="Acces rapide" variant="primary">
         <div style={styles.menuGrid}>
           {menuItems.map((item, idx) => (
             <div
@@ -225,7 +216,6 @@ export default function Dashboard() {
               }}
               onClick={() => navigate(item.path)}
             >
-              <span style={styles.menuIcon}>{item.label.split(' ')[0]}</span>
               <div style={styles.menuContent}>
                 <div style={styles.menuTitle}>{item.label}</div>
                 <div style={styles.menuDesc}>{item.desc}</div>
@@ -242,7 +232,7 @@ const styles = {
   header: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: '24px',
     flexWrap: 'wrap',
     gap: '12px',
@@ -260,19 +250,19 @@ const styles = {
   },
   statsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-    gap: '12px',
-    marginBottom: '24px',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+    gap: '16px',
+    marginBottom: '28px',
   },
   statCard: {
     backgroundColor: '#FFFFFF',
-    padding: '18px 20px',
+    padding: '20px 24px',
     borderRadius: '12px',
     boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-    border: '1px solid #F1F5F9',
+    border: '1px solid #E8EDF2',
   },
   statCardDanger: {
-    border: '1px solid #FECACA',
+    borderColor: '#FECACA',
     backgroundColor: '#FEF2F2',
   },
   statNumber: {
@@ -283,10 +273,11 @@ const styles = {
   statLabel: {
     fontSize: '13px',
     color: '#64748B',
+    marginTop: '4px',
     display: 'flex',
     alignItems: 'center',
-    gap: '6px',
     flexWrap: 'wrap',
+    gap: '4px',
   },
   menuGrid: {
     display: 'grid',
@@ -296,26 +287,16 @@ const styles = {
   menuCard: {
     display: 'flex',
     alignItems: 'center',
-    gap: '14px',
-    padding: '14px 18px',
+    padding: '16px 20px',
     backgroundColor: '#F8FAFC',
     borderRadius: '10px',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
-    border: '1px solid transparent',
-    ':hover': {
-      backgroundColor: '#F1F5F9',
-      transform: 'translateY(-2px)',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-    },
+    border: '1px solid #E8EDF2',
   },
   menuCardDanger: {
     backgroundColor: '#FEF2F2',
     borderColor: '#FECACA',
-  },
-  menuIcon: {
-    fontSize: '24px',
-    flexShrink: 0,
   },
   menuContent: {
     flex: 1,
