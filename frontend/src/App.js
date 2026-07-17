@@ -3,31 +3,24 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/layout/Layout';
 import PrivateRoute from './components/PrivateRoute';
+import SecuriteMFA from './pages/admin/SecuriteMFA';
 
-// ============================================================
 // AUTH
-// ============================================================
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 
-// ============================================================
 // DASHBOARD
-// ============================================================
 import Dashboard from './pages/dashboard/Dashboard';
 import SuperAdminDashboard from './pages/dashboard/SuperAdminDashboard';
 import EssaiExpire from './pages/dashboard/EssaiExpire';
-
-// ============================================================
 // VENTES
-// ============================================================
 import Clients from './pages/ventes/Clients';
 import Commandes from './pages/ventes/Commandes';
 import Devis from './pages/ventes/Devis';
 import Promotions from './pages/ventes/Promotions';
 
-// ============================================================
 // ACHATS
-// ============================================================
+// 
 import Fournisseurs from './pages/achats/Fournisseurs';
 import Achats from './pages/achats/Achats';
 
@@ -73,9 +66,11 @@ import Finance from './pages/Finance/Finance';
 // ============================================================
 import Calculateur from './pages/calculateur/Calculateur';
 
-// 
+// ============================================================
+// STYLES
+// ============================================================
 import './styles/global.css';
-import './styles/print.css';  
+import './styles/print.css';
 
 function App() {
   return (
@@ -395,6 +390,20 @@ function AppRoutes() {
           <PrivateRoute>
             <Layout>
               <Archives />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+
+      {/* ============================================================
+          ROUTE MFA - SECURITE
+          ============================================================ */}
+      <Route
+        path="/securite/mfa"
+        element={
+          <PrivateRoute>
+            <Layout>
+              <SecuriteMFA />
             </Layout>
           </PrivateRoute>
         }

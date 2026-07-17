@@ -1,15 +1,14 @@
-// src/components/layout/Layout.jsx
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import Sidebar from './Sidebar';
 import Header from '../Header';
 import EssaiBanner from '../EssaiBanner';
+import MfaBanner from '../MfaBanner';  
 import { colors, spacing, transitions } from '../../styles/theme';
 
 export default function Layout({ children }) {
   const { user } = useAuth();
 
-  // Pas de layout pour les clients externes
   if (user?.is_external) {
     return (
       <>
@@ -24,6 +23,7 @@ export default function Layout({ children }) {
       <Sidebar />
       <div style={styles.mainContent}>
         <Header />
+        <MfaBanner />       
         <EssaiBanner />
         <main style={styles.main}>
           <div className="fade-in-up" style={styles.content}>

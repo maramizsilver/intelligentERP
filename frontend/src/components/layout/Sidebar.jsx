@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -30,9 +28,7 @@ export default function Sidebar() {
   };
 
   const getMenuItems = () => {
-    // ============================================================
     // SUPER ADMIN
-    // ============================================================
     if (user?.is_super_admin) {
       return [
         {
@@ -55,9 +51,8 @@ export default function Sidebar() {
       ];
     }
 
-    // ============================================================
     // UTILISATEUR INTERNE (entreprise)
-    // ============================================================
+
     const sections = [];
 
     // Dashboard
@@ -137,6 +132,15 @@ export default function Sidebar() {
       adminItems.push({ path: '/documents', label: 'Documents', icon: '📁', description: 'Gestion documentaire' });
       adminItems.push({ path: '/archives', label: 'Archives', icon: '🗄️', description: 'Archivage numérique' });
     }
+
+    // Ajouter le lien MFA (visible par tous les utilisateurs internes)
+    adminItems.push({ 
+      path: '/securite/mfa', 
+      label: 'Sécurité MFA', 
+      icon: '🔐', 
+      description: 'Authentification à deux facteurs' 
+    });
+
     if (adminItems.length > 0) {
       sections.push({ section: 'Administration', items: adminItems });
     }
