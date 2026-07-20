@@ -357,6 +357,93 @@ exports.getHistoriqueTauxVariable = (req, res, next) => {
     });
 };
 
+exports.getHistoriqueTauxUniqueById = (req, res, next) => {
+    const db = req.db;
+    const { id } = req.params;
+    
+    db.query(
+        'SELECT * FROM logs_calculs WHERE id = ? AND type_calcul_detaille = ?',
+        [id, 'taux_unique'],
+        (err, results) => {
+            if (err) {
+                console.error('Erreur getHistoriqueTauxUniqueById:', err);
+                return next(new AppError('Erreur lors du chargement', 500));
+            }
+            if (results.length === 0) {
+                return next(new AppError('Historique introuvable', 404));
+            }
+            
+            const log = results[0];
+            let details = {};
+            try {
+                details = log.details ? JSON.parse(log.details) : {};
+            } catch (e) {
+                details = {};
+            }
+            
+            const data = {
+                montant: log.montant,
+                taux: log.taux,
+                resultat: log.resultat,
+                nbJours: log.nb_jours,
+                cas: 'taux_unique',
+                base_jours: 365,
+                date_debut: details.date_debut || null,
+                date_fin: details.date_fin || null,
+                type_calcul: 'taux_unique'
+            };
+            
+            res.json(data);
+        }
+    );
+};
+
+exports.getHistoriqueTauxVariableById = (req, res, next) => {
+    const db = req.db;
+    const { id } = req.params;
+    
+    db.query(
+        'SELECT * FROM logs_calculs WHERE id = ? AND type_calcul_detaille = ?',
+        [id, 'taux_variable'],
+        (err, results) => {
+            if (err) {
+                console.error('Erreur getHistoriqueTauxVariableById:', err);
+                return next(new AppError('Erreur lors du chargement', 500));
+            }
+            if (results.length === 0) {
+                return next(new AppError('Historique introuvable', 404));
+            }
+            
+            const log = results[0];
+            let details = [];
+            try {
+                details = log.details ? JSON.parse(log.details) : [];
+            } catch (e) {
+                details = [];
+            }
+            
+            const data = {
+                montant: log.montant,
+                resultat: log.resultat,
+                total: log.resultat,
+                cas: 'taux_variables_manuel',
+                base_jours: 365,
+                type_calcul: 'taux_variables_manuel',
+                details: details.map((d, index) => ({
+                    periode: index + 1,
+                    date_debut: d.date_debut || '',
+                    date_fin: d.date_fin || '',
+                    nbJours: d.nbJours || 0,
+                    taux: d.taux || 0,
+                    resultat: d.resultat || 0
+                }))
+            };
+            
+            res.json(data);
+        }
+    );
+};
+
 exports.calculSimple = (req, res, next) => {
     const db = req.db;
     

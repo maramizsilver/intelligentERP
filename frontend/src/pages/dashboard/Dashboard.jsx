@@ -23,6 +23,9 @@ export default function Dashboard() {
     achatsEnCours: 0
   });
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     loadStats();
@@ -72,6 +75,34 @@ export default function Dashboard() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ============================================================
+  // EXPORT DES DONNEES
+  // ============================================================
+  const exporterDonnees = async () => {
+    setExporting(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await API.get('/export/mes-donnees', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `export-donnees-erp-${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      setSuccess('Donnees exportees avec succes');
+      
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err) {
+      setError('Erreur lors de l\'export');
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -136,6 +167,19 @@ export default function Dashboard() {
 
   return (
     <div>
+      {error && (
+        <div style={styles.errorContainer}>
+          <span style={styles.errorIcon}>X</span>
+          <span style={styles.errorText}>{error}</span>
+        </div>
+      )}
+      {success && (
+        <div style={styles.successContainer}>
+          <span style={styles.successIcon}>✓</span>
+          <span style={styles.successText}>{success}</span>
+        </div>
+      )}
+
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Tableau de bord</h1>
@@ -144,9 +188,19 @@ export default function Dashboard() {
             {user?.entreprise && ` · ${user.entreprise}`}
           </p>
         </div>
-        <Button variant="secondary" onClick={loadStats} size="sm">
-          Actualiser
-        </Button>
+        <div style={styles.headerActions}>
+          <Button 
+            variant="outline" 
+            onClick={exporterDonnees} 
+            loading={exporting}
+            size="sm"
+          >
+            Exporter mes donnees
+          </Button>
+          <Button variant="secondary" onClick={loadStats} size="sm">
+            Actualiser
+          </Button>
+        </div>
       </div>
 
       <div style={styles.statsGrid}>
@@ -228,6 +282,9 @@ export default function Dashboard() {
   );
 }
 
+// ============================================================
+// STYLES
+// ============================================================
 const styles = {
   header: {
     display: 'flex',
@@ -236,6 +293,11 @@ const styles = {
     marginBottom: '24px',
     flexWrap: 'wrap',
     gap: '12px',
+  },
+  headerActions: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
   },
   title: {
     fontSize: '24px',
@@ -248,6 +310,48 @@ const styles = {
     color: '#64748B',
     margin: '4px 0 0',
   },
+  
+  errorContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    backgroundColor: '#FEF2F2',
+    border: '1px solid #FECACA',
+    borderRadius: '8px',
+    padding: '12px 16px',
+    marginBottom: '16px',
+  },
+  errorIcon: {
+    color: '#991B1B',
+    fontSize: '16px',
+    fontWeight: 'bold',
+  },
+  errorText: {
+    color: '#991B1B',
+    fontSize: '13px',
+    fontWeight: 500,
+  },
+  successContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    backgroundColor: '#F0FDF4',
+    border: '1px solid #86EFAC',
+    borderRadius: '8px',
+    padding: '12px 16px',
+    marginBottom: '16px',
+  },
+  successIcon: {
+    color: '#065F46',
+    fontSize: '16px',
+    fontWeight: 'bold',
+  },
+  successText: {
+    color: '#065F46',
+    fontSize: '13px',
+    fontWeight: 500,
+  },
+
   statsGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
@@ -279,6 +383,7 @@ const styles = {
     flexWrap: 'wrap',
     gap: '4px',
   },
+  
   menuGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',

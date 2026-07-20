@@ -2,25 +2,23 @@ const fs = require('fs');
 const path = require('path');
 
 const TYPES_VALIDES = ['facture', 'contrat', 'bon_commande', 'devis', 'identite', 'autre'];
-
-// ============================================================
 // GET TOUS LES DOCUMENTS
-// ============================================================
 exports.getAllDocuments = (req, res) => {
     const db = req.db;
     
     const { type, reference_type, reference_id } = req.query;
 
     let sql = `SELECT id, nom, type_document, reference_type, reference_id, nom_original, mime_type, taille_octets, uploaded_by, created_at 
-               FROM documents WHERE entreprise_id = ?`;
-    const params = [req.user.entreprise_id];
+               FROM documents`;
+    const params = [];
 
     if (type) { 
-        sql += ' AND type_document = ?'; 
+        sql += ' WHERE type_document = ?'; 
         params.push(type); 
     }
     if (reference_type) { 
-        sql += ' AND reference_type = ?'; 
+        sql += type ? ' AND' : ' WHERE';
+        sql += ' reference_type = ?'; 
         params.push(reference_type); 
     }
     if (reference_id) { 
@@ -37,16 +35,15 @@ exports.getAllDocuments = (req, res) => {
         res.json({ documents: results });
     });
 };
-
-// ============================================================
+ 
 // GET UN DOCUMENT (métadonnées)
-// ============================================================
+
 exports.getDocumentById = (req, res) => {
     const db = req.db;
     
     db.query(
-        'SELECT * FROM documents WHERE id = ? AND entreprise_id = ?',
-        [req.params.id, req.user.entreprise_id],
+        'SELECT * FROM documents WHERE id = ?',
+        [req.params.id],
         (err, results) => {
             if (err) {
                 console.error(' Erreur getDocumentById:', err);
@@ -60,15 +57,14 @@ exports.getDocumentById = (req, res) => {
     );
 };
 
-// ============================================================
+
 // TÉLÉCHARGER LE FICHIER D'UN DOCUMENT
-// ============================================================
 exports.telechargerDocument = (req, res) => {
     const db = req.db;
     
     db.query(
-        'SELECT * FROM documents WHERE id = ? AND entreprise_id = ?',
-        [req.params.id, req.user.entreprise_id],
+        'SELECT * FROM documents WHERE id = ?',
+        [req.params.id],
         (err, results) => {
             if (err) {
                 console.error(' Erreur telechargerDocument:', err);
@@ -87,9 +83,7 @@ exports.telechargerDocument = (req, res) => {
     );
 };
 
-// ============================================================
 // UPLOADER UN DOCUMENT
-// ============================================================
 exports.uploadDocument = (req, res) => {
     const db = req.db;
     
@@ -102,11 +96,10 @@ exports.uploadDocument = (req, res) => {
 
     const sql = `
         INSERT INTO documents
-            (entreprise_id, nom, type_document, reference_type, reference_id, chemin_fichier, nom_original, mime_type, taille_octets, uploaded_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (nom, type_document, reference_type, reference_id, chemin_fichier, nom_original, mime_type, taille_octets, uploaded_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     db.query(sql, [
-        req.user.entreprise_id,
         (nom && nom.trim()) || req.file.originalname,
         typeFinal,
         reference_type || null,
@@ -118,7 +111,7 @@ exports.uploadDocument = (req, res) => {
         req.user.id
     ], (err, result) => {
         if (err) {
-            console.error(' Erreur uploadDocument:', err);
+            console.error('Erreur uploadDocument:', err);
             // Supprimer le fichier en cas d'erreur
             fs.unlink(req.file.path, () => {});
             return res.status(500).json({ message: 'Erreur serveur' });
@@ -130,15 +123,13 @@ exports.uploadDocument = (req, res) => {
     });
 };
 
-// ============================================================
 // SUPPRIMER UN DOCUMENT (métadonnée + fichier disque)
-// ============================================================
 exports.deleteDocument = (req, res) => {
     const db = req.db;
     
     db.query(
-        'SELECT chemin_fichier FROM documents WHERE id = ? AND entreprise_id = ?',
-        [req.params.id, req.user.entreprise_id],
+        'SELECT chemin_fichier FROM documents WHERE id = ?',
+        [req.params.id],
         (errSel, results) => {
             if (errSel) {
                 console.error(' Erreur deleteDocument - select:', errSel);
@@ -151,8 +142,8 @@ exports.deleteDocument = (req, res) => {
             const cheminFichier = results[0].chemin_fichier;
             
             db.query(
-                'DELETE FROM documents WHERE id = ? AND entreprise_id = ?',
-                [req.params.id, req.user.entreprise_id],
+                'DELETE FROM documents WHERE id = ?',
+                [req.params.id],
                 (err, result) => {
                     if (err) {
                         console.error(' Erreur deleteDocument - delete:', err);

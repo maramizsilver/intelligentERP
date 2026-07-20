@@ -1,6 +1,13 @@
-// EXPORTER TOUTES LES DONNÉES MÉTIER
 exports.exportMesDonnees = (req, res) => {
     const db = req.db;
+    
+    // Vérifier que db est défini
+    if (!db) {
+        console.error('[Export] req.db est undefined');
+        return res.status(500).json({ 
+            message: 'Erreur de connexion à la base de données' 
+        });
+    }
     
     if (req.user.is_super_admin) {
         return res.status(400).json({ 
@@ -19,6 +26,7 @@ exports.exportMesDonnees = (req, res) => {
             message: 'Aucune entreprise associée à ce compte' 
         });
     }
+
     const requetes = {
         clients: ['SELECT * FROM clients', []],
         produits: ['SELECT * FROM produits', []],
@@ -28,7 +36,6 @@ exports.exportMesDonnees = (req, res) => {
              JOIN clients cl ON c.client_id = cl.id`,
             []
         ],
-        // Ajout d'autres tables pour un export complet
         achats: ['SELECT * FROM achats', []],
         devis: ['SELECT * FROM devis', []],
         entrepots: ['SELECT * FROM entrepots', []],
@@ -51,7 +58,7 @@ exports.exportMesDonnees = (req, res) => {
         const [sql, params] = requetes[cle];
         db.query(sql, params, (err, rows) => {
             if (err) {
-                console.error(` Erreur export ${cle}:`, err);
+                console.error(`Erreur export ${cle}:`, err);
                 erreur = err;
             }
             resultat[cle] = rows || [];
@@ -59,13 +66,12 @@ exports.exportMesDonnees = (req, res) => {
             
             if (restantes === 0) {
                 if (erreur) {
-                    console.error(' Erreur lors de l\'export:', erreur);
+                    console.error('Erreur lors de l\'export:', erreur);
                     return res.status(500).json({ 
                         message: 'Erreur serveur lors de l\'export' 
                     });
                 }
                 
-                // Ajouter les métadonnées de l'entreprise
                 resultat._meta = {
                     entreprise_id: entrepriseId,
                     export_date: new Date().toISOString(),

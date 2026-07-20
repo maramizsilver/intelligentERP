@@ -1,12 +1,10 @@
-// ============================================================
-// FICHIER: backend/controllers/authController.js
-// VERSION CORRIGEE COMPLETE
-// ============================================================
-
 const databaseService = require('../services/database.service');
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const MFAService = require('../services/mfa.service');
+const mfaConfig = require('../config/mfa.config');
+const SessionService = require('../services/session.service');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -88,9 +86,9 @@ exports.registerEntreprise = async (req, res) => {
     );
 
     await db.promisePoolMaster.query(
-      `INSERT INTO users (entreprise_id, nom, prenom, email, password, is_super_admin, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-      [entrepriseId, nom.trim(), prenom.trim(), cleanEmail, hashedPassword, 0]
+      `INSERT INTO users (entreprise_id, role_id, nom, prenom, email, password, is_super_admin, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [entrepriseId, roleId, nom.trim(), prenom.trim(), cleanEmail, hashedPassword, 0]
     );
 
     try {
@@ -121,6 +119,8 @@ exports.registerEntreprise = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
+    console.log('[LOGIN] === DEBUT LOGIN ===');
+    console.log('[LOGIN] Email reçu:', req.body.email);
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -132,7 +132,8 @@ exports.login = async (req, res) => {
     try {
         const sql = `
             SELECT u.*, r.nom AS role_nom, e.nom AS entreprise_nom, e.statut AS entreprise_statut,
-                   e.plan_type, e.connexions_utilisees, e.limite_connexions_essai, e.db_name
+                   e.plan_type, e.connexions_utilisees, e.limite_connexions_essai, e.db_name,
+                   u.mfa_enabled, u.mfa_secret, u.mfa_attempts, u.mfa_locked_until
             FROM users u
             LEFT JOIN roles r ON u.role_id = r.id
             LEFT JOIN entreprises e ON u.entreprise_id = e.id
@@ -147,6 +148,7 @@ exports.login = async (req, res) => {
 
         const user = results[0];
 
+        // SUPER ADMIN
         if (user.is_super_admin) {
             const isMatch = await bcrypt.compare(password, user.password);
             
@@ -159,7 +161,8 @@ exports.login = async (req, res) => {
                     id: user.id,
                     is_super_admin: true,
                     entreprise_id: null,
-                    db_name: null
+                    db_name: null,
+                    mfa_verified: true
                 },
                 process.env.JWT_SECRET,
                 { expiresIn: '24h' }
@@ -175,7 +178,8 @@ exports.login = async (req, res) => {
                     email: user.email,
                     role: 'SuperAdmin Plateforme',
                     is_super_admin: true,
-                    is_external: false
+                    is_external: false,
+                    mfa_enabled: false
                 }
             });
         }
@@ -241,6 +245,57 @@ exports.login = async (req, res) => {
             [userData.id]
         );
 
+        // Vérification MFA dans la base MASTER
+        const [mfaRows] = await db.promisePoolMaster.query(
+            'SELECT mfa_enabled FROM users WHERE id = ?',
+            [user.id]
+        );
+
+        const mfaEnabled = mfaRows.length > 0 && mfaRows[0].mfa_enabled === 1;
+
+        if (mfaEnabled) {
+            const [lockRows] = await db.promisePoolMaster.query(
+                'SELECT mfa_locked_until FROM users WHERE id = ?',
+                [user.id]
+            );
+
+            if (lockRows.length && lockRows[0].mfa_locked_until) {
+                const lockStatus = MFAService.isMFALocked(lockRows[0]);
+                if (lockStatus.locked) {
+                    return res.status(403).json({
+                        success: false,
+                        message: `Compte verrouille pour MFA. Reessayez dans ${lockStatus.remainingMinutes} minute(s).`,
+                        locked_until: lockRows[0].mfa_locked_until
+                    });
+                }
+            }
+
+            const tempToken = jwt.sign(
+                {
+                    id: user.id,
+                    mfa_pending: true,
+                    entreprise_id: user.entreprise_id,
+                    db_name: user.db_name
+                },
+                process.env.JWT_SECRET,
+                { expiresIn: '5m' }
+            );
+
+            return res.status(200).json({
+                success: true,
+                message: 'MFA requise',
+                mfa_required: true,
+                temp_token: tempToken,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    nom: user.nom,
+                    prenom: user.prenom
+                }
+            });
+        }
+
+        // Vérifier le statut de l'entreprise
         if (user.entreprise_statut !== 'actif') {
             return res.status(403).json({
                 message: user.entreprise_statut === 'en_attente'
@@ -249,6 +304,7 @@ exports.login = async (req, res) => {
             });
         }
 
+        // Gestion de l'essai gratuit
         let essaiExpire = false;
         let connexionsRestantes = null;
         let messageEssai = null;
@@ -273,37 +329,74 @@ exports.login = async (req, res) => {
             }
         }
 
+        // Génération du token
         const token = jwt.sign(
             {
-                id: userData.id,
+                id: user.id,
                 entreprise_id: user.entreprise_id,
-                role_id: userData.role_id,
+                role_id: user.role_id,
                 is_super_admin: false,
-                is_external: userData.is_external || false,
-                client_id: userData.client_id || null,
+                is_external: user.is_external || false,
+                client_id: user.client_id || null,
                 essai_expire: essaiExpire,
-                db_name: user.db_name
+                db_name: user.db_name,
+                mfa_verified: true
             },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
 
+        // ============================================================
+        // GESTION DES SESSIONS - ENREGISTREMENT DE LA CONNEXION
+        // ============================================================
+        console.log('[SESSION] Début enregistrement pour:', user.email);
+        
+        try {
+            const clientPoolSession = db.getClientPool(user.entreprise_id, user.db_name);
+            console.log('[SESSION] Pool client récupéré');
+            
+            const result = await SessionService.recordConnection(
+                clientPoolSession,
+                { id: user.id },
+                token,
+                req
+            );
+            
+            console.log('[SESSION] Enregistrement réussi:', result);
+            
+            if (result.previousSessionCount > 0) {
+                console.log(`[SESSION] ${user.email} - ${result.previousSessionCount} ancienne(s) session(s) déconnectée(s)`);
+            }
+        } catch (err) {
+            console.error('[SESSION] Erreur:', err.message);
+            console.error('[SESSION] Stack:', err.stack);
+            if (err.message === 'DEVICE_BLOCKED') {
+                return res.status(403).json({
+                    message: 'Appareil bloqué. Contactez votre administrateur.',
+                    code: 'DEVICE_BLOCKED'
+                });
+            }
+            // Continuer même en cas d'erreur de session (ne pas bloquer la connexion)
+        }
+
+        // Réponse
         res.json({
             message: 'Connexion reussie',
             messageEssai,
             token,
             user: {
-                id: userData.id,
-                nom: userData.nom,
-                prenom: userData.prenom,
-                email: userData.email,
+                id: user.id,
+                nom: user.nom,
+                prenom: user.prenom,
+                email: user.email,
                 role: user.role_nom || 'Utilisateur',
                 entreprise: user.entreprise_nom || null,
                 is_super_admin: false,
-                is_external: userData.is_external || false,
+                is_external: user.is_external || false,
                 plan_type: user.plan_type || null,
                 essai_expire: essaiExpire,
-                connexions_restantes: connexionsRestantes
+                connexions_restantes: connexionsRestantes,
+                mfa_enabled: false
             }
         });
 
@@ -313,26 +406,139 @@ exports.login = async (req, res) => {
     }
 };
 
-exports.getMe = (req, res) => {
-  const db = req.db;  
-  
-  const sql = `
-    SELECT u.id, u.nom, u.prenom, u.email, u.is_super_admin, u.is_external, u.client_id,
-           r.id AS role_id, r.nom AS role_nom,
-           e.id AS entreprise_id, e.nom AS entreprise_nom
-    FROM users u
-    LEFT JOIN roles r ON u.role_id = r.id
-    LEFT JOIN entreprises e ON u.entreprise_id = e.id
-    WHERE u.id = ?
-  `;
-  db.query(sql, [req.user.id], (err, results) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ message: 'Erreur serveur' });
+exports.verifyMFALogin = async (req, res) => {
+    try {
+        const { token, userId, tempToken } = req.body;
+
+        if (!token) {
+            return res.status(400).json({
+                success: false,
+                message: 'Le code de verification est requis'
+            });
+        }
+
+        let decoded;
+        try {
+            decoded = jwt.verify(tempToken, process.env.JWT_SECRET);
+            if (!decoded.mfa_pending || decoded.id !== userId) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Session MFA invalide'
+                });
+            }
+        } catch (error) {
+            return res.status(401).json({
+                success: false,
+                message: 'Session MFA expiree, veuillez vous reconnecter'
+            });
+        }
+
+        const [rows] = await db.promisePoolMaster.query(
+            'SELECT id, mfa_secret, mfa_enabled, mfa_attempts, mfa_locked_until FROM users WHERE id = ?',
+            [userId]
+        );
+
+        if (!rows.length || !rows[0].mfa_enabled) {
+            return res.status(400).json({
+                success: false,
+                message: 'MFA non active pour ce compte'
+            });
+        }
+
+        const user = rows[0];
+
+        const lockStatus = MFAService.isMFALocked(user);
+        if (lockStatus.locked) {
+            return res.status(403).json({
+                success: false,
+                message: `Compte verrouille. Reessayez dans ${lockStatus.remainingMinutes} minute(s).`,
+                locked_until: user.mfa_locked_until
+            });
+        }
+
+        const secret = user.mfa_secret;
+        let attempts = user.mfa_attempts || 0;
+        const isValid = MFAService.verifyToken(secret, token, mfaConfig.totp.window);
+
+        if (!isValid) {
+            attempts += 1;
+            const maxAttempts = mfaConfig.security.maxAttempts;
+            const lockDuration = mfaConfig.security.lockDuration;
+
+            let lockedUntil = null;
+            if (attempts >= maxAttempts) {
+                lockedUntil = new Date(Date.now() + lockDuration * 60 * 1000);
+                await db.promisePoolMaster.query(
+                    'UPDATE users SET mfa_attempts = ?, mfa_locked_until = ? WHERE id = ?',
+                    [attempts, lockedUntil, userId]
+                );
+            } else {
+                await db.promisePoolMaster.query(
+                    'UPDATE users SET mfa_attempts = ? WHERE id = ?',
+                    [attempts, userId]
+                );
+            }
+
+            return res.status(401).json({
+                success: false,
+                message: 'Code de verification invalide',
+                attempts_remaining: maxAttempts - attempts,
+                locked: lockedUntil !== null,
+                locked_until: lockedUntil
+            });
+        }
+
+        await db.promisePoolMaster.query(
+            'UPDATE users SET mfa_attempts = 0, mfa_locked_until = NULL WHERE id = ?',
+            [userId]
+        );
+
+        const finalToken = jwt.sign(
+            {
+                id: userId,
+                entreprise_id: decoded.entreprise_id,
+                db_name: decoded.db_name,
+                mfa_verified: true
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        res.status(200).json({
+            success: true,
+            message: 'Verification MFA reussie',
+            token: finalToken
+        });
+
+    } catch (error) {
+        console.error('[MFA] Erreur verification login:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la verification MFA'
+        });
     }
-    if (results.length === 0) return res.status(404).json({ message: 'Utilisateur introuvable' });
-    res.json({ user: results[0] });
-  });
+};
+
+exports.getMe = async (req, res) => {
+  try {
+    const [rows] = await db.promisePoolMaster.query(
+      `SELECT u.id, u.nom, u.prenom, u.email, u.is_super_admin, u.is_external, u.client_id,
+              u.role_id, u.mfa_enabled,
+              e.id AS entreprise_id, e.nom AS entreprise_nom
+       FROM users u
+       LEFT JOIN entreprises e ON u.entreprise_id = e.id
+       WHERE u.id = ?`,
+      [req.user.id]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Utilisateur introuvable' });
+    }
+    res.json({ user: rows[0] });
+  } catch (err) {
+    console.error('Erreur getMe:', err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
 };
 
 exports.getMesPermissions = (req, res) => {
@@ -357,262 +563,289 @@ exports.getMesPermissions = (req, res) => {
 };
 
 exports.updateMe = async (req, res) => {
-  const db = req.db; 
-  
-  const { nom, prenom, email, password } = req.body;
-  const errors = [];
-  if (!nom || nom.trim().length < 2) errors.push('Le nom est requis (min 2 caracteres)');
-  if (!prenom || prenom.trim().length < 2) errors.push('Le prenom est requis (min 2 caracteres)');
-  if (!email || !EMAIL_REGEX.test(email.trim())) errors.push('Email invalide');
-  if (password && password.length < 8) errors.push('Le mot de passe doit contenir au moins 8 caracteres');
-  if (errors.length > 0) {
-    return res.status(400).json({ message: 'Donnees invalides', errors });
-  }
-
   try {
-    const cleanEmail = email.trim().toLowerCase();
-    const finaliser = (sql, params) => {
-      db.query(sql, params, (err) => {
-        if (err) {
-          if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Email deja utilise' });
-          console.error(err);
-          return res.status(500).json({ message: 'Erreur serveur' });
-        }
-        res.json({ message: 'Profil mis a jour avec succes' });
-      });
-    };
+    const { nom, prenom, email, password } = req.body;
+    const errors = [];
+    if (!nom || nom.trim().length < 2) errors.push('Le nom est requis (min 2 caracteres)');
+    if (!prenom || prenom.trim().length < 2) errors.push('Le prenom est requis (min 2 caracteres)');
+    if (!email || !EMAIL_REGEX.test(email.trim())) errors.push('Email invalide');
+    if (password && password.length < 8) errors.push('Le mot de passe doit contenir au moins 8 caracteres');
+    if (errors.length > 0) {
+      return res.status(400).json({ message: 'Donnees invalides', errors });
+    }
 
+    const cleanEmail = email.trim().toLowerCase();
+    const clientPool = db.getClientPool(req.user.entreprise_id, req.user.db_name);
+    
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
-      finaliser('UPDATE users SET nom = ?, prenom = ?, email = ?, password = ? WHERE id = ?',
-        [nom.trim(), prenom.trim(), cleanEmail, hashedPassword, req.user.id]);
+      await db.promisePoolMaster.query(
+        'UPDATE users SET nom = ?, prenom = ?, email = ?, password = ? WHERE id = ?',
+        [nom.trim(), prenom.trim(), cleanEmail, hashedPassword, req.user.id]
+      );
+      await clientPool.promise().query(
+        'UPDATE users SET nom = ?, prenom = ?, email = ?, password = ? WHERE id = ?',
+        [nom.trim(), prenom.trim(), cleanEmail, hashedPassword, req.user.id]
+      );
     } else {
-      finaliser('UPDATE users SET nom = ?, prenom = ?, email = ? WHERE id = ?',
-        [nom.trim(), prenom.trim(), cleanEmail, req.user.id]);
+      await db.promisePoolMaster.query(
+        'UPDATE users SET nom = ?, prenom = ?, email = ? WHERE id = ?',
+        [nom.trim(), prenom.trim(), cleanEmail, req.user.id]
+      );
+      await clientPool.promise().query(
+        'UPDATE users SET nom = ?, prenom = ?, email = ? WHERE id = ?',
+        [nom.trim(), prenom.trim(), cleanEmail, req.user.id]
+      );
     }
+
+    res.json({ message: 'Profil mis a jour avec succes' });
   } catch (err) {
-    console.error(err);
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ message: 'Email deja utilise' });
+    }
+    console.error('Erreur updateMe:', err);
     res.status(500).json({ message: 'Erreur serveur' });
   }
 };
 
-exports.getUsersEntreprise = (req, res) => {
-  const db = req.db;  
-  
-  const sql = `
-    SELECT u.id, u.nom, u.prenom, u.email, u.is_external, u.created_at,
-           r.id AS role_id, r.nom AS role_nom
-    FROM users u
-    LEFT JOIN roles r ON u.role_id = r.id
-    WHERE u.entreprise_id = ?
-    ORDER BY u.created_at DESC
-  `;
-  db.query(sql, [req.user.entreprise_id], (err, results) => {
-    if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
-    res.json({ users: results });
-  });
+exports.getUsersEntreprise = async (req, res) => {
+  try {
+    const [rows] = await db.promisePoolMaster.query(
+      `SELECT u.id, u.nom, u.prenom, u.email, u.is_external, u.created_at,
+              u.role_id,
+              r.nom AS role_nom
+       FROM users u
+       LEFT JOIN erp_db.roles r ON u.role_id = r.id
+       WHERE u.entreprise_id = ?
+       ORDER BY u.created_at DESC`,
+      [req.user.entreprise_id]
+    );
+    res.json({ users: rows });
+  } catch (err) {
+    console.error('Erreur getUsersEntreprise:', err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
 };
 
 exports.createUserByAdmin = async (req, res) => {
-  const db = req.db;  
-  
   const { nom, prenom, email, password, role_id } = req.body;
+  
   const errors = validateRegisterInput({ nom, prenom, email, password });
   if (!role_id) errors.push('Le role est requis');
   if (errors.length > 0) {
     return res.status(400).json({ message: 'Donnees invalides', errors });
   }
 
-  db.query(
-    'SELECT id FROM roles WHERE id = ? AND entreprise_id = ?',
-    [role_id, req.user.entreprise_id],
-    async (errCheck, roles) => {
-      if (errCheck) {
-        console.error(errCheck);
-        return res.status(500).json({ message: 'Erreur serveur' });
-      }
-      if (roles.length === 0) {
-        return res.status(400).json({ message: 'Role invalide pour votre entreprise' });
-      }
-
-      try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const cleanEmail = email.trim().toLowerCase();
-        db.query(
-          'INSERT INTO users (entreprise_id, role_id, nom, prenom, email, password, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [req.user.entreprise_id, role_id, nom.trim(), prenom.trim(), cleanEmail, hashedPassword, req.user.id],
-          (err, result) => {
-            if (err) {
-              if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Email deja utilise' });
-              console.error(err);
-              return res.status(500).json({ message: 'Erreur serveur' });
-            }
-            console.log(`[AUDIT] Admin id=${req.user.id} a cree le compte ${cleanEmail} (role_id=${role_id})`);
-            res.status(201).json({ message: 'Utilisateur cree avec succes', id: result.insertId });
-          }
-        );
-      } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Erreur serveur' });
-      }
+  try {
+    const clientPool = db.getClientPool(req.user.entreprise_id, req.user.db_name);
+    
+    const [roleCheck] = await clientPool.promise().query(
+      'SELECT id FROM roles WHERE id = ?',
+      [role_id]
+    );
+    
+    if (roleCheck.length === 0) {
+      return res.status(400).json({ message: 'Role invalide pour votre entreprise' });
     }
-  );
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const cleanEmail = email.trim().toLowerCase();
+
+    const [masterResult] = await db.promisePoolMaster.query(
+      `INSERT INTO users 
+       (entreprise_id, role_id, nom, prenom, email, password, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+      [req.user.entreprise_id, role_id, nom.trim(), prenom.trim(), cleanEmail, hashedPassword]
+    );
+
+    await clientPool.promise().query(
+      `INSERT INTO users 
+       (id, role_id, nom, prenom, email, password, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [masterResult.insertId, role_id, nom.trim(), prenom.trim(), cleanEmail, hashedPassword, req.user.id]
+    );
+
+    console.log(`[AUDIT] Admin id=${req.user.id} a cree le compte ${cleanEmail} (role_id=${role_id})`);
+    res.status(201).json({ message: 'Utilisateur cree avec succes', id: masterResult.insertId });
+
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ message: 'Email deja utilise' });
+    }
+    console.error('Erreur createUserByAdmin:', err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
 };
 
 exports.createExternalUser = async (req, res) => {
-  const db = req.db;  
-  
   const { nom, prenom, email, password, client_id } = req.body;
+  
   const errors = validateRegisterInput({ nom, prenom, email, password });
   if (!client_id) errors.push('client_id est requis pour un compte externe');
   if (errors.length > 0) {
     return res.status(400).json({ message: 'Donnees invalides', errors });
   }
 
-  db.query(
-    'SELECT id FROM clients WHERE id = ? AND entreprise_id = ?',
-    [client_id, req.user.entreprise_id],
-    async (errCheck, clients) => {
-      if (errCheck) {
-        console.error(errCheck);
-        return res.status(500).json({ message: 'Erreur serveur' });
-      }
-      if (clients.length === 0) {
-        return res.status(400).json({ message: 'Client introuvable pour votre entreprise' });
-      }
-
-      try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const cleanEmail = email.trim().toLowerCase();
-        db.query(
-          'INSERT INTO users (entreprise_id, is_external, nom, prenom, email, password, client_id, created_by) VALUES (?, TRUE, ?, ?, ?, ?, ?, ?)',
-          [req.user.entreprise_id, nom.trim(), prenom.trim(), cleanEmail, hashedPassword, client_id, req.user.id],
-          (err, result) => {
-            if (err) {
-              if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'Email deja utilise' });
-              console.error(err);
-              return res.status(500).json({ message: 'Erreur serveur' });
-            }
-            res.status(201).json({ message: 'Compte externe cree avec succes', id: result.insertId });
-          }
-        );
-      } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Erreur serveur' });
-      }
+  try {
+    const clientPool = db.getClientPool(req.user.entreprise_id, req.user.db_name);
+    
+    const [clientCheck] = await clientPool.promise().query(
+      'SELECT id FROM clients WHERE id = ?',
+      [client_id]
+    );
+    
+    if (clientCheck.length === 0) {
+      return res.status(400).json({ message: 'Client introuvable pour votre entreprise' });
     }
-  );
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const cleanEmail = email.trim().toLowerCase();
+
+    const [masterResult] = await db.promisePoolMaster.query(
+      `INSERT INTO users 
+       (entreprise_id, nom, prenom, email, password, is_external, client_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [req.user.entreprise_id, nom.trim(), prenom.trim(), cleanEmail, hashedPassword, 1, client_id]
+    );
+
+    await clientPool.promise().query(
+      `INSERT INTO users 
+       (id, is_external, nom, prenom, email, password, client_id, created_by)
+       VALUES (?, TRUE, ?, ?, ?, ?, ?, ?)`,
+      [masterResult.insertId, nom.trim(), prenom.trim(), cleanEmail, hashedPassword, client_id, req.user.id]
+    );
+
+    console.log(`[AUDIT] Admin id=${req.user.id} a cree le compte externe ${cleanEmail} (client_id=${client_id})`);
+    res.status(201).json({ message: 'Compte externe cree avec succes', id: masterResult.insertId });
+
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ message: 'Email deja utilise' });
+    }
+    console.error('Erreur createExternalUser:', err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
 };
 
-exports.updateUserRole = (req, res) => {
-  const db = req.db;  
-  
+exports.updateUserRole = async (req, res) => {
   const { id } = req.params;
   const { role_id } = req.body;
+  
   if (!role_id) {
     return res.status(400).json({ message: 'role_id est requis' });
   }
 
-  db.query(
-    'SELECT id FROM roles WHERE id = ? AND entreprise_id = ?',
-    [role_id, req.user.entreprise_id],
-    (errCheck, roles) => {
-      if (errCheck) {
-        console.error(errCheck);
-        return res.status(500).json({ message: 'Erreur serveur' });
-      }
-      if (roles.length === 0) {
-        return res.status(400).json({ message: 'Role invalide pour votre entreprise' });
-      }
-
-      db.query(
-        'UPDATE users SET role_id = ? WHERE id = ? AND entreprise_id = ?',
-        [role_id, id, req.user.entreprise_id],
-        (err, result) => {
-          if (err) {
-            console.error(err);
-            return res.status(500).json({ message: 'Erreur serveur' });
-          }
-          if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'Utilisateur introuvable dans votre entreprise' });
-          }
-          res.json({ message: 'Role mis a jour avec succes' });
-        }
-      );
+  try {
+    const clientPool = db.getClientPool(req.user.entreprise_id, req.user.db_name);
+    
+    const [roleCheck] = await clientPool.promise().query(
+      'SELECT id FROM roles WHERE id = ?',
+      [role_id]
+    );
+    
+    if (roleCheck.length === 0) {
+      return res.status(400).json({ message: 'Role invalide pour votre entreprise' });
     }
-  );
+
+    await db.promisePoolMaster.query(
+      'UPDATE users SET role_id = ? WHERE id = ? AND entreprise_id = ?',
+      [role_id, id, req.user.entreprise_id]
+    );
+
+    await clientPool.promise().query(
+      'UPDATE users SET role_id = ? WHERE id = ? AND entreprise_id = ?',
+      [role_id, id, req.user.entreprise_id]
+    );
+
+    res.json({ message: 'Role mis a jour avec succes' });
+  } catch (err) {
+    console.error('Erreur updateUserRole:', err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
 };
 
-exports.deleteUser = (req, res) => {
-  const db = req.db;  
+exports.deleteUser = async (req, res) => {
   const { id } = req.params;
 
   if (Number(id) === req.user.id) {
     return res.status(400).json({ message: 'Vous ne pouvez pas supprimer votre propre compte' });
   }
 
-  const sqlInfo = `
-    SELECT u.id, r.est_admin_entreprise
-    FROM users u
-    LEFT JOIN roles r ON u.role_id = r.id
-    WHERE u.id = ? AND u.entreprise_id = ?
-  `;
-  db.query(sqlInfo, [id, req.user.entreprise_id], (errInfo, rows) => {
-    if (errInfo) { console.error(errInfo); return res.status(500).json({ message: 'Erreur serveur' }); }
-    if (rows.length === 0) return res.status(404).json({ message: 'Utilisateur introuvable dans votre entreprise' });
-
-    const cible = rows[0];
-
-    const supprimer = () => {
-      db.query('DELETE FROM users WHERE id = ? AND entreprise_id = ?', [id, req.user.entreprise_id], (err, result) => {
-        if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
-        if (result.affectedRows === 0) return res.status(404).json({ message: 'Utilisateur introuvable' });
-        res.json({ message: 'Utilisateur supprime avec succes' });
-      });
-    };
-
-    if (!cible.est_admin_entreprise) {
-      return supprimer();
+  try {
+    const clientPool = db.getClientPool(req.user.entreprise_id, req.user.db_name);
+    
+    const [infoRows] = await clientPool.promise().query(
+      `SELECT u.id, r.est_admin_entreprise
+       FROM users u
+       LEFT JOIN roles r ON u.role_id = r.id
+       WHERE u.id = ? AND u.entreprise_id = ?`,
+      [id, req.user.entreprise_id]
+    );
+    
+    if (infoRows.length === 0) {
+      return res.status(404).json({ message: 'Utilisateur introuvable dans votre entreprise' });
     }
 
-    const sqlCountAdmins = `
-      SELECT COUNT(*) AS total
-      FROM users u
-      JOIN roles r ON u.role_id = r.id
-      WHERE u.entreprise_id = ? AND r.est_admin_entreprise = TRUE
-    `;
-    db.query(sqlCountAdmins, [req.user.entreprise_id], (errCount, countRows) => {
-      if (errCount) { console.error(errCount); return res.status(500).json({ message: 'Erreur serveur' }); }
+    const cible = infoRows[0];
+
+    if (cible.est_admin_entreprise) {
+      const [countRows] = await clientPool.promise().query(
+        `SELECT COUNT(*) AS total
+         FROM users u
+         JOIN roles r ON u.role_id = r.id
+         WHERE u.entreprise_id = ? AND r.est_admin_entreprise = TRUE`,
+        [req.user.entreprise_id]
+      );
+      
       if (countRows[0].total <= 1) {
         return res.status(400).json({ message: "Impossible de supprimer le dernier compte Admin Entreprise" });
       }
-      supprimer();
-    });
-  });
+    }
+
+    await db.promisePoolMaster.query(
+      'DELETE FROM users WHERE id = ? AND entreprise_id = ?',
+      [id, req.user.entreprise_id]
+    );
+
+    await clientPool.promise().query(
+      'DELETE FROM users WHERE id = ? AND entreprise_id = ?',
+      [id, req.user.entreprise_id]
+    );
+
+    console.log(`[AUDIT] Admin id=${req.user.id} a supprime le compte id=${id}`);
+    res.json({ message: 'Utilisateur supprime avec succes' });
+
+  } catch (err) {
+    console.error('Erreur deleteUser:', err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
 };
 
-exports.getUserStats = (req, res) => {
-  const db = req.db; 
-  const sql = `
-    SELECT
-      COALESCE(r.nom, 'Externe / sans role') AS role_nom,
-      COUNT(*) AS total
-    FROM users u
-    LEFT JOIN roles r ON u.role_id = r.id
-    WHERE u.entreprise_id = ?
-    GROUP BY r.nom
-    ORDER BY total DESC
-  `;
-  db.query(sql, [req.user.entreprise_id], (err, results) => {
-    if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
+exports.getUserStats = async (req, res) => {
+  try {
+    const [statsRows] = await db.promisePoolMaster.query(
+      `SELECT
+        COALESCE(r.nom, 'Externe / sans role') AS role_nom,
+        COUNT(*) AS total
+      FROM users u
+      LEFT JOIN erp_db.roles r ON u.role_id = r.id
+      WHERE u.entreprise_id = ?
+      GROUP BY r.nom
+      ORDER BY total DESC`,
+      [req.user.entreprise_id]
+    );
 
-    const sqlTotalExternes = 'SELECT COUNT(*) AS total FROM users WHERE entreprise_id = ? AND is_external = TRUE';
-    db.query(sqlTotalExternes, [req.user.entreprise_id], (err2, rowsExt) => {
-      if (err2) { console.error(err2); return res.status(500).json({ message: 'Erreur serveur' }); }
-      res.json({
-        stats_par_role: results,
-        total_comptes_externes: rowsExt[0].total
-      });
+    const [extRows] = await db.promisePoolMaster.query(
+      'SELECT COUNT(*) AS total FROM users WHERE entreprise_id = ? AND is_external = TRUE',
+      [req.user.entreprise_id]
+    );
+
+    res.json({
+      stats_par_role: statsRows,
+      total_comptes_externes: extRows[0].total
     });
-  });
+  } catch (err) {
+    console.error('Erreur getUserStats:', err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
 };

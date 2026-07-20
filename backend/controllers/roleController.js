@@ -1,13 +1,11 @@
+const db = require('../config/db');
 
-
-// Liste des rôles de l'entreprise connectée
-
+// LISTE DES RÔLES DE L'ENTREPRISE CONNECTÉE
 exports.getRoles = (req, res) => {
-    const db = req.db;
+    const clientDb = req.db;
     
-    db.query(
-        'SELECT * FROM roles WHERE entreprise_id = ? ORDER BY id',
-        [req.user.entreprise_id],
+    clientDb.query(
+        'SELECT * FROM roles ORDER BY id',
         (err, results) => {
             if (err) {
                 console.error(' Erreur getRoles:', err);
@@ -18,21 +16,19 @@ exports.getRoles = (req, res) => {
     );
 };
 
-
-// Créer un nouveau rôle personnalisé
-
+// CRÉER UN NOUVEAU RÔLE PERSONNALISÉ
 exports.createRole = (req, res) => {
-    const db = req.db;
+    const clientDb = req.db;
     
     const { nom, description } = req.body;
     
     if (!nom || nom.trim().length < 2) {
         return res.status(400).json({ message: 'Le nom du rôle est requis' });
     }
-    
-    db.query(
-        'INSERT INTO roles (entreprise_id, nom, description, est_admin_entreprise) VALUES (?, ?, ?, FALSE)',
-        [req.user.entreprise_id, nom.trim(), description || null],
+
+    clientDb.query(
+        'INSERT INTO roles (nom, description, est_admin_entreprise) VALUES (?, ?, FALSE)',
+        [nom.trim(), description || null],
         (err, result) => {
             if (err) {
                 console.error(' Erreur createRole:', err);
@@ -46,20 +42,19 @@ exports.createRole = (req, res) => {
     );
 };
 
-
-// Supprimer un rôle (uniquement les rôles non-admin)
+// SUPPRIMR UN RÔLE (UNIQUEMENT LES RÔLES NON-ADMIN)
 
 exports.deleteRole = (req, res) => {
-    const db = req.db;
+    const clientDb = req.db;
     
     const { id } = req.params;
     
-    db.query(
-        'DELETE FROM roles WHERE id = ? AND entreprise_id = ? AND est_admin_entreprise = FALSE',
-        [id, req.user.entreprise_id],
+    clientDb.query(
+        'DELETE FROM roles WHERE id = ? AND est_admin_entreprise = FALSE',
+        [id],
         (err, result) => {
             if (err) {
-                console.error(' Erreur deleteRole:', err);
+                console.error('❌ Erreur deleteRole:', err);
                 return res.status(500).json({ message: 'Erreur serveur' });
             }
             if (result.affectedRows === 0) {
@@ -71,28 +66,27 @@ exports.deleteRole = (req, res) => {
         }
     );
 };
-//listes de tous les modules disponibles pour la gestion des permissions
+
+// LISTE DE TOUS LES MODULES DISPONIBLES (depuis la base MASTER)
 exports.getModules = (req, res) => {
     db.query('SELECT * FROM modules ORDER BY id', (err, results) => {
         if (err) {
-            console.error(' Erreur getModules:', err);
+            console.error('❌ Erreur getModules:', err);
             return res.status(500).json({ message: 'Erreur serveur' });
         }
         res.json({ modules: results });
     });
 };
 
-
-// Récupérer la matrice de permissions d'un rôle
-
+// RÉCUPÉRER LA MATRICE DE PERMISSIONS D'UN RÔLE
 exports.getPermissionsForRole = (req, res) => {
-    const db = req.db;
+    const clientDb = req.db;
     
     const { role_id } = req.params;
 
-    db.query(
-        'SELECT id FROM roles WHERE id = ? AND entreprise_id = ?',
-        [role_id, req.user.entreprise_id],
+    clientDb.query(
+        'SELECT id FROM roles WHERE id = ?',
+        [role_id],
         (errCheck, roles) => {
             if (errCheck) {
                 console.error(' Erreur getPermissionsForRole - check:', errCheck);
@@ -102,7 +96,6 @@ exports.getPermissionsForRole = (req, res) => {
                 return res.status(404).json({ message: 'Rôle introuvable' });
             }
 
-            //  modules vient de la base MASTER
             const sql = `
                 SELECT m.id AS module_id, m.nom AS module_nom,
                        COALESCE(p.consultation, FALSE) AS consultation,
@@ -115,7 +108,7 @@ exports.getPermissionsForRole = (req, res) => {
                 LEFT JOIN permissions p ON p.module_id = m.id AND p.role_id = ?
                 ORDER BY m.id
             `;
-            db.query(sql, [role_id], (err, results) => {
+            clientDb.query(sql, [role_id], (err, results) => {
                 if (err) {
                     console.error(' Erreur getPermissionsForRole - query:', err);
                     return res.status(500).json({ message: 'Erreur serveur' });
@@ -126,10 +119,9 @@ exports.getPermissionsForRole = (req, res) => {
     );
 };
 
-
-// Mettre à jour les permissions d'un rôle
+// METTRE À JOUR LES PERMISSIONS D'UN RÔLE
 exports.setPermission = (req, res) => {
-    const db = req.db;
+    const clientDb = req.db;
     
     const { role_id } = req.params;
     const { module_id, consultation, creation, modification, suppression, validation, export: exp } = req.body;
@@ -138,17 +130,16 @@ exports.setPermission = (req, res) => {
         return res.status(400).json({ message: 'module_id est requis' });
     }
 
-    // Vérifier que le rôle appartient à l'entreprise
-    db.query(
-        'SELECT id FROM roles WHERE id = ? AND entreprise_id = ?',
-        [role_id, req.user.entreprise_id],
+    clientDb.query(
+        'SELECT id FROM roles WHERE id = ?',
+        [role_id],
         (errCheck, roles) => {
             if (errCheck) {
                 console.error(' Erreur setPermission - check:', errCheck);
                 return res.status(500).json({ message: 'Erreur serveur' });
             }
             if (roles.length === 0) {
-                return res.status(404).json({ message: 'Rôle introuvable pour votre entreprise' });
+                return res.status(404).json({ message: 'Rôle introuvable' });
             }
 
             const sql = `
@@ -172,7 +163,7 @@ exports.setPermission = (req, res) => {
                 !!validation, 
                 !!exp
             ];
-            db.query(sql, vals, (err) => {
+            clientDb.query(sql, vals, (err) => {
                 if (err) {
                     console.error(' Erreur setPermission - upsert:', err);
                     return res.status(500).json({ message: 'Erreur serveur' });

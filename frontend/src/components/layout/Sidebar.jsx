@@ -29,27 +29,34 @@ export default function Sidebar() {
 
   const getMenuItems = () => {
     // SUPER ADMIN
-    if (user?.is_super_admin) {
-      return [
-        {
-          section: 'Administration',
-          items: [
-            { 
-              path: '/superadmin/dashboard', 
-              label: 'Entreprises', 
-              icon: '🏢',
-              description: 'Gérer les entreprises'
-            },
-            { 
-              path: '/superadmin/taux-reference', 
-              label: 'Taux & Périodes', 
-              icon: '📊',
-              description: 'Gérer les taux de référence'
-            },
-          ]
-        }
-      ];
+if (user?.is_super_admin) {
+  return [
+    {
+      section: 'Administration',
+      items: [
+        { 
+          path: '/superadmin/dashboard', 
+          label: 'Entreprises', 
+          icon: '🏢',
+          description: 'Gerer les entreprises'
+        },
+        { 
+          path: '/superadmin/taux-reference', 
+          label: 'Taux & Periodes', 
+          icon: '📊',
+          description: 'Gerer les taux de reference'
+        },
+        // AJOUTER
+        { 
+          path: '/superadmin/sessions', 
+          label: 'Sessions', 
+          icon: '🔐',
+          description: 'Supervision des sessions'
+        },
+      ]
     }
+  ];
+}
 
     // UTILISATEUR INTERNE (entreprise)
 

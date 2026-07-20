@@ -16,7 +16,13 @@ module.exports = function checkPermission(moduleNom, action) {
       return res.status(403).json({ message: 'Aucun rôle assigné à ce compte' });
     }
 
-    const db = req.db || require('../config/db');
+    // Vérifier que req.db est défini
+    if (!req.db) {
+      console.error('[Permission] req.db est undefined - tenantMiddleware manquant');
+      return res.status(500).json({ message: 'Erreur de connexion à la base de données' });
+    }
+
+    const db = req.db;
 
     const sql = `
       SELECT p.${action} AS autorise

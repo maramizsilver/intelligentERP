@@ -13,6 +13,7 @@ import Register from './pages/auth/Register';
 import Dashboard from './pages/dashboard/Dashboard';
 import SuperAdminDashboard from './pages/dashboard/SuperAdminDashboard';
 import EssaiExpire from './pages/dashboard/EssaiExpire';
+
 // VENTES
 import Clients from './pages/ventes/Clients';
 import Commandes from './pages/ventes/Commandes';
@@ -20,7 +21,6 @@ import Devis from './pages/ventes/Devis';
 import Promotions from './pages/ventes/Promotions';
 
 // ACHATS
-// 
 import Fournisseurs from './pages/achats/Fournisseurs';
 import Achats from './pages/achats/Achats';
 
@@ -40,6 +40,8 @@ import Inventaires from './pages/stock/Inventaires';
 import Utilisateurs from './pages/admin/Utilisateurs';
 import Documents from './pages/admin/Documents';
 import Archives from './pages/admin/Archives';
+import SuperAdminSessions from './pages/admin/superadmin/SuperAdminSessions';
+import SessionMonitor from './components/SessionMonitor';
 
 // ============================================================
 // SUPERADMIN - TAUX REFERENCE
@@ -76,7 +78,9 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <AppRoutes />
+        <SessionMonitor>
+          <AppRoutes />
+        </SessionMonitor>
       </BrowserRouter>
     </AuthProvider>
   );
@@ -130,6 +134,20 @@ function AppRoutes() {
           <PrivateRoute superAdminOnly>
             <Layout>
               <TauxReference />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+
+      {/* ============================================================
+          SUPER ADMIN - SESSIONS
+          ============================================================ */}
+      <Route
+        path="/superadmin/sessions"
+        element={
+          <PrivateRoute superAdminOnly>
+            <Layout>
+              <SuperAdminSessions />
             </Layout>
           </PrivateRoute>
         }

@@ -18,7 +18,6 @@ export function AuthProvider({ children }) {
     } else {
       setPermissionsLoaded(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadPermissions = async () => {
@@ -32,10 +31,14 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Appelé après un login réussi : (user, token) viennent de la réponse /auth/login
   const login = (userData, token) => {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
+    
+    if (userData.entreprise_id) {
+      localStorage.setItem('entrepriseId', userData.entreprise_id);
+    }
+    
     setUser(userData);
     setPermissionsLoaded(false);
     loadPermissions();
@@ -44,15 +47,20 @@ export function AuthProvider({ children }) {
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('entrepriseId');
     setUser(null);
     setPermissions([]);
     setPermissionsLoaded(true);
   };
 
-  // hasPermission('Ventes', 'creation') -> true/false
-  // Le SuperAdmin n'a jamais de permissions métier ; les externes suivent une logique séparée (portail).
   const hasPermission = (moduleNom, action) => {
-    if (!user || user.is_super_admin || user.is_external) return false;
+    // Les super admins ont tout
+    if (user?.is_super_admin) return true;
+    
+    // Les externes n'ont pas de permissions métier
+    if (user?.is_external) return false;
+    
+    // Vérification des permissions
     const mod = permissions.find(p => p.module_nom === moduleNom);
     return !!(mod && mod[action]);
   };
@@ -60,7 +68,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user, login, logout, permissions, permissionsLoaded, hasPermission,
-      loading: !permissionsLoaded // alias pour compatibilité avec l'ancien code (PrivateRoute)
+      loading: !permissionsLoaded
     }}>
       {children}
     </AuthContext.Provider>
