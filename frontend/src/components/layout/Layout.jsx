@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import Sidebar from './Sidebar';
 import Header from '../Header';
 import EssaiBanner from '../EssaiBanner';
-import MfaBanner from '../MfaBanner';  
+// import MfaBanner from '../MfaBanner';  // ← COMMENTE
 import { colors, spacing, transitions } from '../../styles/theme';
 
 export default function Layout({ children }) {
@@ -23,7 +23,7 @@ export default function Layout({ children }) {
       <Sidebar />
       <div style={styles.mainContent}>
         <Header />
-        <MfaBanner />       
+        {/* <MfaBanner /> */}  {/* ← COMMENTE */}
         <EssaiBanner />
         <main style={styles.main}>
           <div className="fade-in-up" style={styles.content}>
@@ -69,7 +69,6 @@ const styles = {
   },
 };
 
-// CSS pour l'animation
 const styleSheet = document.createElement('style');
 styleSheet.textContent = `
   @keyframes fadeInUp {

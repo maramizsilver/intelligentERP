@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const db = require('../config/db');
 
+
 class SessionService {
     
     static generateDeviceFingerprint(req) {
@@ -98,7 +99,6 @@ class SessionService {
                 throw new Error('DEVICE_BLOCKED');
             }
 
-            // 2. Enregistrer ou mettre a jour l'appareil (dans la MASTER)
             await db.promisePoolMaster.query(
                 `INSERT INTO user_devices 
                  (user_id, device_fingerprint, device_type, os, browser, last_used)
@@ -111,7 +111,6 @@ class SessionService {
                 [user.id, fingerprint, deviceInfo.device_type, deviceInfo.os, deviceInfo.browser]
             );
 
-            // 3. Verifier les sessions actives et deconnecter les anciennes (dans la MASTER)
             const [sessions] = await db.promisePoolMaster.query(
                 'SELECT id, token FROM sessions WHERE user_id = ? AND is_active = TRUE',
                 [user.id]

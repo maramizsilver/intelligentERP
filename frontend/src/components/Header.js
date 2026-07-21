@@ -131,7 +131,7 @@ export default function Header() {
       internalRoutes.push({ path: '/produits', label: 'Produits', permission: 'Stock' });
       internalRoutes.push({ path: '/mouvements-stock', label: 'Mouvements', permission: 'Stock' });
       internalRoutes.push({ path: '/alertes-stock', label: 'Alertes', permission: 'Stock' });
-      internalRoutes.push({ path: '/entrepots', label: 'Entrepôts', permission: 'Stock' });
+      internalRoutes.push({ path: '/entrepots', label: 'Entrepots', permission: 'Stock' });
       if (hasPermission('Stock', 'modification')) {
         internalRoutes.push({ path: '/transfert-stock', label: 'Transfert', permission: 'Stock' });
       }
@@ -270,7 +270,7 @@ export default function Header() {
         )}
       </div>
 
-      {/* Droite : User info + Déconnexion */}
+      {/* Droite : User info + Notifications + Deconnexion */}
       <div
         style={{
           display: 'flex',
@@ -313,6 +313,53 @@ export default function Header() {
           </>
         )}
 
+        {/* ICONE NOTIFICATION */}
+        <button
+          style={{
+            padding: isMobile ? '6px 10px' : '8px 12px',
+            backgroundColor: location.pathname === '/notifications' ? '#F0F9FF' : 'transparent',
+            color: '#0EA5E9',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: isMobile ? '16px' : '18px',
+            transition: 'all 0.2s ease',
+            position: 'relative',
+          }}
+          onClick={() => navigate('/notifications')}
+          onMouseEnter={(e) => {
+            e.target.style.backgroundColor = '#F0F9FF';
+          }}
+          onMouseLeave={(e) => {
+            if (location.pathname !== '/notifications') {
+              e.target.style.backgroundColor = 'transparent';
+            }
+          }}
+          title="Notifications"
+        >
+          🔔
+          <span
+            style={{
+              position: 'absolute',
+              top: '-2px',
+              right: '-2px',
+              backgroundColor: '#EF4444',
+              color: '#FFFFFF',
+              fontSize: '9px',
+              fontWeight: 'bold',
+              borderRadius: '50%',
+              width: '16px',
+              height: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            0
+          </span>
+        </button>
+
+        {/* Bouton de deconnexion */}
         <button
           style={{
             padding: isMobile ? '6px 12px' : '6px 16px',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
@@ -8,8 +8,35 @@ export default function MfaBanner() {
   const navigate = useNavigate();
   const [visible, setVisible] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [checking, setChecking] = useState(true);
 
-  if (user?.mfa_enabled || user?.is_super_admin) return null;
+  useEffect(() => {
+    const checkMFAStatus = async () => {
+      try {
+        const res = await API.get('/auth/mfa/status');
+        setMfaEnabled(res.data.data?.enabled || false);
+      } catch (err) {
+        // En cas d'erreur, considerer que MFA est desactivee
+        console.warn('[MFA] Erreur chargement statut:', err.message);
+        setMfaEnabled(false);
+      } finally {
+        setChecking(false);
+      }
+    };
+
+    checkMFAStatus();
+  }, []);
+
+  // Ne rien afficher pendant le chargement
+  if (checking) return null;
+  
+  // Ne rien afficher si SuperAdmin
+  if (user?.is_super_admin) return null;
+  
+  // Ne rien afficher si MFA deja active ou banner masque
+  if (mfaEnabled || user?.mfa_enabled) return null;
+  
   if (!visible) return null;
 
   const dismissBanner = async () => {
@@ -29,8 +56,8 @@ export default function MfaBanner() {
       <div style={styles.content}>
         <div style={styles.icon}>🔐</div>
         <div style={styles.message}>
-          <strong>Sécurisez votre compte</strong>
-          <span>Activez l'authentification à deux facteurs pour protéger votre compte.</span>
+          <strong>Securisez votre compte</strong>
+          <span>Activez l'authentification à deux facteurs pour proteger votre compte.</span>
         </div>
         <div style={styles.actions}>
           <button style={styles.primaryBtn} onClick={() => navigate('/securite/mfa')}>

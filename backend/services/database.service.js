@@ -60,6 +60,9 @@ const INITIAL_SCHEMA = [
     FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
+  // ============================================================
+  // TABLE USERS AVEC COLONNES MFA
+  // ============================================================
   `CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     role_id INT DEFAULT NULL,
@@ -76,6 +79,14 @@ const INITIAL_SCHEMA = [
     reset_token_expires TIMESTAMP NULL DEFAULT NULL,
     last_login TIMESTAMP NULL DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    mfa_enabled BOOLEAN DEFAULT FALSE,
+    mfa_secret VARCHAR(255) DEFAULT NULL,
+    mfa_backup_codes JSON DEFAULT NULL,
+    mfa_verified BOOLEAN DEFAULT FALSE,
+    mfa_attempts INT DEFAULT 0,
+    mfa_locked_until TIMESTAMP NULL DEFAULT NULL,
+    mfa_temp_secret VARCHAR(255) DEFAULT NULL,
+    mfa_banner_dismissed BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE SET NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 

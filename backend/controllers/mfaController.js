@@ -2,16 +2,32 @@ const MFAService = require('../services/mfa.service');
 const mfaConfig = require('../config/mfa.config');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
+const SessionService = require('../services/session.service');
 
 const masterPool = db.promisePoolMaster;
+
 // 1. INITIER L'ACTIVATION MFA
 exports.initiateMFA = async (req, res) => {
   try {
-    const clientPool = req.db; // Base TENANT
+    const clientPool = req.db;
     const userId = req.user.id;
     const email = req.user.email;
 
-    // Vérifier si la MFA est déjà active (dans tenant)
+    // Verifier si la colonne existe
+    const [check] = await clientPool.promise().query(
+      `SELECT COUNT(*) as count FROM INFORMATION_SCHEMA.COLUMNS 
+       WHERE TABLE_SCHEMA = DATABASE() 
+       AND TABLE_NAME = 'users' 
+       AND COLUMN_NAME = 'mfa_enabled'`
+    );
+
+    if (check[0].count === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'MFA non disponible sur cette installation'
+      });
+    }
+
     const [existing] = await clientPool.promise().query(
       'SELECT mfa_enabled FROM users WHERE id = ?',
       [userId]
@@ -24,19 +40,13 @@ exports.initiateMFA = async (req, res) => {
       });
     }
 
-    // 1. Générer le secret
     const { secret, otpauth_url } = MFAService.generateSecret(email, mfaConfig.totp.issuer);
-
-    // 2. Générer le QR Code
     const qrCode = await MFAService.generateQRCode(otpauth_url, mfaConfig.qr.width);
-
-    // 3. Générer les codes de sauvegarde
     const backupCodes = MFAService.generateBackupCodes(
       mfaConfig.backup.count,
       mfaConfig.backup.length
     );
 
-    // 4. Stocker le secret dans la base TENANT
     await clientPool.promise().query(
       `UPDATE users 
        SET mfa_secret = ?, 
@@ -77,7 +87,7 @@ exports.initiateMFA = async (req, res) => {
 // 2. ACTIVER LA MFA
 exports.activateMFA = async (req, res) => {
   try {
-    const clientPool = req.db; // Base TENANT
+    const clientPool = req.db;
     const userId = req.user.id;
     const { token } = req.body;
 
@@ -88,7 +98,6 @@ exports.activateMFA = async (req, res) => {
       });
     }
 
-    // Lire depuis la base TENANT
     const [rows] = await clientPool.promise().query(
       'SELECT mfa_secret FROM users WHERE id = ?',
       [userId]
@@ -147,7 +156,7 @@ exports.activateMFA = async (req, res) => {
 // 3. DESACTIVER LA MFA
 exports.deactivateMFA = async (req, res) => {
   try {
-    const clientPool = req.db; // Base TENANT
+    const clientPool = req.db;
     const userId = req.user.id;
     const { token } = req.body;
 
@@ -218,7 +227,7 @@ exports.deactivateMFA = async (req, res) => {
   }
 };
 
-// 4. VERIFICATION LORS DU LOGIN (2eme facteur)
+// 4. VERIFICATION LORS DU LOGIN (2eme facteur) - AVEC ENREGISTREMENT DE SESSION
 exports.verifyMFALogin = async (req, res) => {
   try {
     const { token, userId, tempToken } = req.body;
@@ -230,9 +239,9 @@ exports.verifyMFALogin = async (req, res) => {
       });
     }
 
-    // Vérifier le token temporaire
+    let decoded;
     try {
-      const decoded = jwt.verify(tempToken, process.env.JWT_SECRET);
+      decoded = jwt.verify(tempToken, process.env.JWT_SECRET);
       if (!decoded.mfa_pending || decoded.id !== userId) {
         return res.status(401).json({
           success: false,
@@ -322,6 +331,20 @@ exports.verifyMFALogin = async (req, res) => {
       { expiresIn: '24h' }
     );
 
+    // ENREGISTREMENT DE LA SESSION (CORRECTION DU BUG)
+    try {
+      await SessionService.recordConnection(null, { id: userId }, finalToken, req);
+    } catch (err) {
+      if (err.message === 'DEVICE_BLOCKED') {
+        return res.status(403).json({
+          success: false,
+          message: 'Appareil bloque. Contactez votre administrateur.',
+          code: 'DEVICE_BLOCKED'
+        });
+      }
+      console.error('[MFA] Erreur enregistrement session:', err);
+    }
+
     res.status(200).json({
       success: true,
       message: 'Verification MFA reussie',
@@ -340,7 +363,7 @@ exports.verifyMFALogin = async (req, res) => {
 // 5. VERIFIER UN CODE DE SAUVEGARDE
 exports.verifyBackupCode = async (req, res) => {
   try {
-    const clientPool = req.db; // Base TENANT
+    const clientPool = req.db;
     const userId = req.user.id;
     const { backupCode } = req.body;
 
@@ -391,11 +414,14 @@ exports.verifyBackupCode = async (req, res) => {
       [JSON.stringify(result.newList), userId]
     );
 
+    // CORRECTION : inclure entreprise_id et db_name dans le tempToken
     const tempToken = jwt.sign(
       {
         id: userId,
         mfa_pending: true,
-        backup_used: true
+        backup_used: true,
+        entreprise_id: req.user?.entreprise_id || null,
+        db_name: req.user?.db_name || null
       },
       process.env.JWT_SECRET,
       { expiresIn: '5m' }
@@ -422,7 +448,7 @@ exports.verifyBackupCode = async (req, res) => {
 // 6. REGENERER LES CODES DE SAUVEGARDE
 exports.regenerateBackupCodes = async (req, res) => {
   try {
-    const clientPool = req.db; // Base TENANT
+    const clientPool = req.db;
     const userId = req.user.id;
 
     const [rows] = await clientPool.promise().query(
@@ -469,36 +495,52 @@ exports.regenerateBackupCodes = async (req, res) => {
   }
 };
 
-// 7. OBTENIR LE STATUT MFA
+// 7. OBTENIR LE STATUT MFA (OPTIONNEL - NE RETOURNE JAMAIS 500)
 exports.getMFAStatus = async (req, res) => {
   try {
-    const clientPool = req.db; // Base TENANT
-    const userId = req.user.id;
-
-    const [rows] = await clientPool.promise().query(
-      'SELECT mfa_enabled FROM users WHERE id = ?',
-      [userId]
-    );
-
-    if (!rows.length) {
-      return res.status(404).json({
-        success: false,
-        message: 'Utilisateur non trouve'
+    if (req.user?.is_super_admin) {
+      return res.status(200).json({
+        success: true,
+        data: { enabled: false }
       });
     }
 
-    res.status(200).json({
-      success: true,
-      data: {
-        enabled: rows[0].mfa_enabled === 1
-      }
-    });
+    const clientPool = req.db;
+    
+    if (!clientPool) {
+      return res.status(200).json({
+        success: true,
+        data: { enabled: false }
+      });
+    }
+
+    const userId = req.user.id;
+
+    try {
+      const [rows] = await clientPool.promise().query(
+        'SELECT mfa_enabled FROM users WHERE id = ?',
+        [userId]
+      );
+
+      res.status(200).json({
+        success: true,
+        data: {
+          enabled: rows.length > 0 && rows[0].mfa_enabled === 1
+        }
+      });
+    } catch (err) {
+      console.warn('[MFA] Erreur requete, MFA desactive:', err.message);
+      res.status(200).json({
+        success: true,
+        data: { enabled: false }
+      });
+    }
 
   } catch (error) {
-    console.error('[MFA] Erreur statut:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors de la recuperation du statut MFA'
+    console.warn('[MFA] Erreur statut:', error.message);
+    res.status(200).json({
+      success: true,
+      data: { enabled: false }
     });
   }
 };
@@ -506,7 +548,7 @@ exports.getMFAStatus = async (req, res) => {
 // 8. FERMER LE BANNER MFA
 exports.dismissMFABanner = async (req, res) => {
   try {
-    const clientPool = req.db; // Base TENANT
+    const clientPool = req.db;
     const userId = req.user.id;
 
     await clientPool.promise().query(

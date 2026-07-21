@@ -29,37 +29,41 @@ export default function Sidebar() {
 
   const getMenuItems = () => {
     // SUPER ADMIN
-if (user?.is_super_admin) {
-  return [
-    {
-      section: 'Administration',
-      items: [
-        { 
-          path: '/superadmin/dashboard', 
-          label: 'Entreprises', 
-          icon: '🏢',
-          description: 'Gerer les entreprises'
-        },
-        { 
-          path: '/superadmin/taux-reference', 
-          label: 'Taux & Periodes', 
-          icon: '📊',
-          description: 'Gerer les taux de reference'
-        },
-        // AJOUTER
-        { 
-          path: '/superadmin/sessions', 
-          label: 'Sessions', 
-          icon: '🔐',
-          description: 'Supervision des sessions'
-        },
-      ]
+    if (user?.is_super_admin) {
+      return [
+        {
+          section: 'Administration',
+          items: [
+            { 
+              path: '/superadmin/dashboard', 
+              label: 'Entreprises', 
+              icon: '🏢',
+              description: 'Gerer les entreprises'
+            },
+            { 
+              path: '/superadmin/taux-reference', 
+              label: 'Taux & Periodes', 
+              icon: '📊',
+              description: 'Gerer les taux de reference'
+            },
+            { 
+              path: '/superadmin/sessions', 
+              label: 'Sessions', 
+              icon: '🔐',
+              description: 'Supervision des sessions'
+            },
+            { 
+              path: '/notifications', 
+              label: 'Notifications', 
+              icon: '🔔', 
+              description: 'Voir les notifications' 
+            }
+          ]
+        }
+      ];
     }
-  ];
-}
 
     // UTILISATEUR INTERNE (entreprise)
-
     const sections = [];
 
     // Dashboard
@@ -140,12 +144,20 @@ if (user?.is_super_admin) {
       adminItems.push({ path: '/archives', label: 'Archives', icon: '🗄️', description: 'Archivage numérique' });
     }
 
-    // Ajouter le lien MFA (visible par tous les utilisateurs internes)
+    // Ajouter le lien MFA
     adminItems.push({ 
       path: '/securite/mfa', 
       label: 'Sécurité MFA', 
       icon: '🔐', 
       description: 'Authentification à deux facteurs' 
+    });
+
+    // Ajouter le lien Notifications
+    adminItems.push({ 
+      path: '/notifications', 
+      label: 'Notifications', 
+      icon: '🔔', 
+      description: 'Voir les notifications' 
     });
 
     if (adminItems.length > 0) {
