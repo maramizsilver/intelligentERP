@@ -1,14 +1,6 @@
 
 const SequenceService = require('../services/sequence.service');
 
-// ============================================================
-// PLUS de la fonction genererNumeroDevis() ici !!
-// Utilise désormais SequenceService.genererNumeroDevis()
-// ============================================================
-
-// ============================================================
-// GET TOUS LES DEVIS
-// ============================================================
 exports.getAllDevis = (req, res) => {
     const db = req.db;
     const sql = `

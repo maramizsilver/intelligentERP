@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 module.exports = {
+  // EMAIL - GRATUIT
   email: {
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.SMTP_PORT || '587'),
@@ -13,20 +14,27 @@ module.exports = {
     fromName: process.env.SMTP_FROM_NAME || 'ERP Platform',
   },
 
+  
+  // WHATSAPP - GRATUIT (Twilio Sandbox)
   twilio: {
     accountSid: process.env.TWILIO_ACCOUNT_SID || '',
     authToken: process.env.TWILIO_AUTH_TOKEN || '',
-    phoneNumber: process.env.TWILIO_PHONE_NUMBER || '',
-    whatsappNumber: process.env.TWILIO_WHATSAPP_NUMBER || '',
+    whatsappNumber: process.env.TWILIO_WHATSAPP_NUMBER || '+14155238886',
+    environment: process.env.TWILIO_ENVIRONMENT || 'sandbox',
   },
 
-  telegram: {
-    botToken: process.env.TELEGRAM_BOT_TOKEN || '',
+  // WHATSAPP - GRATUIT (CallMeBot - Fallback)
+  callmebot: {
+    apiKey: process.env.CALLMEBOT_API_KEY || '',
+    apiUrl: 'https://api.callmebot.com/whatsapp.php',
   },
 
+  // CANAUX PAR DEFAUT
   defaultChannels: {
-    alert: ['email', 'telegram'],
+    alert: ['email', 'whatsapp'],
     info: ['email'],
-    marketing: ['email', 'whatsapp', 'sms'],
+    marketing: ['email', 'whatsapp'],
+    commande: ['email', 'whatsapp'],
+    securite: ['email', 'whatsapp'],
   },
 };

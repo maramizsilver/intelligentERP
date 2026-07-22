@@ -16,12 +16,15 @@ class NotificationService {
           pass: notificationConfig.email.auth.pass,
         },
       });
+      console.log('[Notification] Email configure avec succes');
+    } else {
+      console.warn('[Notification] Email non configure');
     }
 
-    // TWILIO - Ne s'initialise que si les cles sont presentes
+    // TWILIO - WhatsApp
     this.twilioClient = null;
-    const twilioAccountSid = notificationConfig.twilio.accountSid;
-    const twilioAuthToken = notificationConfig.twilio.authToken;
+    const twilioAccountSid = notificationConfig.twilio?.accountSid;
+    const twilioAuthToken = notificationConfig.twilio?.authToken;
     
     if (twilioAccountSid && twilioAuthToken && twilioAccountSid.startsWith('AC')) {
       try {
@@ -33,25 +36,22 @@ class NotificationService {
         this.twilioClient = null;
       }
     } else {
-      console.warn('[Notification] Twilio non configure - cles manquantes');
+      console.warn('[Notification] Twilio non configure');
     }
 
-    // TELEGRAM
-    this.telegramBotToken = notificationConfig.telegram.botToken;
-    if (this.telegramBotToken) {
-      console.log('[Notification] Telegram configure');
-    } else {
-      console.warn('[Notification] Telegram non configure');
+    // CALLMEBOT - WhatsApp (Fallback gratuit)
+    this.callmebotApiKey = notificationConfig.callmebot?.apiKey || process.env.CALLMEBOT_API_KEY;
+    if (this.callmebotApiKey) {
+      console.log('[Notification] CallMeBot configure');
     }
   }
 
-  // ============================================================
+
   // EMAIL
-  // ============================================================
   async sendEmail({ to, subject, html, text }) {
     if (!this.emailTransporter) {
-      console.warn('[Notification] Email non configure');
-      return { success: false, message: 'Email not configured' };
+      console.warn('[Email] Email non configure');
+      return { success: false, error: 'Email not configured' };
     }
 
     try {
@@ -63,98 +63,72 @@ class NotificationService {
         text: text || html?.replace(/<[^>]*>/g, '') || '',
       });
 
-      console.log('[Notification] Email envoyé:', info.messageId);
+      console.log('[Email] Envoye:', info.messageId);
       return { success: true, messageId: info.messageId };
     } catch (err) {
-      console.error('[Notification] Erreur email:', err.message);
+      console.error('[Email] Erreur:', err.message);
       return { success: false, error: err.message };
     }
   }
 
-  // ============================================================
-  // SMS (Twilio)
-  // ============================================================
-  async sendSMS({ to, message }) {
-    if (!this.twilioClient) {
-      console.warn('[Notification] Twilio non configure - SMS ignore');
-      return { success: false, message: 'Twilio not configured' };
-    }
-
-    try {
-      const result = await this.twilioClient.messages.create({
-        body: message,
-        from: notificationConfig.twilio.phoneNumber,
-        to,
-      });
-
-      console.log('[Notification] SMS envoyé:', result.sid);
-      return { success: true, sid: result.sid };
-    } catch (err) {
-      console.error('[Notification] Erreur SMS:', err.message);
-      return { success: false, error: err.message };
-    }
-  }
-
-  // ============================================================
-  // WhatsApp (Twilio)
-  // ============================================================
+  // WHATSAPP - Twilio + CallMeBot (Fallback)
   async sendWhatsApp({ to, message }) {
-    if (!this.twilioClient) {
-      console.warn('[Notification] Twilio non configure - WhatsApp ignore');
-      return { success: false, message: 'Twilio not configured' };
+    // 1. Twilio Sandbox
+    if (this.twilioClient) {
+      try {
+        const whatsappNumber = notificationConfig.twilio.whatsappNumber || '+14155238886';
+        
+        console.log('[WhatsApp] Envoi a:', to);
+        console.log('[WhatsApp] From:', `whatsapp:${whatsappNumber}`);
+
+        const result = await this.twilioClient.messages.create({
+          body: message,
+          from: `whatsapp:${whatsappNumber}`,
+          to: `whatsapp:${to}`,
+        });
+
+        console.log('[WhatsApp] Envoye via Twilio:', result.sid);
+        return { success: true, provider: 'twilio', sid: result.sid };
+      } catch (err) {
+        console.error('[WhatsApp] Erreur Twilio:', err.message);
+      }
     }
 
-    try {
-      const result = await this.twilioClient.messages.create({
-        body: message,
-        from: `whatsapp:${notificationConfig.twilio.whatsappNumber}`,
-        to: `whatsapp:${to}`,
-      });
+    // 2. CallMeBot (Fallback gratuit)
+    if (this.callmebotApiKey) {
+      try {
+        const url = 'https://api.callmebot.com/whatsapp.php';
+        const response = await axios.get(url, {
+          params: {
+            phone: to.replace(/\+/g, ''),
+            text: message,
+            apikey: this.callmebotApiKey,
+          },
+          timeout: 10000,
+        });
 
-      console.log('[Notification] WhatsApp envoyé:', result.sid);
-      return { success: true, sid: result.sid };
-    } catch (err) {
-      console.error('[Notification] Erreur WhatsApp:', err.message);
-      return { success: false, error: err.message };
+        console.log('[WhatsApp] Envoye via CallMeBot:', response.data);
+        if (response.data && response.data.success !== false) {
+          return { success: true, provider: 'callmebot', data: response.data };
+        }
+      } catch (err) {
+        console.error('[WhatsApp] Erreur CallMeBot:', err.message);
+      }
     }
+
+    console.warn('[WhatsApp] Aucun service WhatsApp configure');
+    return { success: false, error: 'Aucun service WhatsApp configure' };
   }
 
-  // ============================================================
-  // TELEGRAM
-  // ============================================================
-  async sendTelegram({ chatId, message, parseMode = 'HTML' }) {
-    if (!this.telegramBotToken) {
-      console.warn('[Notification] Telegram non configure');
-      return { success: false, message: 'Telegram not configured' };
-    }
-
-    try {
-      const url = `https://api.telegram.org/bot${this.telegramBotToken}/sendMessage`;
-      const response = await axios.post(url, {
-        chat_id: chatId,
-        text: message,
-        parse_mode: parseMode,
-      });
-
-      console.log('[Notification] Telegram envoyé:', response.data.result.message_id);
-      return { success: true, messageId: response.data.result.message_id };
-    } catch (err) {
-      console.error('[Notification] Erreur Telegram:', err.response?.data || err.message);
-      return { success: false, error: err.message };
-    }
-  }
-
-  // ============================================================
   // METHODE UNIVERSELLE
-  // ============================================================
   async send({
     to,
     subject,
     message,
     channels = ['email'],
     html,
-    chatId,
   }) {
+    console.log('[Notification] Canaux:', channels);
     const results = {};
 
     for (const channel of channels) {
@@ -170,29 +144,11 @@ class NotificationService {
           }
           break;
 
-        case 'sms':
-          if (to?.phone) {
-            results.sms = await this.sendSMS({
-              to: to.phone,
-              message: message.replace(/<[^>]*>/g, ''),
-            });
-          }
-          break;
-
         case 'whatsapp':
           if (to?.phone) {
             results.whatsapp = await this.sendWhatsApp({
               to: to.phone,
               message: message.replace(/<[^>]*>/g, ''),
-            });
-          }
-          break;
-
-        case 'telegram':
-          if (chatId) {
-            results.telegram = await this.sendTelegram({
-              chatId,
-              message,
             });
           }
           break;
@@ -205,9 +161,7 @@ class NotificationService {
     return results;
   }
 
-  // ============================================================
   // ALERTE DE CONNEXION
-  // ============================================================
   async sendLoginAlert({
     user,
     entreprise,
@@ -216,56 +170,53 @@ class NotificationService {
     ip,
     userEmail,
     userPhone,
-    userTelegramChatId,
   }) {
     const date = new Date().toLocaleString('fr-FR');
     const message = `
-[NEW LOGIN DETECTED]
+Nouvelle connexion detectee
 
-User: ${user.nom} ${user.prenom}
-Company: ${entreprise?.nom || 'N/A'}
+Utilisateur: ${user.nom} ${user.prenom}
+Entreprise: ${entreprise?.nom || 'N/A'}
 Email: ${user.email}
-Date/Time: ${date}
+Date: ${date}
 
-Device: ${device?.device_type || 'Unknown'}
-OS: ${device?.os || 'Unknown'}
-Browser: ${device?.browser || 'Unknown'}
-Location: ${location?.country || 'Unknown'}${location?.city ? ` (${location.city})` : ''}
-IP: ${ip || 'Unknown'}
+Appareil: ${device?.device_type || 'Inconnu'}
+OS: ${device?.os || 'Inconnu'}
+Navigateur: ${device?.browser || 'Inconnu'}
+Localisation: ${location?.country || 'Inconnu'}${location?.city ? ` (${location.city})` : ''}
+IP: ${ip || 'Inconnu'}
 
-If you do not recognize this login, contact your administrator immediately.
+Si vous ne reconnaissez pas cette connexion, contactez votre administrateur.
     `;
 
     const html = `
-      <h2>New Login Detected</h2>
-      <p><strong>User:</strong> ${user.nom} ${user.prenom}</p>
-      <p><strong>Company:</strong> ${entreprise?.nom || 'N/A'}</p>
+      <h2>Nouvelle connexion detectee</h2>
+      <p><strong>Utilisateur:</strong> ${user.nom} ${user.prenom}</p>
+      <p><strong>Entreprise:</strong> ${entreprise?.nom || 'N/A'}</p>
       <p><strong>Email:</strong> ${user.email}</p>
-      <p><strong>Date/Time:</strong> ${date}</p>
+      <p><strong>Date:</strong> ${date}</p>
       <hr>
-      <p><strong>Device:</strong> ${device?.device_type || 'Unknown'}</p>
-      <p><strong>OS:</strong> ${device?.os || 'Unknown'}</p>
-      <p><strong>Browser:</strong> ${device?.browser || 'Unknown'}</p>
-      <p><strong>Location:</strong> ${location?.country || 'Unknown'}${location?.city ? ` (${location.city})` : ''}</p>
-      <p><strong>IP:</strong> ${ip || 'Unknown'}</p>
+      <p><strong>Appareil:</strong> ${device?.device_type || 'Inconnu'}</p>
+      <p><strong>OS:</strong> ${device?.os || 'Inconnu'}</p>
+      <p><strong>Navigateur:</strong> ${device?.browser || 'Inconnu'}</p>
+      <p><strong>Localisation:</strong> ${location?.country || 'Inconnu'}${location?.city ? ` (${location.city})` : ''}</p>
+      <p><strong>IP:</strong> ${ip || 'Inconnu'}</p>
       <hr>
-      <p style="color:red;"><strong>If you do not recognize this login, contact your administrator immediately.</strong></p>
+      <p style="color:red;"><strong>Si vous ne reconnaissez pas cette connexion, contactez votre administrateur.</strong></p>
     `;
 
     const channels = ['email'];
-    if (userPhone) channels.push('sms', 'whatsapp');
-    if (userTelegramChatId) channels.push('telegram');
+    if (userPhone) channels.push('whatsapp');
 
     return this.send({
       to: {
         email: userEmail,
         phone: userPhone,
       },
-      subject: `New Login - ${entreprise?.nom || 'ERP'}`,
+      subject: `Nouvelle connexion - ${entreprise?.nom || 'ERP'}`,
       message,
       html,
       channels,
-      chatId: userTelegramChatId,
     });
   }
 }

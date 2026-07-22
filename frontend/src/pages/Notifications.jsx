@@ -10,18 +10,19 @@ export default function Notifications() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [whatsappLoading, setWhatsappLoading] = useState(false);
   const [preferences, setPreferences] = useState({
     phone: '',
-    telegram_chat_id: '',
     email_enabled: true,
-    sms_enabled: false,
     whatsapp_enabled: false,
-    telegram_enabled: false,
   });
   const [testEmail, setTestEmail] = useState(user?.email || '');
+  const [testPhone, setTestPhone] = useState('+216');
+  const [testMessage, setTestMessage] = useState('Test depuis ERP');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  const [whatsappResult, setWhatsappResult] = useState(null);
 
   useEffect(() => {
     loadPreferences();
@@ -32,6 +33,9 @@ export default function Notifications() {
       setLoading(true);
       const res = await API.get('/notifications/preferences');
       setPreferences(res.data.preferences);
+      if (res.data.preferences?.phone) {
+        setTestPhone(res.data.preferences.phone);
+      }
     } catch (err) {
       console.error('Erreur chargement preferences:', err);
     } finally {
@@ -71,7 +75,10 @@ export default function Notifications() {
     setMessage('');
     setResult(null);
     try {
-      const res = await API.post('/notifications/test', { email: testEmail });
+      const res = await API.post('/notifications/test', {
+        email: testEmail,
+        phone: preferences.phone || '+216XXXXXXXXX'
+      });
       setResult(res.data);
       setMessage('Email de test envoye avec succes');
     } catch (err) {
@@ -81,7 +88,48 @@ export default function Notifications() {
     }
   };
 
+  const sendTestWhatsApp = async () => {
+    if (!testPhone || testPhone === '+216') {
+      setError('Veuillez entrer un numero de telephone valide pour WhatsApp');
+      return;
+    }
+    if (!testMessage) {
+      setError('Veuillez entrer un message');
+      return;
+    }
+    
+    setWhatsappLoading(true);
+    setError('');
+    setMessage('');
+    setWhatsappResult(null);
+    
+    try {
+      const res = await API.post('/notifications/test-canal', {
+        canal: 'whatsapp',
+        to: testPhone,
+        message: testMessage
+      });
+      
+      setWhatsappResult(res.data);
+      if (res.data.success) {
+        setMessage('WhatsApp envoye avec succes');
+      } else {
+        setError('Erreur: ' + (res.data.result?.error || 'Echec de l\'envoi'));
+      }
+    } catch (err) {
+      console.error('Erreur WhatsApp:', err);
+      setError(err.response?.data?.error || err.response?.data?.message || 'Erreur envoi WhatsApp');
+    } finally {
+      setWhatsappLoading(false);
+    }
+  };
+
   const sendLoginAlert = async () => {
+    if (!user) {
+      setError('Vous devez etre connecte');
+      return;
+    }
+    
     setSending(true);
     setError('');
     setMessage('');
@@ -133,18 +181,11 @@ export default function Notifications() {
         <Card title="Preferences de notification" variant="primary">
           <div style={styles.formGroup}>
             <Input
-              label="Numero de telephone"
+              label="Numero de telephone (WhatsApp)"
               name="phone"
               value={preferences.phone || ''}
               onChange={handleChange}
               placeholder="+216 00 000 000"
-            />
-            <Input
-              label="Telegram Chat ID"
-              name="telegram_chat_id"
-              value={preferences.telegram_chat_id || ''}
-              onChange={handleChange}
-              placeholder="123456789"
             />
           </div>
 
@@ -161,29 +202,11 @@ export default function Notifications() {
             <label style={styles.checkboxLabel}>
               <input
                 type="checkbox"
-                name="sms_enabled"
-                checked={preferences.sms_enabled}
-                onChange={handleChange}
-              />
-              SMS
-            </label>
-            <label style={styles.checkboxLabel}>
-              <input
-                type="checkbox"
                 name="whatsapp_enabled"
                 checked={preferences.whatsapp_enabled}
                 onChange={handleChange}
               />
               WhatsApp
-            </label>
-            <label style={styles.checkboxLabel}>
-              <input
-                type="checkbox"
-                name="telegram_enabled"
-                checked={preferences.telegram_enabled}
-                onChange={handleChange}
-              />
-              Telegram
             </label>
           </div>
 
@@ -213,6 +236,31 @@ export default function Notifications() {
 
           <div style={styles.divider} />
 
+          <div style={styles.formGroup}>
+            <Input
+              label="Numero WhatsApp"
+              value={testPhone}
+              onChange={(e) => setTestPhone(e.target.value)}
+              placeholder="+216XXXXXXXXX"
+            />
+            <Input
+              label="Message"
+              value={testMessage}
+              onChange={(e) => setTestMessage(e.target.value)}
+              placeholder="Votre message..."
+            />
+            <Button
+              variant="success"
+              onClick={sendTestWhatsApp}
+              loading={whatsappLoading}
+              fullWidth
+            >
+              {whatsappLoading ? 'Envoi WhatsApp...' : 'Tester WhatsApp'}
+            </Button>
+          </div>
+
+          <div style={styles.divider} />
+
           <Button
             variant="warning"
             onClick={sendLoginAlert}
@@ -225,9 +273,17 @@ export default function Notifications() {
       </div>
 
       {result && (
-        <Card title="Resultat" variant="info">
+        <Card title="Resultat Email" variant="info">
           <pre style={styles.jsonResult}>
             {JSON.stringify(result, null, 2)}
+          </pre>
+        </Card>
+      )}
+
+      {whatsappResult && (
+        <Card title="Resultat WhatsApp" variant="info">
+          <pre style={styles.jsonResult}>
+            {JSON.stringify(whatsappResult, null, 2)}
           </pre>
         </Card>
       )}
@@ -262,7 +318,7 @@ const styles = {
   },
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))',
     gap: '20px',
   },
   formGroup: {
