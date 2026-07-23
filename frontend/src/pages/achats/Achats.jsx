@@ -23,12 +23,11 @@ export default function Achats() {
   const [success, setSuccess] = useState('');
   const [receivingId, setReceivingId] = useState(null);
 
-  // Etats pour le modal de reception
   const [showReceptionModal, setShowReceptionModal] = useState(false);
-  const [receptionData, setReceptionData] = useState({ 
-    achatId: null, 
-    lignes: [], 
-    quantites: {} 
+  const [receptionData, setReceptionData] = useState({
+    achatId: null,
+    lignes: [],
+    quantites: {}
   });
 
   const [showForm, setShowForm] = useState(false);
@@ -56,7 +55,7 @@ export default function Achats() {
         API.get('/fournisseurs'),
         API.get('/produits')
       ]);
-      
+
       const achatsWithLignes = await Promise.all(
         (achatsRes.data.achats || []).map(async (achat) => {
           try {
@@ -67,7 +66,7 @@ export default function Achats() {
           }
         })
       );
-      
+
       setAchats(achatsWithLignes);
       setFournisseurs(fournisseursRes.data.fournisseurs || []);
       setProduits(produitsRes.data.produits || []);
@@ -139,17 +138,13 @@ export default function Achats() {
     }
   };
 
-  // ============================================================
-  // RECEPTION - VERSION AVEC MODAL
-  // ============================================================
-
   const handleRecevoir = (achat) => {
     const lignes = achat.lignes || [];
     const quantites = {};
     lignes.forEach(l => {
       quantites[l.produit_id] = l.quantite_recue || 0;
     });
-    
+
     setReceptionData({
       achatId: achat.id,
       lignes: lignes,
@@ -171,23 +166,23 @@ export default function Achats() {
 
   const handleConfirmReception = async () => {
     const { achatId, quantites } = receptionData;
-    
+
     const quantitesRecues = {};
     Object.keys(quantites).forEach(key => {
       if (quantites[key] > 0) {
         quantitesRecues[key] = quantites[key];
       }
     });
-    
+
     if (Object.keys(quantitesRecues).length === 0) {
       setError('Veuillez saisir au moins une quantite');
       return;
     }
-    
+
     try {
       setReceivingId(achatId);
-      await API.put(`/achats/${achatId}/recevoir`, { 
-        quantites_recues: quantitesRecues 
+      await API.put(`/achats/${achatId}/recevoir`, {
+        quantites_recues: quantitesRecues
       });
       setSuccess('Reception enregistree, stock mis a jour');
       setShowReceptionModal(false);
@@ -222,7 +217,8 @@ export default function Achats() {
   };
 
   const columns = [
-    { key: 'numero_bc', label: 'N°' },
+    { key: 'id', label: 'N°', width: '60px' },
+    { key: 'numero_bc', label: 'Numero BC' },
     { key: 'fournisseur_nom', label: 'Fournisseur' },
     {
       key: 'date_commande',
@@ -266,6 +262,13 @@ export default function Achats() {
       disabled: (row) => row.statut !== 'brouillon'
     });
   }
+
+  actions.push({
+    label: 'Payer fournisseur',
+    variant: 'success',
+    onClick: (row) => navigate(`/paiement/fournisseur?achat_id=${row.id}&montant=${row.total_ttc}`),
+    disabled: (row) => row.statut !== 'recu_total' && row.statut !== 'paye'
+  });
 
   return (
     <div>
@@ -409,13 +412,12 @@ export default function Achats() {
         <Table columns={columns} data={achats} loading={loading} actions={actions} />
       </Card>
 
-      {/* Modal de reception */}
       {showReceptionModal && (
         <div style={styles.modalOverlay} onClick={() => setShowReceptionModal(false)}>
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <h3 style={styles.modalTitle}>Receptionner la commande</h3>
             <p style={styles.modalSubtitle}>Saisissez les quantites recues</p>
-            
+
             {receptionData.lignes.length === 0 ? (
               <p style={styles.emptyMessage}>Aucun produit dans cette commande</p>
             ) : (
@@ -456,13 +458,13 @@ export default function Achats() {
                 </tbody>
               </table>
             )}
-            
+
             <div style={styles.modalActions}>
               <Button variant="secondary" onClick={() => setShowReceptionModal(false)}>
                 Annuler
               </Button>
-              <Button 
-                variant="primary" 
+              <Button
+                variant="primary"
                 onClick={handleConfirmReception}
                 loading={receivingId === receptionData.achatId}
                 disabled={receptionData.lignes.length === 0}
@@ -489,7 +491,7 @@ const styles = {
   title: { fontSize: '24px', fontWeight: 700, color: '#0F172A', margin: 0 },
   subtitle: { fontSize: '14px', color: '#64748B', margin: '4px 0 0' },
   headerActions: { display: 'flex', gap: '8px', flexWrap: 'wrap' },
-  
+
   errorContainer: {
     display: 'flex',
     alignItems: 'center',
@@ -502,7 +504,7 @@ const styles = {
   },
   errorIcon: { color: '#991B1B', fontSize: '16px', fontWeight: 'bold' },
   errorText: { color: '#991B1B', fontSize: '13px', fontWeight: 500 },
-  
+
   successContainer: {
     display: 'flex',
     alignItems: 'center',
@@ -515,21 +517,21 @@ const styles = {
   },
   successIcon: { color: '#065F46', fontSize: '16px', fontWeight: 'bold' },
   successText: { color: '#065F46', fontSize: '13px', fontWeight: 500 },
-  
-  formGrid: { 
-    display: 'grid', 
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-    gap: '16px', 
-    marginBottom: '16px' 
+
+  formGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '16px',
+    marginBottom: '16px'
   },
-  formGroup: { 
-    display: 'flex', 
-    flexDirection: 'column', 
-    gap: '4px', 
-    marginBottom: '16px' 
+  formGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    marginBottom: '16px'
   },
   label: { fontSize: '13px', fontWeight: 600, color: '#334155' },
-  
+
   select: {
     padding: '10px 14px',
     borderRadius: '8px',
@@ -563,7 +565,7 @@ const styles = {
     transition: 'all 0.2s ease',
     fontFamily: 'inherit',
   },
-  
+
   lignesContainer: {
     backgroundColor: '#F8FAFC',
     padding: '16px',

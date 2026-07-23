@@ -6,26 +6,21 @@ import PrivateRoute from './components/PrivateRoute';
 import SecuriteMFA from './pages/admin/SecuriteMFA';
 import Notifications from './pages/Notifications';
 
-// AUTH
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 
-// DASHBOARD
 import Dashboard from './pages/dashboard/Dashboard';
 import SuperAdminDashboard from './pages/dashboard/SuperAdminDashboard';
 import EssaiExpire from './pages/dashboard/EssaiExpire';
 
-// VENTES
 import Clients from './pages/ventes/Clients';
 import Commandes from './pages/ventes/Commandes';
 import Devis from './pages/ventes/Devis';
 import Promotions from './pages/ventes/Promotions';
 
-// ACHATS
 import Fournisseurs from './pages/achats/Fournisseurs';
 import Achats from './pages/achats/Achats';
 
-// STOCK
 import Produits from './pages/stock/Produits';
 import MouvementsStock from './pages/stock/MouvementsStock';
 import AlertesStock from './pages/stock/AlertesStock';
@@ -33,16 +28,13 @@ import Entrepots from './pages/stock/Entrepots';
 import TransfertStock from './pages/stock/TransfertStock';
 import Inventaires from './pages/stock/Inventaires';
 
-// ADMIN
 import Utilisateurs from './pages/admin/Utilisateurs';
 import Documents from './pages/admin/Documents';
 import Archives from './pages/admin/Archives';
 import SuperAdminSessions from './pages/admin/superadmin/SuperAdminSessions';
 
-// SUPERADMIN - TAUX REFERENCE
 import TauxReference from './pages/admin/superadmin/TauxReference';
 
-// CLIENT (portail externe)
 import ClientDashboard from './pages/client/ClientDashboard';
 import ClientCommandes from './pages/client/ClientCommandes';
 import ClientCommandeDetail from './pages/client/ClientCommandeDetail';
@@ -50,13 +42,16 @@ import ClientProduits from './pages/client/ClientProduits';
 import ClientFactures from './pages/client/ClientFactures';
 import ClientProfil from './pages/client/ClientProfil';
 
-// FINANCE
 import Finance from './pages/Finance/Finance';
-
-// CALCULATEUR
 import Calculateur from './pages/calculateur/Calculateur';
 
-// STYLES
+import PaiementClient from './pages/paiement/PaiementClient';
+import PaiementClientSuccess from './pages/paiement/PaiementClientSuccess';
+import PaiementFournisseur from './pages/paiement/PaiementFournisseur';
+import PaiementFournisseurSuccess from './pages/paiement/PaiementFournisseurSuccess';
+import PaiementCancel from './pages/paiement/PaiementCancel';
+import AbonnementSuccess from './pages/paiement/AbonnementSuccess';
+
 import './styles/global.css';
 import './styles/print.css';
 
@@ -75,11 +70,9 @@ function AppRoutes() {
 
   return (
     <Routes>
-      {/* ROUTES PUBLIQUES */}
       <Route path="/" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      {/* ESSAI EXPIRE */}
       <Route
         path="/essai-expire"
         element={
@@ -91,7 +84,6 @@ function AppRoutes() {
         }
       />
 
-      {/* SUPER ADMIN */}
       <Route
         path="/superadmin/dashboard"
         element={
@@ -103,7 +95,6 @@ function AppRoutes() {
         }
       />
 
-      {/* SUPER ADMIN - TAUX & PERIODES */}
       <Route
         path="/superadmin/taux-reference"
         element={
@@ -115,7 +106,6 @@ function AppRoutes() {
         }
       />
 
-      {/* SUPER ADMIN - SESSIONS */}
       <Route
         path="/superadmin/sessions"
         element={
@@ -127,7 +117,6 @@ function AppRoutes() {
         }
       />
 
-      {/* FINANCE */}
       <Route
         path="/finance"
         element={
@@ -139,7 +128,6 @@ function AppRoutes() {
         }
       />
 
-      {/* CALCULATEUR */}
       <Route
         path="/calculateur"
         element={
@@ -151,7 +139,6 @@ function AppRoutes() {
         }
       />
 
-      {/* CLIENT (portail externe) */}
       <Route
         path="/client/dashboard"
         element={
@@ -201,7 +188,6 @@ function AppRoutes() {
         }
       />
 
-      {/* INTERNE - DASHBOARD */}
       <Route
         path="/dashboard"
         element={
@@ -212,18 +198,17 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
-          <Route
-      path="/notifications"
-      element={
-        <PrivateRoute>
-          <Layout>
-            <Notifications />
-          </Layout>
-        </PrivateRoute>
-      }
-    />
+      <Route
+        path="/notifications"
+        element={
+          <PrivateRoute>
+            <Layout>
+              <Notifications />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
 
-      {/* INTERNE - VENTES */}
       <Route
         path="/clients"
         element={
@@ -265,7 +250,6 @@ function AppRoutes() {
         }
       />
 
-      {/* INTERNE - ACHATS */}
       <Route
         path="/fournisseurs"
         element={
@@ -287,7 +271,6 @@ function AppRoutes() {
         }
       />
 
-      {/* INTERNE - STOCK */}
       <Route
         path="/produits"
         element={
@@ -349,7 +332,6 @@ function AppRoutes() {
         }
       />
 
-      {/* INTERNE - ADMIN */}
       <Route
         path="/utilisateurs"
         element={
@@ -381,7 +363,6 @@ function AppRoutes() {
         }
       />
 
-      {/* ROUTE MFA - SECURITE */}
       <Route
         path="/securite/mfa"
         element={
@@ -393,7 +374,67 @@ function AppRoutes() {
         }
       />
 
-      {/* REDIRECTION */}
+      <Route
+        path="/paiement/client"
+        element={
+          <PrivateRoute>
+            <Layout>
+              <PaiementClient />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/paiement/client/success"
+        element={
+          <PrivateRoute>
+            <PaiementClientSuccess />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/paiement/cancel"
+        element={
+          <PrivateRoute>
+            <PaiementCancel />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/paiement/fournisseur"
+        element={
+          <PrivateRoute>
+            <Layout>
+              <PaiementFournisseur />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/paiement/fournisseur/success"
+        element={
+          <PrivateRoute>
+            <PaiementFournisseurSuccess />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/paiement/fournisseur/cancel"
+        element={
+          <PrivateRoute>
+            <PaiementCancel />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/paiement/abonnement-success"
+        element={<AbonnementSuccess />}
+      />
+      <Route
+        path="/paiement/abonnement-cancel"
+        element={<PaiementCancel />}
+      />
+
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );

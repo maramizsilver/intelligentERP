@@ -12,14 +12,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ROUTES PUBLIQUES
 app.use('/api/auth', require('./routes/authRoutes'));
 
-// SUPERADMIN - PAS DE SESSION MIDDLEWARE
 app.use('/api/superadmin', authMiddleware, require('./routes/superAdminRoutes'));
 app.use('/api/entreprises', authMiddleware, require('./routes/entrepriseRoutes'));
 
-// ROUTES PROTEGEES AVEC SESSION MIDDLEWARE
 const protectedRoutes = [
     { path: '/api/clients', route: './routes/clientRoutes' },
     { path: '/api/fournisseurs', route: './routes/fournisseurRoutes' },
@@ -45,15 +42,14 @@ protectedRoutes.forEach(({ path, route }) => {
     app.use(path, authMiddleware, sessionMiddleware, require(route));
 });
 
-// ROUTES DE NOTIFICATIONS
 app.use('/api/notifications', authMiddleware, sessionMiddleware, require('./routes/notificationRoutes'));
 
-// ROUTE RACINE
+app.use('/api/paiement', require('./routes/paiementRoutes'));
+
 app.get('/', (req, res) => {
     res.json({ message: 'Serveur ERP fonctionne !' });
 });
 
-// GESTION DES ERREURS
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;

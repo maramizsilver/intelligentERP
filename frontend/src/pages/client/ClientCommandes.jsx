@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API from '../../utils/api';
@@ -45,9 +44,9 @@ export default function ClientCommandes() {
   const getStatutBadge = (statut) => {
     const statuts = {
       en_attente: { label: 'En attente', variant: 'warning' },
-      confirmee: { label: 'Confirmée', variant: 'primary' },
-      livree: { label: 'Livrée', variant: 'success' },
-      annulee: { label: 'Annulée', variant: 'danger' }
+      confirmee: { label: 'Confirmee', variant: 'primary' },
+      livree: { label: 'Livree', variant: 'success' },
+      annulee: { label: 'Annulee', variant: 'danger' }
     };
     return statuts[statut] || statuts.en_attente;
   };
@@ -57,7 +56,7 @@ export default function ClientCommandes() {
   }
 
   const columns = [
-    { key: 'id', label: '#' },
+    { key: 'id', label: 'N°', width: '60px' },
     {
       key: 'date_commande',
       label: 'Date',
@@ -80,12 +79,18 @@ export default function ClientCommandes() {
 
   const actions = [
     {
-      label: ' Voir',
+      label: 'Voir',
       variant: 'primary',
       onClick: (row) => navigate(`/client/commande/${row.id}`)
     },
     {
-      label: ' Annuler',
+      label: 'Payer',
+      variant: 'success',
+      onClick: (row) => navigate(`/paiement/client?commande_id=${row.id}&montant=${row.total}`),
+      disabled: (row) => row.statut !== 'en_attente'
+    },
+    {
+      label: 'Annuler',
       variant: 'danger',
       onClick: (row) => annulerCommande(row.id),
       disabled: (row) => row.statut !== 'en_attente'
@@ -96,7 +101,7 @@ export default function ClientCommandes() {
     <div>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}> Mes commandes</h1>
+          <h1 style={styles.title}>Mes commandes</h1>
           <p style={styles.subtitle}>Consultez l'historique de vos commandes</p>
         </div>
         <Button variant="secondary" onClick={() => navigate('/client/dashboard')}>
@@ -113,7 +118,6 @@ export default function ClientCommandes() {
 
       {commandes.length === 0 ? (
         <EmptyState
-          
           title="Vous n'avez pas encore de commandes"
           description="Découvrez nos produits et passez votre première commande."
           action={
@@ -123,7 +127,7 @@ export default function ClientCommandes() {
           }
         />
       ) : (
-        <Card title=" Liste de mes commandes" variant="primary">
+        <Card title="Liste de mes commandes" variant="primary">
           <Table columns={columns} data={commandes} actions={actions} />
         </Card>
       )}
