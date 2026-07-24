@@ -1,5 +1,6 @@
-// src/pages/dashboard/SuperAdminDashboard.jsx
+// frontend/src/pages/dashboard/SuperAdminDashboard.jsx
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import API from '../../utils/api';
 import Card from '../../components/common/Card';
@@ -10,9 +11,11 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 export default function SuperAdminDashboard() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [entreprises, setEntreprises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [busyId, setBusyId] = useState(null);
 
   useEffect(() => { load(); }, []);
@@ -66,6 +69,32 @@ export default function SuperAdminDashboard() {
     }
   };
 
+  const handleDelete = async (id) => {
+    const entreprise = entreprises.find(e => e.id === id);
+    if (!window.confirm(
+      `Supprimer definitivement "${entreprise?.nom}" ?\n\n` +
+      `Cette action est irreversible et supprimera :\n` +
+      `- Toutes les donnees de l'entreprise\n` +
+      `- La base de donnees complete\n` +
+      `- Tous les comptes utilisateurs\n` +
+      `- Toutes les sessions actives\n\n` +
+      `Etes-vous sur ?`
+    )) return;
+
+    try {
+      setBusyId(id);
+      await API.delete(`/entreprises/${id}`);
+      setSuccess(`Entreprise "${entreprise?.nom}" supprimee`);
+      load();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Erreur lors de la suppression');
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const statutInfo = {
     en_attente: { label: 'En attente', variant: 'warning' },
     actif: { label: 'Actif', variant: 'success' },
@@ -90,7 +119,7 @@ export default function SuperAdminDashboard() {
       label: 'Plan',
       render: (row) => (
         <Badge variant={row.plan_type === 'payant' ? 'secondary' : 'primary'}>
-          {row.plan_type === 'payant' ? '💳 Payant' : ` Essai (${row.connexions_utilisees}/${row.limite_connexions_essai})`}
+          {row.plan_type === 'payant' ? 'Payant' : `Essai (${row.connexions_utilisees}/${row.limite_connexions_essai})`}
         </Badge>
       )
     },
@@ -108,23 +137,26 @@ export default function SuperAdminDashboard() {
     {
       label: 'Valider',
       variant: 'success',
-      icon: '✅',
       onClick: (row) => valider(row.id),
       disabled: (row) => row.statut === 'actif' || busyId === row.id
     },
     {
       label: 'Suspendre',
       variant: 'danger',
-      icon: '⛔',
       onClick: (row) => suspendre(row.id),
       disabled: (row) => row.statut === 'suspendu' || busyId === row.id
     },
     {
       label: 'Passer payant',
       variant: 'secondary',
-      icon: '💳',
       onClick: (row) => passerEnPayant(row.id),
       disabled: (row) => row.plan_type === 'payant' || busyId === row.id
+    },
+    {
+      label: 'Supprimer',
+      variant: 'danger',
+      onClick: (row) => handleDelete(row.id),
+      disabled: (row) => busyId === row.id
     }
   ];
 
@@ -134,16 +166,36 @@ export default function SuperAdminDashboard() {
     <div>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}> Plateforme — SuperAdmin</h1>
+          <h1 style={styles.title}>Plateforme SuperAdmin</h1>
           <p style={styles.subtitle}>Bonjour {user?.prenom}, voici les entreprises inscrites.</p>
         </div>
-        <Button variant="danger" onClick={logout}>Déconnexion</Button>
+        <div style={styles.headerActions}>
+          <Button variant="secondary" onClick={() => navigate('/superadmin/audit')}>
+            Audit
+          </Button>
+          <Button variant="secondary" onClick={() => navigate('/superadmin/abonnements')}>
+            Abonnements
+          </Button>
+          <Button variant="secondary" onClick={() => navigate('/superadmin/backup')}>
+            Sauvegarde
+          </Button>
+          <Button variant="secondary" onClick={() => navigate('/superadmin/sessions')}>
+            Sessions
+          </Button>
+          <Button variant="danger" onClick={logout}>
+            Deconnexion
+          </Button>
+        </div>
       </div>
 
       {error && (
         <div style={styles.errorContainer}>
-          
           <span style={styles.errorText}>{error}</span>
+        </div>
+      )}
+      {success && (
+        <div style={styles.successContainer}>
+          <span style={styles.successText}>{success}</span>
         </div>
       )}
 
@@ -162,7 +214,7 @@ export default function SuperAdminDashboard() {
         </div>
       </div>
 
-      <Card title=" Liste des entreprises" variant="primary">
+      <Card title="Liste des entreprises" variant="primary">
         <Table
           columns={columns}
           data={entreprises}
@@ -183,6 +235,11 @@ const styles = {
     marginBottom: '24px',
     flexWrap: 'wrap',
     gap: '12px',
+  },
+  headerActions: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
   },
   title: {
     fontSize: '24px',
@@ -207,6 +264,21 @@ const styles = {
   },
   errorText: {
     color: '#991B1B',
+    fontSize: '13px',
+    fontWeight: 500,
+  },
+  successContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    backgroundColor: '#F0FDF4',
+    border: '1px solid #86EFAC',
+    borderRadius: '8px',
+    padding: '12px 16px',
+    marginBottom: '16px',
+  },
+  successText: {
+    color: '#065F46',
     fontSize: '13px',
     fontWeight: 500,
   },

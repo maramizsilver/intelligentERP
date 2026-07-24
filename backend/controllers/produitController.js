@@ -1,3 +1,5 @@
+const AuditService = require('../services/audit.service');
+
 exports.getAllProduits = (req, res) => {
   const db = req.db;
   db.query('SELECT * FROM produits ORDER BY id DESC', (err, results) => {
@@ -33,6 +35,18 @@ exports.createProduit = (req, res) => {
   const sql = 'INSERT INTO produits (nom, description, prix, quantite_stock) VALUES (?, ?, ?, ?)';
   db.query(sql, [nom.trim(), description || null, Number(prix), stock], (err, result) => {
     if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
+    
+    AuditService.logOperation(db, {
+      utilisateur_id: req.user.id,
+      entreprise_id: req.user.entreprise_id,
+      operation: 'CREATE',
+      table_name: 'produits',
+      record_id: result.insertId,
+      nouvelles_valeurs: { nom, description, prix, quantite_stock },
+      ip: req.ip || req.connection.remoteAddress,
+      user_agent: req.headers['user-agent']
+    }).catch(err => console.error('Erreur audit operation:', err));
+
     res.status(201).json({ message: 'Produit créé avec succès', id: result.insertId });
   });
 };
@@ -52,19 +66,53 @@ exports.updateProduit = (req, res) => {
     return res.status(400).json({ message: 'La quantité en stock doit être un nombre positif' });
   }
 
-  const sql = 'UPDATE produits SET nom = ?, description = ?, prix = ?, quantite_stock = ? WHERE id = ?';
-  db.query(sql, [nom.trim(), description || null, Number(prix), stock, req.params.id], (err, result) => {
-    if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
-    if (result.affectedRows === 0) return res.status(404).json({ message: 'Produit introuvable' });
-    res.json({ message: 'Produit mis à jour avec succès' });
+  db.query('SELECT * FROM produits WHERE id = ?', [req.params.id], (errSelect, oldData) => {
+    if (errSelect) { console.error(errSelect); return res.status(500).json({ message: 'Erreur serveur' }); }
+    
+    const sql = 'UPDATE produits SET nom = ?, description = ?, prix = ?, quantite_stock = ? WHERE id = ?';
+    db.query(sql, [nom.trim(), description || null, Number(prix), stock, req.params.id], (err, result) => {
+      if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
+      if (result.affectedRows === 0) return res.status(404).json({ message: 'Produit introuvable' });
+      
+      AuditService.logOperation(db, {
+        utilisateur_id: req.user.id,
+        entreprise_id: req.user.entreprise_id,
+        operation: 'UPDATE',
+        table_name: 'produits',
+        record_id: req.params.id,
+        anciennes_valeurs: oldData[0] || null,
+        nouvelles_valeurs: { nom, description, prix, quantite_stock },
+        ip: req.ip || req.connection.remoteAddress,
+        user_agent: req.headers['user-agent']
+      }).catch(err => console.error('Erreur audit operation:', err));
+
+      res.json({ message: 'Produit mis à jour avec succès' });
+    });
   });
 };
 
 exports.deleteProduit = (req, res) => {
   const db = req.db;
-  db.query('DELETE FROM produits WHERE id = ?', [req.params.id], (err, result) => {
-    if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
-    if (result.affectedRows === 0) return res.status(404).json({ message: 'Produit introuvable' });
-    res.json({ message: 'Produit supprimé avec succès' });
+  
+  db.query('SELECT * FROM produits WHERE id = ?', [req.params.id], (errSelect, oldData) => {
+    if (errSelect) { console.error(errSelect); return res.status(500).json({ message: 'Erreur serveur' }); }
+    
+    db.query('DELETE FROM produits WHERE id = ?', [req.params.id], (err, result) => {
+      if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
+      if (result.affectedRows === 0) return res.status(404).json({ message: 'Produit introuvable' });
+      
+      AuditService.logOperation(db, {
+        utilisateur_id: req.user.id,
+        entreprise_id: req.user.entreprise_id,
+        operation: 'DELETE',
+        table_name: 'produits',
+        record_id: req.params.id,
+        anciennes_valeurs: oldData[0] || null,
+        ip: req.ip || req.connection.remoteAddress,
+        user_agent: req.headers['user-agent']
+      }).catch(err => console.error('Erreur audit operation:', err));
+
+      res.json({ message: 'Produit supprimé avec succès' });
+    });
   });
 };
