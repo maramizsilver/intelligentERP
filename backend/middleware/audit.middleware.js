@@ -1,55 +1,83 @@
 const AuditService = require('../services/audit.service');
 
-/**
- * Middleware qui journalise automatiquement les requêtes
- * À placer après tenantMiddleware
- */
 module.exports = function auditMiddleware(req, res, next) {
-    // On ne logge pas les requêtes GET (trop de bruit)
-    // et on ne logge pas /auth/login (déjà loggé)
-    if (req.method === 'GET' || req.path === '/auth/login') {
+    if (req.method === 'GET') {
         return next();
     }
 
-    // Sauvegarder le body original pour comparaison
     const originalBody = { ...req.body };
-
-    // Intercepter la réponse
     const originalSend = res.send;
+
     res.send = function(data) {
-        // Journaliser après l'envoi de la réponse
         try {
             const db = req.db;
-            if (!db) return originalSend.call(this, data);
+            const isAuthRoute = req.path.includes('/auth/login');
+            
+            let dbToUse = db;
+            if (!dbToUse && isAuthRoute) {
+                const masterDb = require('../config/db');
+                dbToUse = masterDb;
+            }
+
+            if (!dbToUse) {
+                return originalSend.call(this, data);
+            }
 
             const userId = req.user?.id || null;
             const entrepriseId = req.user?.entreprise_id || null;
-            const action = `${req.method} ${req.path}`;
-            const module = req.path.split('/')[1] || 'unknown';
+            
+            let action = `${req.method} ${req.path}`;
+            let module = req.path.split('/')[1] || 'unknown';
+            let status = res.statusCode < 400 ? 'success' : 'error';
+            let email = req.body?.email || null;
 
-            // Détails
+            if (req.path.includes('/auth/login')) {
+                module = 'Authentification';
+                try {
+                    const responseData = JSON.parse(data);
+                    if (responseData?.user?.email) {
+                        email = responseData.user.email;
+                    }
+                } catch (e) {}
+            }
+
+            if (req.path.includes('/auth/logout')) {
+                module = 'Authentification';
+                action = 'Deconnexion';
+            }
+
             const details = {
                 path: req.path,
                 method: req.method,
                 body: originalBody,
                 query: req.query,
                 params: req.params,
-                statusCode: res.statusCode
+                statusCode: res.statusCode,
+                email: email
             };
 
-            // Status
-            const status = res.statusCode < 400 ? 'success' : 'error';
-
-            AuditService.logAction(db, {
+            AuditService.logAction(dbToUse, {
                 utilisateur_id: userId,
-                entreprise_id: entrepriseId,
-                action,
-                module,
-                details,
+                entreprise_id: entrepriseId || null,
+                action: action,
+                module: module,
+                details: details,
                 ip: req.ip || req.connection.remoteAddress,
                 user_agent: req.headers['user-agent'],
-                status
-            }).catch(err => console.error(' Erreur audit:', err));
+                status: status
+            }).catch(err => console.error('Erreur audit:', err));
+
+            if (req.path.includes('/auth/login')) {
+                const connexionStatus = status === 'success' ? 'success' : 'failed';
+                const userEmail = email || req.body?.email || null;
+                AuditService.logConnexion(dbToUse, {
+                    utilisateur_id: userId,
+                    email: userEmail,
+                    ip: req.ip || req.connection.remoteAddress,
+                    user_agent: req.headers['user-agent'],
+                    status: connexionStatus
+                }).catch(err => console.error('Erreur log connexion:', err));
+            }
 
         } catch (err) {
             console.error('Erreur audit middleware:', err);

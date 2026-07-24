@@ -1,8 +1,5 @@
 const db = require('../config/db');
 
-/**
- * Récupérer toutes les sessions actives
- */
 exports.getActiveSessions = async (req, res) => {
     try {
         const [sessions] = await db.promisePoolMaster.query(
@@ -22,9 +19,6 @@ exports.getActiveSessions = async (req, res) => {
     }
 };
 
-/**
- * Récupérer l'historique des connexions
- */
 exports.getConnectionHistory = async (req, res) => {
     try {
         const { limit = 50, offset = 0, user_id, entreprise_id } = req.query;
@@ -68,14 +62,10 @@ exports.getConnectionHistory = async (req, res) => {
     }
 };
 
-/**
- * Déconnecter un utilisateur à distance
- */
 exports.revokeSession = async (req, res) => {
     try {
         const { sessionId } = req.params;
 
-        // Récupérer les infos de la session
         const [session] = await db.promisePoolMaster.query(
             'SELECT user_id FROM sessions WHERE id = ?',
             [sessionId]
@@ -90,25 +80,18 @@ exports.revokeSession = async (req, res) => {
             [sessionId]
         );
 
-        // Journaliser l'action
-        console.log(`[AUDIT] SuperAdmin ${req.user.id} a déconnecté la session ${sessionId} (utilisateur ${session[0].user_id})`);
-
-        res.json({ message: 'Session révoquée avec succès' });
+        res.json({ message: 'Session revoquee avec succes' });
     } catch (err) {
         console.error('Erreur revokeSession:', err);
         res.status(500).json({ message: 'Erreur serveur' });
     }
 };
 
-/**
- * Bloquer un appareil
- */
 exports.blockDevice = async (req, res) => {
     try {
         const { deviceId } = req.params;
         const { reason } = req.body;
 
-        // Récupérer le fingerprint de l'appareil
         const [device] = await db.promisePoolMaster.query(
             'SELECT device_fingerprint, user_id FROM user_devices WHERE id = ?',
             [deviceId]
@@ -118,31 +101,24 @@ exports.blockDevice = async (req, res) => {
             return res.status(404).json({ message: 'Appareil introuvable' });
         }
 
-        // Bloquer l'appareil
         await db.promisePoolMaster.query(
             'UPDATE user_devices SET is_blocked = TRUE WHERE id = ?',
             [deviceId]
         );
 
-        // Déconnecter toutes les sessions de cet appareil
         await db.promisePoolMaster.query(
             `UPDATE sessions SET is_active = FALSE 
              WHERE device_fingerprint = ? AND user_id = ?`,
             [device[0].device_fingerprint, device[0].user_id]
         );
 
-        console.log(`[AUDIT] SuperAdmin ${req.user.id} a bloqué l'appareil ${deviceId} - Raison: ${reason || 'Non spécifiée'}`);
-
-        res.json({ message: 'Appareil bloqué avec succès' });
+        res.json({ message: 'Appareil bloque avec succes' });
     } catch (err) {
         console.error('Erreur blockDevice:', err);
         res.status(500).json({ message: 'Erreur serveur' });
     }
 };
 
-/**
- * Récupérer les alertes de sécurité
- */
 exports.getSecurityAlerts = async (req, res) => {
     try {
         const { limit = 50, offset = 0, severity, is_read } = req.query;
@@ -186,9 +162,6 @@ exports.getSecurityAlerts = async (req, res) => {
     }
 };
 
-/**
- * Marquer une alerte comme lue
- */
 exports.markAlertRead = async (req, res) => {
     try {
         const { alertId } = req.params;
@@ -198,16 +171,13 @@ exports.markAlertRead = async (req, res) => {
             [alertId]
         );
 
-        res.json({ message: 'Alerte marquée comme lue' });
+        res.json({ message: 'Alerte marquee comme lue' });
     } catch (err) {
         console.error('Erreur markAlertRead:', err);
         res.status(500).json({ message: 'Erreur serveur' });
     }
 };
 
-/**
- * Résoudre une alerte
- */
 exports.resolveAlert = async (req, res) => {
     try {
         const { alertId } = req.params;
@@ -217,36 +187,29 @@ exports.resolveAlert = async (req, res) => {
             [alertId]
         );
 
-        res.json({ message: 'Alerte résolue avec succès' });
+        res.json({ message: 'Alerte resolue avec succes' });
     } catch (err) {
         console.error('Erreur resolveAlert:', err);
         res.status(500).json({ message: 'Erreur serveur' });
     }
 };
 
-/**
- * Statistiques de sécurité
- */
 exports.getSecurityStats = async (req, res) => {
     try {
-        // Nombre d'alertes par sévérité
         const [bySeverity] = await db.promisePoolMaster.query(
             `SELECT severity, COUNT(*) as total 
              FROM security_alerts 
              GROUP BY severity`
         );
 
-        // Nombre de sessions actives
         const [activeSessions] = await db.promisePoolMaster.query(
             'SELECT COUNT(*) as total FROM sessions WHERE is_active = TRUE'
         );
 
-        // Nombre d'appareils bloqués
         const [blockedDevices] = await db.promisePoolMaster.query(
             'SELECT COUNT(*) as total FROM user_devices WHERE is_blocked = TRUE'
         );
 
-        // Nombre de connexions par jour (7 derniers jours)
         const [dailyConnections] = await db.promisePoolMaster.query(
             `SELECT DATE(created_at) as date, COUNT(*) as total 
              FROM user_connections 

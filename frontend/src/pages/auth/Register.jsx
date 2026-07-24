@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API from '../../utils/api';
+import Button from '../../components/common/Button';
+import Input from '../../components/common/Input';
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -22,20 +24,44 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
+    setLoading(true);
 
     if (form.password.length < 8) {
       setError('Le mot de passe doit contenir au moins 8 caractères');
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
     try {
-      await API.post('/auth/register-entreprise', form);
-      setSuccess(' Inscription envoyée ! Votre entreprise est en attente de validation.');
+      // 1. Inscription de l'entreprise
+      const response = await API.post('/auth/register-entreprise', form);
+
+      // 2. Si plan payant, rediriger vers paiement
+      if (form.plan_type === 'payant') {
+        const paiementResponse = await API.post('/paiement/create-abonnement', {
+          email: form.email,
+          entreprise_nom: form.entreprise_nom,
+          montant: 100,
+        });
+
+        if (paiementResponse.data.success) {
+          // Rediriger vers Stripe
+          window.location.href = paiementResponse.data.paymentUrl;
+          return;
+        } else {
+          setError(paiementResponse.data.message || 'Erreur lors de la creation du paiement');
+          setLoading(false);
+          return;
+        }
+      }
+
+      // 3. Plan gratuit : succès
+      setSuccess('Inscription reussie ! Verifiez votre email pour activer votre compte.');
       setTimeout(() => navigate('/'), 4000);
     } catch (err) {
       const apiErrors = err.response?.data?.errors;
-      setError(apiErrors ? apiErrors.join(', ') : (err.response?.data?.message || 'Erreur inscription'));
+      setError(apiErrors ? apiErrors.join(', ') : (err.response?.data?.message || 'Erreur lors de l\'inscription'));
     } finally {
       setLoading(false);
     }
@@ -64,13 +90,11 @@ export default function Register() {
         )}
         {success && (
           <div style={styles.successContainer}>
-            <span style={styles.successIcon}>✅</span>
             <span style={styles.successText}>{success}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} style={styles.form}>
-          {/* Section Entreprise */}
           <div style={styles.section}>
             <div style={styles.sectionHeader}>
               <span style={styles.sectionTitle}>Informations de l'entreprise</span>
@@ -90,7 +114,6 @@ export default function Register() {
 
           <div style={styles.divider} />
 
-          {/* Section Admin */}
           <div style={styles.section}>
             <div style={styles.sectionHeader}>
               <span style={styles.sectionTitle}>Compte administrateur</span>
@@ -151,7 +174,6 @@ export default function Register() {
 
           <div style={styles.divider} />
 
-          {/* Section Plan */}
           <div style={styles.section}>
             <div style={styles.sectionHeader}>
               <span style={styles.sectionTitle}>Choisissez votre formule</span>
@@ -165,17 +187,6 @@ export default function Register() {
                 }}
                 onClick={() => setForm({ ...form, plan_type: 'essai' })}
               >
-                <div style={styles.planRadio}>
-                  <input
-                    type="radio"
-                    name="plan_type"
-                    value="essai"
-                    checked={form.plan_type === 'essai'}
-                    onChange={handleChange}
-                    disabled={loading}
-                  />
-                </div>
-            
                 <div style={styles.planTitle}>Essai gratuit</div>
                 <div style={styles.planDesc}>30 connexions gratuites</div>
                 <div style={styles.planBadge}>Sans engagement</div>
@@ -188,20 +199,10 @@ export default function Register() {
                 }}
                 onClick={() => setForm({ ...form, plan_type: 'payant' })}
               >
-                <div style={styles.planRadio}>
-                  <input
-                    type="radio"
-                    name="plan_type"
-                    value="payant"
-                    checked={form.plan_type === 'payant'}
-                    onChange={handleChange}
-                    disabled={loading}
-                  />
-                </div>
-                <div style={styles.planIcon}>💳</div>
                 <div style={styles.planTitle}>Abonnement</div>
                 <div style={styles.planDesc}>Accès illimité</div>
                 <div style={styles.planBadgePro}>Pro</div>
+                <div style={styles.planPrice}>100 DT / mois</div>
               </div>
             </div>
           </div>
@@ -232,7 +233,7 @@ export default function Register() {
         </div>
 
         <button style={styles.loginButton} onClick={() => navigate('/')}>
-           Déjà un compte ? Se connecter
+          Déjà un compte ? Se connecter
         </button>
 
         <p style={styles.footer}>© 2026 ERP - Tous droits réservés</p>
@@ -339,7 +340,6 @@ const styles = {
     padding: '12px 16px',
     marginBottom: '20px',
   },
-  errorIcon: { fontSize: '16px' },
   errorText: { color: '#991B1B', fontSize: '13px', fontWeight: 500 },
   successContainer: {
     display: 'flex',
@@ -351,7 +351,6 @@ const styles = {
     padding: '12px 16px',
     marginBottom: '20px',
   },
-  successIcon: { fontSize: '16px' },
   successText: { color: '#065F46', fontSize: '13px', fontWeight: 500 },
   form: {
     display: 'flex',
@@ -401,11 +400,6 @@ const styles = {
     outline: 'none',
     fontFamily: 'inherit',
     color: '#0F172A',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-      backgroundColor: '#FFFFFF',
-    },
   },
   divider: {
     border: 'none',
@@ -426,11 +420,6 @@ const styles = {
     transition: 'all 0.3s ease',
     textAlign: 'center',
     backgroundColor: '#FAFBFC',
-    ':hover': {
-      borderColor: '#0EA5E9',
-      transform: 'translateY(-2px)',
-      boxShadow: '0 4px 16px rgba(14, 165, 233, 0.10)',
-    },
   },
   planCardActive: {
     borderColor: '#0EA5E9',
@@ -465,6 +454,12 @@ const styles = {
     background: 'linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%)',
     color: '#FFFFFF',
   },
+  planPrice: {
+    marginTop: '8px',
+    fontSize: '14px',
+    fontWeight: 700,
+    color: '#0EA5E9',
+  },
   button: {
     width: '100%',
     padding: '14px',
@@ -477,10 +472,6 @@ const styles = {
     cursor: 'pointer',
     transition: 'all 0.3s ease',
     boxShadow: '0 4px 16px rgba(14, 165, 233, 0.30)',
-    ':hover': {
-      transform: 'translateY(-2px)',
-      boxShadow: '0 8px 32px rgba(14, 165, 233, 0.40)',
-    },
   },
   buttonLoading: {
     width: '100%',
@@ -536,9 +527,6 @@ const styles = {
     fontWeight: 500,
     cursor: 'pointer',
     transition: 'all 0.3s ease',
-    ':hover': {
-      backgroundColor: '#F0F9FF',
-    },
   },
   footer: {
     textAlign: 'center',

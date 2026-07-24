@@ -2,9 +2,7 @@ const paiementService = require('../services/paiement.service');
 const db = require('../config/db');
 const SequenceService = require('../services/sequence.service');
 
-// ============================================================
 // PAIEMENT CLIENT (COMMANDE)
-// ============================================================
 exports.createPaiement = async (req, res) => {
   const { commande_id, montant, description, mode_paiement } = req.body;
 

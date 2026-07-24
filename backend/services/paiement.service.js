@@ -7,6 +7,8 @@ class PaiementService {
 
   async createPayment({ amount, currency = 'eur', description, reference, customerEmail }) {
     try {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      
       const session = await this.stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         line_items: [
@@ -22,8 +24,8 @@ class PaiementService {
           },
         ],
         mode: 'payment',
-        success_url: `${process.env.FRONTEND_URL}/paiement/client/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.FRONTEND_URL}/paiement/cancel`,
+        success_url: `${frontendUrl}/paiement/client/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${frontendUrl}/paiement/cancel`,
         metadata: {
           reference: reference,
           type: 'commande',
@@ -47,6 +49,8 @@ class PaiementService {
 
   async createPaiementFournisseur({ amount, currency = 'eur', description, reference, fournisseurId, achatId }) {
     try {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      
       const session = await this.stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         line_items: [
@@ -62,8 +66,8 @@ class PaiementService {
           },
         ],
         mode: 'payment',
-        success_url: `${process.env.FRONTEND_URL}/paiement/fournisseur/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.FRONTEND_URL}/paiement/fournisseur/cancel`,
+        success_url: `${frontendUrl}/paiement/fournisseur/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${frontendUrl}/paiement/fournisseur/cancel`,
         metadata: {
           type: 'fournisseur',
           achat_id: achatId,
@@ -87,6 +91,8 @@ class PaiementService {
 
   async createAbonnement({ email, entrepriseNom, amount = 100 }) {
     try {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      
       const session = await this.stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         line_items: [
@@ -102,8 +108,8 @@ class PaiementService {
           },
         ],
         mode: 'payment',
-        success_url: `${process.env.FRONTEND_URL}/paiement/abonnement-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.FRONTEND_URL}/paiement/abonnement-cancel`,
+        success_url: `${frontendUrl}/paiement/abonnement-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${frontendUrl}/paiement/abonnement-cancel`,
         metadata: {
           entreprise_nom: entrepriseNom,
           type: 'abonnement',

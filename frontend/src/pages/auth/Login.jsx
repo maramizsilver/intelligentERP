@@ -1,4 +1,4 @@
-// src/pages/auth/Login.jsx
+// frontend/src/pages/auth/Login.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -53,7 +53,6 @@ export default function Login() {
 
         {error && (
           <div style={styles.errorContainer}>
-            
             <span style={styles.errorText}>{error}</span>
           </div>
         )}
@@ -108,6 +107,12 @@ export default function Login() {
           </button>
         </form>
 
+        <div style={styles.links}>
+          <span style={styles.link} onClick={() => navigate('/request-reset')}>
+            Mot de passe oublié ?
+          </span>
+        </div>
+
         <div style={styles.divider}>
           <span style={styles.dividerLine} />
           <span style={styles.dividerText}>ou</span>
@@ -153,7 +158,6 @@ const styles = {
     height: '500px',
     borderRadius: '50%',
     background: 'radial-gradient(circle, rgba(14, 165, 233, 0.08) 0%, transparent 70%)',
-    animation: 'float 8s ease-in-out infinite',
   },
   bgCircle2: {
     position: 'absolute',
@@ -163,7 +167,6 @@ const styles = {
     height: '400px',
     borderRadius: '50%',
     background: 'radial-gradient(circle, rgba(14, 165, 233, 0.06) 0%, transparent 70%)',
-    animation: 'float 10s ease-in-out infinite reverse',
   },
   bgCircle3: {
     position: 'absolute',
@@ -187,7 +190,6 @@ const styles = {
     width: '420px',
     maxWidth: '92%',
     border: '1px solid rgba(255, 255, 255, 0.5)',
-    transition: 'transform 0.3s ease, box-shadow 0.3s ease',
   },
   header: {
     textAlign: 'center',
@@ -208,7 +210,6 @@ const styles = {
     borderRadius: '50%',
     background: 'linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%)',
     boxShadow: '0 8px 32px rgba(14, 165, 233, 0.30)',
-    transition: 'transform 0.3s ease',
   },
   title: {
     fontSize: '28px',
@@ -233,7 +234,6 @@ const styles = {
     padding: '12px 16px',
     marginBottom: '24px',
   },
-  errorIcon: { fontSize: '16px' },
   errorText: { color: '#991B1B', fontSize: '13px', fontWeight: 500 },
   form: {
     display: 'flex',
@@ -282,13 +282,6 @@ const styles = {
     transition: 'all 0.3s ease',
     marginTop: '4px',
     boxShadow: '0 4px 16px rgba(14, 165, 233, 0.30)',
-    ':hover': {
-      transform: 'translateY(-2px)',
-      boxShadow: '0 8px 32px rgba(14, 165, 233, 0.40)',
-    },
-    ':active': {
-      transform: 'translateY(0)',
-    },
   },
   buttonLoading: {
     width: '100%',
@@ -320,6 +313,21 @@ const styles = {
     borderTop: '2px solid #FFFFFF',
     borderRadius: '50%',
     animation: 'spin 0.8s linear infinite',
+  },
+  links: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    marginTop: '8px',
+  },
+  link: {
+    fontSize: '13px',
+    color: '#0EA5E9',
+    cursor: 'pointer',
+    textDecoration: 'none',
+    transition: 'all 0.2s ease',
+    ':hover': {
+      textDecoration: 'underline',
+    },
   },
   divider: {
     display: 'flex',
@@ -354,12 +362,6 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     gap: '8px',
-    ':hover': {
-      backgroundColor: '#0EA5E9',
-      color: '#FFFFFF',
-      transform: 'translateY(-2px)',
-      boxShadow: '0 8px 24px rgba(14, 165, 233, 0.20)',
-    },
   },
   registerIcon: { fontSize: '16px' },
   footer: {

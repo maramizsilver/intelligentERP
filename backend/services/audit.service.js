@@ -1,11 +1,4 @@
-
-
 class AuditService {
-    /**
-     * Journalise une action utilisateur
-     * @param {object} db - Pool MySQL tenant
-     * @param {object} data - Données à journaliser
-     */
     static async logAction(db, data) {
         const {
             utilisateur_id,
@@ -35,13 +28,63 @@ class AuditService {
                 ]
             );
         } catch (err) {
-            console.error(' Erreur audit log:', err);
+            console.error('Erreur audit log:', err);
         }
     }
 
-    /**
-     * Journalise une opération CRUD (avec anciennes/nouvelles valeurs)
-     */
+    static async logConnexion(db, data) {
+        const {
+            utilisateur_id,
+            email,
+            ip,
+            user_agent,
+            status = 'success'
+        } = data;
+
+        try {
+            await db.promise().query(
+                `INSERT INTO audit_connexions 
+                 (utilisateur_id, email, ip, user_agent, status, created_at) 
+                 VALUES (?, ?, ?, ?, ?, NOW())`,
+                [
+                    utilisateur_id || null,
+                    email || null,
+                    ip || null,
+                    user_agent || null,
+                    status
+                ]
+            );
+        } catch (err) {
+            console.error('Erreur audit connexion:', err);
+        }
+    }
+
+    static async logDeconnexion(db, data) {
+        const {
+            utilisateur_id,
+            email,
+            ip,
+            user_agent,
+            status = 'success'
+        } = data;
+
+        try {
+            await db.promise().query(
+                `INSERT INTO audit_connexions 
+                 (utilisateur_id, email, ip, user_agent, status, created_at) 
+                 VALUES (?, ?, ?, ?, 'deconnexion', NOW())`,
+                [
+                    utilisateur_id || null,
+                    email || null,
+                    ip || null,
+                    user_agent || null
+                ]
+            );
+        } catch (err) {
+            console.error('Erreur audit deconnexion:', err);
+        }
+    }
+
     static async logOperation(db, data) {
         const {
             utilisateur_id,
@@ -74,13 +117,10 @@ class AuditService {
                 ]
             );
         } catch (err) {
-            console.error(' Erreur audit operation:', err);
+            console.error('Erreur audit operation:', err);
         }
     }
 
-    /**
-     * Récupère les logs avec filtres
-     */
     static async getLogs(db, filters = {}) {
         const {
             utilisateur_id,
@@ -123,9 +163,6 @@ class AuditService {
         return rows;
     }
 
-    /**
-     * Récupère les logs de connexion
-     */
     static async getConnexions(db, filters = {}) {
         const {
             email,
@@ -163,9 +200,6 @@ class AuditService {
         return rows;
     }
 
-    /**
-     * Récupère les opérations CRUD
-     */
     static async getOperations(db, filters = {}) {
         const {
             utilisateur_id,

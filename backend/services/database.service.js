@@ -1,4 +1,4 @@
-// services/database.service.js
+// backend/services/database.service.js - Modifier la table sequences dans INITIAL_SCHEMA
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
@@ -27,9 +27,6 @@ async function getAdminConnection() {
 }
 
 const INITIAL_SCHEMA = [
-  // ============================================================
-  // 1. TABLES DE BASE
-  // ============================================================
   `CREATE TABLE IF NOT EXISTS modules (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nom VARCHAR(50) NOT NULL UNIQUE
@@ -60,10 +57,8 @@ const INITIAL_SCHEMA = [
     FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  // ============================================================
-  // TABLE USERS AVEC COLONNES MFA
-  // ============================================================
-  `CREATE TABLE IF NOT EXISTS users (
+
+`CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     role_id INT DEFAULT NULL,
     nom VARCHAR(100) NOT NULL,
@@ -77,6 +72,7 @@ const INITIAL_SCHEMA = [
     locked_until TIMESTAMP NULL DEFAULT NULL,
     reset_token VARCHAR(255) NULL DEFAULT NULL,
     reset_token_expires TIMESTAMP NULL DEFAULT NULL,
+    reset_token_used BOOLEAN DEFAULT FALSE,
     last_login TIMESTAMP NULL DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     mfa_enabled BOOLEAN DEFAULT FALSE,
@@ -88,21 +84,17 @@ const INITIAL_SCHEMA = [
     mfa_temp_secret VARCHAR(255) DEFAULT NULL,
     mfa_banner_dismissed BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE SET NULL
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS sequences (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    entreprise_id INT NOT NULL UNIQUE,
     dernier_numero_bc INT NOT NULL DEFAULT 0,
     dernier_numero_devis INT NOT NULL DEFAULT 0,
-    dernier_numero_transaction INT NOT NULL DEFAULT 0
+    dernier_numero_transaction INT NOT NULL DEFAULT 0,
+    INDEX idx_entreprise (entreprise_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  `INSERT IGNORE INTO sequences (dernier_numero_bc, dernier_numero_devis, dernier_numero_transaction)
-   SELECT 0, 0, 0 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sequences)`,
-
-  // ============================================================
-  // 2. TABLES CLIENTS ET FOURNISSEURS
-  // ============================================================
   `CREATE TABLE IF NOT EXISTS clients (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nom VARCHAR(255) NOT NULL,
@@ -119,9 +111,6 @@ const INITIAL_SCHEMA = [
     adresse VARCHAR(255) DEFAULT NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  // ============================================================
-  // 3. TABLES PRODUITS
-  // ============================================================
   `CREATE TABLE IF NOT EXISTS produits (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nom VARCHAR(255) NOT NULL,
@@ -130,9 +119,6 @@ const INITIAL_SCHEMA = [
     quantite_stock INT NOT NULL DEFAULT 0
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  // ============================================================
-  // 4. TABLES COMMANDES
-  // ============================================================
   `CREATE TABLE IF NOT EXISTS commandes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     client_id INT NOT NULL,
@@ -152,9 +138,6 @@ const INITIAL_SCHEMA = [
     FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  // ============================================================
-  // 5. TABLES ACHATS
-  // ============================================================
   `CREATE TABLE IF NOT EXISTS achats (
     id INT AUTO_INCREMENT PRIMARY KEY,
     fournisseur_id INT NOT NULL,
@@ -180,9 +163,6 @@ const INITIAL_SCHEMA = [
     FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  // ============================================================
-  // 6. TABLES DEVIS
-  // ============================================================
   `CREATE TABLE IF NOT EXISTS devis (
     id INT AUTO_INCREMENT PRIMARY KEY,
     client_id INT NOT NULL,
@@ -209,9 +189,6 @@ const INITIAL_SCHEMA = [
     FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  // ============================================================
-  // 7. TABLES ENTREPOTS
-  // ============================================================
   `CREATE TABLE IF NOT EXISTS entrepots (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nom VARCHAR(255) NOT NULL,
@@ -230,9 +207,6 @@ const INITIAL_SCHEMA = [
     UNIQUE KEY uniq_entrepot_produit (entrepot_id, produit_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  // ============================================================
-  // 8. TABLES INVENTAIRES
-  // ============================================================
   `CREATE TABLE IF NOT EXISTS inventaires (
     id INT AUTO_INCREMENT PRIMARY KEY,
     entrepot_id INT NULL,
@@ -254,9 +228,6 @@ const INITIAL_SCHEMA = [
     FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  // ============================================================
-  // 9. TABLES MOUVEMENTS STOCK
-  // ============================================================
   `CREATE TABLE IF NOT EXISTS mouvements_stock (
     id INT AUTO_INCREMENT PRIMARY KEY,
     produit_id INT NOT NULL,
@@ -272,9 +243,6 @@ const INITIAL_SCHEMA = [
     FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  // ============================================================
-  // 10. TABLES PROMOTIONS
-  // ============================================================
   `CREATE TABLE IF NOT EXISTS promotions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(50) NOT NULL UNIQUE,
@@ -292,9 +260,6 @@ const INITIAL_SCHEMA = [
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  // ============================================================
-  // 11. TABLES DOCUMENTS
-  // ============================================================
   `CREATE TABLE IF NOT EXISTS documents (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nom VARCHAR(255) NOT NULL,
@@ -309,9 +274,6 @@ const INITIAL_SCHEMA = [
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  // ============================================================
-  // 12. TABLES ARCHIVES
-  // ============================================================
   `CREATE TABLE IF NOT EXISTS archives (
     id INT AUTO_INCREMENT PRIMARY KEY,
     type_entite VARCHAR(50) NOT NULL,
@@ -322,9 +284,6 @@ const INITIAL_SCHEMA = [
     archived_at DATETIME DEFAULT CURRENT_TIMESTAMP
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  // ============================================================
-  // 13. TABLES PAIEMENTS
-  // ============================================================
   `CREATE TABLE IF NOT EXISTS paiements (
     id INT AUTO_INCREMENT PRIMARY KEY,
     numero_transaction VARCHAR(50) NOT NULL UNIQUE,
@@ -338,9 +297,6 @@ const INITIAL_SCHEMA = [
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  // ============================================================
-  // 14. TABLES FINANCE - DEPENSES
-  // ============================================================
   `CREATE TABLE IF NOT EXISTS depenses (
     id INT AUTO_INCREMENT PRIMARY KEY,
     categorie ENUM('fournisseur', 'salaire', 'loyer', 'electricite', 'transport', 'marketing', 'impot', 'autre') NOT NULL,
@@ -355,9 +311,6 @@ const INITIAL_SCHEMA = [
     FOREIGN KEY (fournisseur_id) REFERENCES fournisseurs(id) ON DELETE SET NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  // ============================================================
-  // 15. TABLES FINANCE - RECETTES
-  // ============================================================
   `CREATE TABLE IF NOT EXISTS recettes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     source VARCHAR(255) NOT NULL,
@@ -371,9 +324,6 @@ const INITIAL_SCHEMA = [
     FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  // ============================================================
-  // 16. TABLES LOGS CALCULS
-  // ============================================================
   `CREATE TABLE IF NOT EXISTS logs_calculs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     utilisateur_id INT DEFAULT NULL,
@@ -388,9 +338,6 @@ const INITIAL_SCHEMA = [
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  // ============================================================
-  // 17. TABLES TAUX REFERENCE CENTRAL
-  // ============================================================
   `CREATE TABLE IF NOT EXISTS taux_reference_central (
     id INT AUTO_INCREMENT PRIMARY KEY,
     categorie VARCHAR(100) NOT NULL,

@@ -1,3 +1,4 @@
+// frontend/src/App.js
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -8,6 +9,8 @@ import Notifications from './pages/Notifications';
 
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
+import RequestReset from './pages/auth/RequestReset';
+import ResetPassword from './pages/auth/ResetPassword';
 
 import Dashboard from './pages/dashboard/Dashboard';
 import SuperAdminDashboard from './pages/dashboard/SuperAdminDashboard';
@@ -32,7 +35,9 @@ import Utilisateurs from './pages/admin/Utilisateurs';
 import Documents from './pages/admin/Documents';
 import Archives from './pages/admin/Archives';
 import SuperAdminSessions from './pages/admin/superadmin/SuperAdminSessions';
-
+import SuperAdminAudit from './pages/admin/superadmin/SuperAdminAudit';
+import SuperAdminAbonnements from './pages/admin/superadmin/SuperAdminAbonnements';
+import SuperAdminBackup from './pages/admin/superadmin/SuperAdminBackup';
 import TauxReference from './pages/admin/superadmin/TauxReference';
 
 import ClientDashboard from './pages/client/ClientDashboard';
@@ -72,6 +77,8 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/request-reset" element={<RequestReset />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       <Route
         path="/essai-expire"
@@ -112,6 +119,39 @@ function AppRoutes() {
           <PrivateRoute superAdminOnly>
             <Layout>
               <SuperAdminSessions />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/superadmin/audit"
+        element={
+          <PrivateRoute superAdminOnly>
+            <Layout>
+              <SuperAdminAudit />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/superadmin/abonnements"
+        element={
+          <PrivateRoute superAdminOnly>
+            <Layout>
+              <SuperAdminAbonnements />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/superadmin/backup"
+        element={
+          <PrivateRoute superAdminOnly>
+            <Layout>
+              <SuperAdminBackup />
             </Layout>
           </PrivateRoute>
         }

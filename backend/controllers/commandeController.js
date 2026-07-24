@@ -1,3 +1,5 @@
+const AuditService = require('../services/audit.service');
+
 exports.getAllCommandes = (req, res) => {
     const db = req.db;
     
@@ -139,6 +141,18 @@ exports.createCommande = (req, res) => {
                             console.error('Erreur insert lignes:', err3);
                             return res.status(500).json({ message: 'Erreur serveur' });
                         }
+                        
+                        AuditService.logOperation(db, {
+                            utilisateur_id: req.user.id,
+                            entreprise_id: req.user.entreprise_id,
+                            operation: 'CREATE',
+                            table_name: 'commandes',
+                            record_id: commandeId,
+                            nouvelles_valeurs: { client_id, total, lignes },
+                            ip: req.ip || req.connection.remoteAddress,
+                            user_agent: req.headers['user-agent']
+                        }).catch(err => console.error('Erreur audit operation:', err));
+
                         res.status(201).json({ 
                             message: 'Commande cree avec succes', 
                             id: commandeId, 
@@ -161,16 +175,36 @@ exports.updateCommandeStatut = (req, res) => {
         return res.status(400).json({ message: 'Statut invalide' });
     }
 
-    const sql = 'UPDATE commandes SET statut = ? WHERE id = ?';
-    db.query(sql, [statut, req.params.id], (err, result) => {
-        if (err) {
-            console.error('Erreur updateCommandeStatut:', err);
+    db.query('SELECT * FROM commandes WHERE id = ?', [req.params.id], (errSelect, oldData) => {
+        if (errSelect) {
+            console.error('Erreur updateCommandeStatut - select:', errSelect);
             return res.status(500).json({ message: 'Erreur serveur' });
         }
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'Commande introuvable' });
-        }
-        res.json({ message: 'Statut mis a jour avec succes' });
+
+        const sql = 'UPDATE commandes SET statut = ? WHERE id = ?';
+        db.query(sql, [statut, req.params.id], (err, result) => {
+            if (err) {
+                console.error('Erreur updateCommandeStatut:', err);
+                return res.status(500).json({ message: 'Erreur serveur' });
+            }
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ message: 'Commande introuvable' });
+            }
+            
+            AuditService.logOperation(db, {
+                utilisateur_id: req.user.id,
+                entreprise_id: req.user.entreprise_id,
+                operation: 'UPDATE',
+                table_name: 'commandes',
+                record_id: req.params.id,
+                anciennes_valeurs: oldData[0] || null,
+                nouvelles_valeurs: { statut },
+                ip: req.ip || req.connection.remoteAddress,
+                user_agent: req.headers['user-agent']
+            }).catch(err => console.error('Erreur audit operation:', err));
+
+            res.json({ message: 'Statut mis a jour avec succes' });
+        });
     });
 };
 
@@ -206,12 +240,28 @@ exports.deleteCommande = (req, res) => {
             }
         }
 
-        db.query('DELETE FROM commandes WHERE id = ?', [id], (err2, result) => {
-            if (err2) {
-                console.error('Erreur deleteCommande - delete:', err2);
-                return res.status(500).json({ message: 'Erreur serveur' });
-            }
-            res.json({ message: 'Commande supprimee avec succes' });
+        db.query('SELECT * FROM commandes WHERE id = ?', [id], (errSelect, oldData) => {
+            if (errSelect) { console.error(errSelect); return res.status(500).json({ message: 'Erreur serveur' }); }
+            
+            db.query('DELETE FROM commandes WHERE id = ?', [id], (err2, result) => {
+                if (err2) {
+                    console.error('Erreur deleteCommande - delete:', err2);
+                    return res.status(500).json({ message: 'Erreur serveur' });
+                }
+                
+                AuditService.logOperation(db, {
+                    utilisateur_id: req.user.id,
+                    entreprise_id: req.user.entreprise_id,
+                    operation: 'DELETE',
+                    table_name: 'commandes',
+                    record_id: id,
+                    anciennes_valeurs: oldData[0] || null,
+                    ip: req.ip || req.connection.remoteAddress,
+                    user_agent: req.headers['user-agent']
+                }).catch(err => console.error('Erreur audit operation:', err));
+
+                res.json({ message: 'Commande supprimee avec succes' });
+            });
         });
     });
 };

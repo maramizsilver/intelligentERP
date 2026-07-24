@@ -5,6 +5,7 @@ const db = require('./config/db');
 const { errorHandler } = require('./middleware/errorHandler.middleware');
 const authMiddleware = require('./middleware/authMiddleware');
 const sessionMiddleware = require('./middleware/sessionMiddleware');
+const auditMiddleware = require('./middleware/audit.middleware');
 
 const app = express();
 
@@ -39,12 +40,14 @@ const protectedRoutes = [
 ];
 
 protectedRoutes.forEach(({ path, route }) => {
-    app.use(path, authMiddleware, sessionMiddleware, require(route));
+    app.use(path, authMiddleware, sessionMiddleware, auditMiddleware, require(route));
 });
 
 app.use('/api/notifications', authMiddleware, sessionMiddleware, require('./routes/notificationRoutes'));
 
 app.use('/api/paiement', require('./routes/paiementRoutes'));
+
+app.use('/api/reset', require('./routes/resetRoutes'));
 
 app.get('/', (req, res) => {
     res.json({ message: 'Serveur ERP fonctionne !' });

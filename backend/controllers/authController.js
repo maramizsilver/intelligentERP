@@ -1,3 +1,4 @@
+// backend/controllers/authController.js
 const databaseService = require('../services/database.service');
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
@@ -5,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const MFAService = require('../services/mfa.service');
 const mfaConfig = require('../config/mfa.config');
 const SessionService = require('../services/session.service');
+const AuditService = require('../services/audit.service');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -120,7 +122,7 @@ exports.registerEntreprise = async (req, res) => {
 
 exports.login = async (req, res) => {
     console.log('[LOGIN] === DEBUT LOGIN ===');
-    console.log('[LOGIN] Email reçu:', req.body.email);
+    console.log('[LOGIN] Email recu:', req.body.email);
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -142,17 +144,47 @@ exports.login = async (req, res) => {
         const [results] = await db.promisePoolMaster.query(sql, [cleanEmail]);
 
         if (results.length === 0) {
+            try {
+                await db.promisePoolMaster.query(
+                    `INSERT INTO audit_connexions 
+                     (utilisateur_id, email, ip, user_agent, status, created_at) 
+                     VALUES (NULL, ?, ?, ?, 'failed', NOW())`,
+                    [cleanEmail, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
+                );
+            } catch (err) {
+                console.error('Erreur log connexion:', err);
+            }
             return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
         }
 
         const user = results[0];
 
-        // SUPER ADMIN
         if (user.is_super_admin) {
             const isMatch = await bcrypt.compare(password, user.password);
             
             if (!isMatch) {
+                try {
+                    await db.promisePoolMaster.query(
+                        `INSERT INTO audit_connexions 
+                         (utilisateur_id, email, ip, user_agent, status, created_at) 
+                         VALUES (NULL, ?, ?, ?, 'failed', NOW())`,
+                        [cleanEmail, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
+                    );
+                } catch (err) {
+                    console.error('Erreur log connexion:', err);
+                }
                 return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
+            }
+
+            try {
+                await db.promisePoolMaster.query(
+                    `INSERT INTO audit_connexions 
+                     (utilisateur_id, email, ip, user_agent, status, created_at) 
+                     VALUES (?, ?, ?, ?, 'success', NOW())`,
+                    [user.id, cleanEmail, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
+                );
+            } catch (err) {
+                console.error('Erreur log connexion:', err);
             }
 
             const token = jwt.sign(
@@ -210,6 +242,16 @@ exports.login = async (req, res) => {
         );
         
         if (userRows.length === 0) {
+            try {
+                await db.promisePoolMaster.query(
+                    `INSERT INTO audit_connexions 
+                     (utilisateur_id, email, ip, user_agent, status, created_at) 
+                     VALUES (NULL, ?, ?, ?, 'failed', NOW())`,
+                    [cleanEmail, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
+                );
+            } catch (err) {
+                console.error('Erreur log connexion:', err);
+            }
             return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
         }
 
@@ -231,6 +273,17 @@ exports.login = async (req, res) => {
                 [attempts, lockedUntil, userData.id]
             );
             
+            try {
+                await db.promisePoolMaster.query(
+                    `INSERT INTO audit_connexions 
+                     (utilisateur_id, email, ip, user_agent, status, created_at) 
+                     VALUES (NULL, ?, ?, ?, 'failed', NOW())`,
+                    [cleanEmail, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
+                );
+            } catch (err) {
+                console.error('Erreur log connexion:', err);
+            }
+            
             return res.status(401).json({
                 message: 'Email ou mot de passe incorrect',
                 attempts_remaining: remainingAttempts,
@@ -244,7 +297,6 @@ exports.login = async (req, res) => {
             [userData.id]
         );
 
-        // Vérification MFA (desactive)
         let mfaEnabled = false;
 
         if (mfaEnabled) {
@@ -289,7 +341,6 @@ exports.login = async (req, res) => {
             });
         }
 
-        // Vérifier le statut de l'entreprise
         if (user.entreprise_statut !== 'actif') {
             return res.status(403).json({
                 message: user.entreprise_statut === 'en_attente'
@@ -298,7 +349,6 @@ exports.login = async (req, res) => {
             });
         }
 
-        // Gestion de l'essai gratuit
         let essaiExpire = false;
         let connexionsRestantes = null;
         let messageEssai = null;
@@ -323,7 +373,6 @@ exports.login = async (req, res) => {
             }
         }
 
-        // Génération du token
         const token = jwt.sign(
             {
                 id: user.id,
@@ -340,7 +389,6 @@ exports.login = async (req, res) => {
             { expiresIn: '24h' }
         );
 
-        // GESTION DES SESSIONS
         console.log('[SESSION] Debut enregistrement pour:', user.email);
         
         try {
@@ -370,7 +418,17 @@ exports.login = async (req, res) => {
             }
         }
 
-        // Réponse
+        try {
+            await db.promisePoolMaster.query(
+                `INSERT INTO audit_connexions 
+                 (utilisateur_id, email, ip, user_agent, status, created_at) 
+                 VALUES (?, ?, ?, ?, 'success', NOW())`,
+                [user.id, cleanEmail, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
+            );
+        } catch (err) {
+            console.error('Erreur log connexion:', err);
+        }
+
         res.json({
             message: 'Connexion reussie',
             messageEssai,
@@ -397,10 +455,6 @@ exports.login = async (req, res) => {
     }
 };
 
-// ============================================================
-// verifyMFALogin SUPPRIME - Utiliser mfaController.verifyMFALogin
-// ============================================================
-
 exports.getMe = async (req, res) => {
   try {
     const [rows] = await db.promisePoolMaster.query(
@@ -410,8 +464,8 @@ exports.getMe = async (req, res) => {
               e.id AS entreprise_id, e.nom AS entreprise_nom
        FROM users u
        LEFT JOIN entreprises e ON u.entreprise_id = e.id
-       WHERE u.id = ?`,
-      [req.user.id]
+       WHERE u.id = ? AND u.entreprise_id = ?`,
+      [req.user.id, req.user.entreprise_id]
     );
     
     if (rows.length === 0) {
@@ -463,8 +517,8 @@ exports.updateMe = async (req, res) => {
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
       await db.promisePoolMaster.query(
-        'UPDATE users SET nom = ?, prenom = ?, email = ?, password = ? WHERE id = ?',
-        [nom.trim(), prenom.trim(), cleanEmail, hashedPassword, req.user.id]
+        'UPDATE users SET nom = ?, prenom = ?, email = ?, password = ? WHERE id = ? AND entreprise_id = ?',
+        [nom.trim(), prenom.trim(), cleanEmail, hashedPassword, req.user.id, req.user.entreprise_id]
       );
       await clientPool.promise().query(
         'UPDATE users SET nom = ?, prenom = ?, email = ?, password = ? WHERE id = ?',
@@ -472,8 +526,8 @@ exports.updateMe = async (req, res) => {
       );
     } else {
       await db.promisePoolMaster.query(
-        'UPDATE users SET nom = ?, prenom = ?, email = ? WHERE id = ?',
-        [nom.trim(), prenom.trim(), cleanEmail, req.user.id]
+        'UPDATE users SET nom = ?, prenom = ?, email = ? WHERE id = ? AND entreprise_id = ?',
+        [nom.trim(), prenom.trim(), cleanEmail, req.user.id, req.user.entreprise_id]
       );
       await clientPool.promise().query(
         'UPDATE users SET nom = ?, prenom = ?, email = ? WHERE id = ?',
@@ -636,8 +690,8 @@ exports.updateUserRole = async (req, res) => {
     );
 
     await clientPool.promise().query(
-      'UPDATE users SET role_id = ? WHERE id = ? AND entreprise_id = ?',
-      [role_id, id, req.user.entreprise_id]
+      'UPDATE users SET role_id = ? WHERE id = ?',
+      [role_id, id]
     );
 
     res.json({ message: 'Role mis a jour avec succes' });
@@ -691,8 +745,8 @@ exports.deleteUser = async (req, res) => {
     );
 
     await clientPool.promise().query(
-      'DELETE FROM users WHERE id = ? AND entreprise_id = ?',
-      [id, req.user.entreprise_id]
+      'DELETE FROM users WHERE id = ?',
+      [id]
     );
 
     console.log(`[AUDIT] Admin id=${req.user.id} a supprime le compte id=${id}`);
