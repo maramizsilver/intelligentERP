@@ -59,32 +59,6 @@ class AuditService {
         }
     }
 
-    static async logDeconnexion(db, data) {
-        const {
-            utilisateur_id,
-            email,
-            ip,
-            user_agent,
-            status = 'success'
-        } = data;
-
-        try {
-            await db.promise().query(
-                `INSERT INTO audit_connexions 
-                 (utilisateur_id, email, ip, user_agent, status, created_at) 
-                 VALUES (?, ?, ?, ?, 'deconnexion', NOW())`,
-                [
-                    utilisateur_id || null,
-                    email || null,
-                    ip || null,
-                    user_agent || null
-                ]
-            );
-        } catch (err) {
-            console.error('Erreur audit deconnexion:', err);
-        }
-    }
-
     static async logOperation(db, data) {
         const {
             utilisateur_id,

@@ -455,6 +455,31 @@ exports.login = async (req, res) => {
     }
 };
 
+exports.logout = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const email = req.user.email;
+        
+        try {
+            await db.promisePoolMaster.query(
+                `INSERT INTO audit_connexions 
+                 (utilisateur_id, email, ip, user_agent, status, created_at) 
+                 VALUES (?, ?, ?, ?, 'deconnexion', NOW())`,
+                [userId, email, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
+            );
+        } catch (err) {
+            console.error('Erreur log deconnexion:', err);
+        }
+        
+        await SessionService.logoutAllSessions(userId);
+        
+        res.json({ message: 'Deconnexion reussie' });
+    } catch (err) {
+        console.error('Erreur logout:', err);
+        res.status(500).json({ message: 'Erreur serveur' });
+    }
+};
+
 exports.getMe = async (req, res) => {
   try {
     const [rows] = await db.promisePoolMaster.query(

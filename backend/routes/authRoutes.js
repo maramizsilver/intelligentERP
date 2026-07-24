@@ -1,6 +1,6 @@
 // ============================================================
 // FICHIER: backend/routes/authRoutes.js
-// VERSION COMPLETE AVEC MFA
+// VERSION COMPLETE AVEC MFA ET LOGOUT
 // ============================================================
 
 const express = require('express');
@@ -11,6 +11,7 @@ const router = express.Router();
 const {
   registerEntreprise,
   login,
+  logout,
   getMe,
   updateMe,
   getMesPermissions,
@@ -46,8 +47,10 @@ const {
 router.post('/register-entreprise', registerEntreprise);
 router.post('/login', login);
 
-// ROUTES UTILISATEUR (protégées)
+// ROUTE LOGOUT (protégée)
+router.post('/logout', authMiddleware, logout);
 
+// ROUTES UTILISATEUR (protégées)
 router.get('/me', authMiddleware, tenantMiddleware, getMe);
 router.put('/me', authMiddleware, tenantMiddleware, updateMe);
 router.get('/mes-permissions', authMiddleware, tenantMiddleware, getMesPermissions);
@@ -99,56 +102,49 @@ router.delete('/users/:id',
 // ROUTES MFA
 // ============================================================
 
-// 1. Obtenir le statut MFA
 router.get('/mfa/status',
   authMiddleware,
   tenantMiddleware,
   getMFAStatus
 );
 
-// 2. Initier l'activation MFA (générer secret + QR Code)
 router.post('/mfa/initiate',
   authMiddleware,
   tenantMiddleware,
-  mfaActivationLimiter,  // 3 tentatives / heure
+  mfaActivationLimiter,
   initiateMFA
 );
 
-// 3. Activer MFA (vérification du code TOTP)
 router.post('/mfa/activate',
   authMiddleware,
   tenantMiddleware,
-  mfaActivationLimiter,  // 3 tentatives / heure
+  mfaActivationLimiter,
   activateMFA
 );
 
-// 4. Désactiver MFA
 router.post('/mfa/deactivate',
   authMiddleware,
   tenantMiddleware,
-  mfaLimiter,            // 10 tentatives / 15 minutes
+  mfaLimiter,
   deactivateMFA
 );
 
-// 5. Vérification MFA lors du login (route publique)
 router.post('/mfa/verify-login',
-  mfaLimiter,            // 10 tentatives / 15 minutes
+  mfaLimiter,
   verifyMFALogin
 );
 
-// 6. Vérifier un code de sauvegarde
 router.post('/mfa/verify-backup',
   authMiddleware,
   tenantMiddleware,
-  mfaLimiter,            // 10 tentatives / 15 minutes
+  mfaLimiter,
   verifyBackupCode
 );
 
-// 7. Régénérer les codes de sauvegarde
 router.post('/mfa/regenerate-backup',
   authMiddleware,
   tenantMiddleware,
-  mfaActivationLimiter,  // 3 tentatives / heure
+  mfaActivationLimiter,
   regenerateBackupCodes
 );
 
