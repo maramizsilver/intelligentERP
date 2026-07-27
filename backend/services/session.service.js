@@ -1,7 +1,6 @@
 const crypto = require('crypto');
 const db = require('../config/db');
 
-
 class SessionService {
     
     static generateDeviceFingerprint(req) {
@@ -83,7 +82,6 @@ class SessionService {
             console.log('[SESSION] Fingerprint:', fingerprint.substring(0, 20) + '...');
             console.log('[SESSION] User ID:', user.id);
 
-            // 1. Verifier si l'appareil est bloque (dans la MASTER)
             const [blocked] = await db.promisePoolMaster.query(
                 'SELECT id FROM user_devices WHERE user_id = ? AND device_fingerprint = ? AND is_blocked = TRUE',
                 [user.id, fingerprint]
@@ -131,7 +129,6 @@ class SessionService {
                 console.log('[SESSION] Anciennes sessions deconnectees:', previousSessionCount);
             }
 
-            // 4. Enregistrer la connexion (dans la MASTER)
             await db.promisePoolMaster.query(
                 `INSERT INTO user_connections 
                  (user_id, ip_address, country, region, city, latitude, longitude, 
@@ -142,7 +139,6 @@ class SessionService {
                  deviceInfo.device_type, deviceInfo.os, deviceInfo.browser]
             );
 
-            // 5. Enregistrer la session (dans la MASTER)
             await db.promisePoolMaster.query(
                 `INSERT INTO sessions 
                  (user_id, token, device_fingerprint, device_type, os, browser, 
@@ -155,7 +151,6 @@ class SessionService {
 
             console.log('[SESSION] Session enregistree avec succes');
 
-            // 6. Verifier les activites suspectes
             await this.checkSuspiciousActivity(user.id, fingerprint, location, req, previousSessionCount);
 
             return { success: true, previousSessionCount };
@@ -166,7 +161,6 @@ class SessionService {
     }
 
     static async checkSuspiciousActivity(userId, fingerprint, location, req, previousSessionCount) {
-        // Verifier les connexions depuis un pays inhabituel (dans la MASTER)
         const [previous] = await db.promisePoolMaster.query(
             'SELECT country FROM user_connections WHERE user_id = ? ORDER BY created_at DESC LIMIT 5',
             [userId]
@@ -191,7 +185,6 @@ class SessionService {
             }
         }
 
-        // Verifier les connexions simultanees
         if (previousSessionCount > 1) {
             await db.promisePoolMaster.query(
                 `INSERT INTO security_alerts 
@@ -355,6 +348,21 @@ class SessionService {
             total_alerts: bySeverity.reduce((sum, s) => sum + s.total, 0),
             daily_connections: dailyConnections
         };
+    }
+
+    static async cleanupExpiredSessions() {
+        try {
+            const [result] = await db.promisePoolMaster.query(
+                'UPDATE sessions SET is_active = FALSE WHERE last_activity < DATE_SUB(NOW(), INTERVAL 1 HOUR)'
+            );
+            if (result.affectedRows > 0) {
+                console.log(`[SESSION] ${result.affectedRows} sessions expirees nettoyees`);
+            }
+            return result.affectedRows;
+        } catch (err) {
+            console.error('[SESSION] Erreur nettoyage sessions expirees:', err);
+            return 0;
+        }
     }
 }
 

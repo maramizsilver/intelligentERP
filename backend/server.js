@@ -1,17 +1,33 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
 const db = require('./config/db');
 const { errorHandler } = require('./middleware/errorHandler.middleware');
 const authMiddleware = require('./middleware/authMiddleware');
 const sessionMiddleware = require('./middleware/sessionMiddleware');
 const auditMiddleware = require('./middleware/audit.middleware');
+const { securityHeaders, xssProtection, noCache } = require('./middleware/security.middleware');
+const SessionService = require('./services/session.service');
 
 const app = express();
 
-app.use(cors());
+// Configuration CORS pour CSRF
+app.use(cors({
+    origin: ['http://localhost:3000', 'http://localhost:3001'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Enterprise-Id', 'Cookie']
+}));
+
+app.use(cookieParser());
+app.use(securityHeaders);
+app.use(xssProtection);
+app.use(noCache);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.use('/api/csrf', require('./routes/csrfRoutes'));
 
 app.use('/api/auth', require('./routes/authRoutes'));
 
@@ -58,4 +74,8 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`Serveur demarre sur le port ${PORT}`);
+    SessionService.cleanupExpiredSessions();
+    setInterval(() => {
+        SessionService.cleanupExpiredSessions();
+    }, 30 * 60 * 1000);
 });

@@ -1,10 +1,20 @@
+const encryptionService = require('../services/encryption.service');
 const AuditService = require('../services/audit.service');
 
 exports.getAllClients = (req, res) => {
   const db = req.db; 
   db.query('SELECT * FROM clients ORDER BY id DESC', (err, results) => {
     if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
-    res.json({ clients: results });
+    
+    // Déchiffrer les données sensibles
+    const clients = results.map(client => ({
+      ...client,
+      email: encryptionService.decrypt(client.email),
+      telephone: encryptionService.decrypt(client.telephone),
+      adresse: encryptionService.decrypt(client.adresse)
+    }));
+    
+    res.json({ clients });
   });
 };
 
@@ -13,7 +23,14 @@ exports.getClientById = (req, res) => {
   db.query('SELECT * FROM clients WHERE id = ?', [req.params.id], (err, results) => {
     if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
     if (results.length === 0) return res.status(404).json({ message: 'Client introuvable' });
-    res.json({ client: results[0] });
+    
+    // Déchiffrer les données sensibles
+    const client = results[0];
+    client.email = encryptionService.decrypt(client.email);
+    client.telephone = encryptionService.decrypt(client.telephone);
+    client.adresse = encryptionService.decrypt(client.adresse);
+    
+    res.json({ client });
   });
 };
 
@@ -23,8 +40,14 @@ exports.createClient = (req, res) => {
   if (!nom || nom.trim().length < 2) {
     return res.status(400).json({ message: 'Le nom du client est requis' });
   }
+  
+  // Chiffrer les données sensibles
+  const encryptedEmail = encryptionService.encrypt(email);
+  const encryptedTelephone = encryptionService.encrypt(telephone);
+  const encryptedAdresse = encryptionService.encrypt(adresse);
+  
   const sql = 'INSERT INTO clients (nom, email, telephone, adresse) VALUES (?, ?, ?, ?)';
-  db.query(sql, [nom.trim(), email || null, telephone || null, adresse || null], (err, result) => {
+  db.query(sql, [nom.trim(), encryptedEmail, encryptedTelephone, encryptedAdresse], (err, result) => {
     if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
     
     AuditService.logOperation(db, {
@@ -52,8 +75,13 @@ exports.updateClient = (req, res) => {
   db.query('SELECT * FROM clients WHERE id = ?', [req.params.id], (errSelect, oldData) => {
     if (errSelect) { console.error(errSelect); return res.status(500).json({ message: 'Erreur serveur' }); }
     
+    // Chiffrer les données sensibles
+    const encryptedEmail = encryptionService.encrypt(email);
+    const encryptedTelephone = encryptionService.encrypt(telephone);
+    const encryptedAdresse = encryptionService.encrypt(adresse);
+    
     const sql = 'UPDATE clients SET nom = ?, email = ?, telephone = ?, adresse = ? WHERE id = ?';
-    db.query(sql, [nom.trim(), email || null, telephone || null, adresse || null, req.params.id], (err, result) => {
+    db.query(sql, [nom.trim(), encryptedEmail, encryptedTelephone, encryptedAdresse, req.params.id], (err, result) => {
       if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
       if (result.affectedRows === 0) return res.status(404).json({ message: 'Client introuvable' });
       
