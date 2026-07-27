@@ -1,10 +1,7 @@
 const helmet = require('helmet');
 const csrf = require('csurf');
-const xss = require('xss-clean');
+const xss = require('xss');
 
-// ============================================================
-// HELMET (protection HTTP)
-// ============================================================
 const securityHeaders = helmet({
     contentSecurityPolicy: {
         directives: {
@@ -33,10 +30,38 @@ const securityHeaders = helmet({
     xssFilter: true,
 });
 
-// ============================================================
-// XSS PROTECTION
-// ============================================================
-const xssProtection = xss();
+const xssProtection = (req, res, next) => {
+    if (req.body) {
+        for (let key in req.body) {
+            if (typeof req.body[key] === 'string') {
+                req.body[key] = xss(req.body[key]);
+            }
+        }
+    }
+    if (req.query) {
+        for (let key in req.query) {
+            if (typeof req.query[key] === 'string') {
+                req.query[key] = xss(req.query[key]);
+            }
+        }
+    }
+    if (req.params) {
+        for (let key in req.params) {
+            if (typeof req.params[key] === 'string') {
+                req.params[key] = xss(req.params[key]);
+            }
+        }
+    }
+    next();
+};
+
+const csrfProtection = csrf({
+    cookie: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax'
+    }
+});
 
 const noCache = (req, res, next) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -48,6 +73,6 @@ const noCache = (req, res, next) => {
 module.exports = {
     securityHeaders,
     xssProtection,
-    // csrfProtection,
+    csrfProtection,
     noCache
 };

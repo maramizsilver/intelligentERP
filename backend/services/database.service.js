@@ -1,4 +1,4 @@
-// backend/services/database.service.js - Modifier la table sequences dans INITIAL_SCHEMA
+// backend/services/database.service.js
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
@@ -57,8 +57,7 @@ const INITIAL_SCHEMA = [
     FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-
-`CREATE TABLE IF NOT EXISTS users (
+  `CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     role_id INT DEFAULT NULL,
     nom VARCHAR(100) NOT NULL,
@@ -84,7 +83,7 @@ const INITIAL_SCHEMA = [
     mfa_temp_secret VARCHAR(255) DEFAULT NULL,
     mfa_banner_dismissed BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS sequences (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -363,6 +362,55 @@ const INITIAL_SCHEMA = [
     nouvelles_valeurs JSON DEFAULT NULL,
     modified_by INT DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  // AJOUT DES TABLES D'AUDIT
+  `CREATE TABLE IF NOT EXISTS audit_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    entreprise_id INT DEFAULT NULL,
+    utilisateur_id INT DEFAULT NULL,
+    action VARCHAR(255) NOT NULL,
+    module VARCHAR(100) DEFAULT NULL,
+    details JSON DEFAULT NULL,
+    ip VARCHAR(50) DEFAULT NULL,
+    user_agent TEXT DEFAULT NULL,
+    status VARCHAR(50) DEFAULT 'success',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_entreprise (entreprise_id),
+    INDEX idx_utilisateur (utilisateur_id),
+    INDEX idx_action (action),
+    INDEX idx_created_at (created_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS audit_connexions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    utilisateur_id INT DEFAULT NULL,
+    email VARCHAR(255) DEFAULT NULL,
+    ip VARCHAR(50) DEFAULT NULL,
+    user_agent TEXT DEFAULT NULL,
+    status VARCHAR(50) DEFAULT 'success',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_utilisateur (utilisateur_id),
+    INDEX idx_email (email),
+    INDEX idx_created_at (created_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS audit_operations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    entreprise_id INT DEFAULT NULL,
+    utilisateur_id INT DEFAULT NULL,
+    operation VARCHAR(50) NOT NULL,
+    table_name VARCHAR(100) NOT NULL,
+    record_id INT DEFAULT NULL,
+    anciennes_valeurs JSON DEFAULT NULL,
+    nouvelles_valeurs JSON DEFAULT NULL,
+    ip VARCHAR(50) DEFAULT NULL,
+    user_agent TEXT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_entreprise (entreprise_id),
+    INDEX idx_utilisateur (utilisateur_id),
+    INDEX idx_operation (operation),
+    INDEX idx_table (table_name)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
 ];
 

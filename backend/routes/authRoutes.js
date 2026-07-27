@@ -1,13 +1,6 @@
-// ============================================================
-// FICHIER: backend/routes/authRoutes.js
-// VERSION COMPLETE AVEC MFA ET LOGOUT
-// ============================================================
-
 const express = require('express');
 const router = express.Router();
 
-
-// IMPORTS CONTROLEURS
 const {
   registerEntreprise,
   login,
@@ -23,7 +16,6 @@ const {
   getUserStats
 } = require('../controllers/authController');
 
-// IMPORTS MFA
 const {
   initiateMFA,
   activateMFA,
@@ -31,31 +23,30 @@ const {
   verifyMFALogin,
   verifyBackupCode,
   regenerateBackupCodes,
-  getMFAStatus
+  getMFAStatus,
+  dismissMFABanner
 } = require('../controllers/mfaController');
 
-// IMPORTS MIDDLEWARES
 const authMiddleware = require('../middleware/authMiddleware');
 const tenantMiddleware = require('../middleware/tenant.middleware');
 const checkPermission = require('../middleware/permissionMiddleware');
 const {
+  loginLimiter,
+  registerLimiter,
   mfaLimiter,
   mfaActivationLimiter
 } = require('../middleware/rateLimit.middleware');
+const { csrfProtection } = require('../middleware/security.middleware');
 
-// ROUTES PUBLIQUES
-router.post('/register-entreprise', registerEntreprise);
-router.post('/login', login);
+router.post('/register-entreprise', registerLimiter, csrfProtection, registerEntreprise);
+router.post('/login', loginLimiter, csrfProtection, login);
 
-// ROUTE LOGOUT (protégée)
 router.post('/logout', authMiddleware, logout);
 
-// ROUTES UTILISATEUR (protégées)
 router.get('/me', authMiddleware, tenantMiddleware, getMe);
 router.put('/me', authMiddleware, tenantMiddleware, updateMe);
 router.get('/mes-permissions', authMiddleware, tenantMiddleware, getMesPermissions);
 
-// ROUTES ADMIN ENTREPRISE (module "Utilisateurs")
 router.get('/users/stats',
   authMiddleware,
   tenantMiddleware,
@@ -98,10 +89,6 @@ router.delete('/users/:id',
   deleteUser
 );
 
-// ============================================================
-// ROUTES MFA
-// ============================================================
-
 router.get('/mfa/status',
   authMiddleware,
   tenantMiddleware,
@@ -119,6 +106,7 @@ router.post('/mfa/activate',
   authMiddleware,
   tenantMiddleware,
   mfaActivationLimiter,
+  csrfProtection,
   activateMFA
 );
 
@@ -126,11 +114,13 @@ router.post('/mfa/deactivate',
   authMiddleware,
   tenantMiddleware,
   mfaLimiter,
+  csrfProtection,
   deactivateMFA
 );
 
 router.post('/mfa/verify-login',
   mfaLimiter,
+  csrfProtection,
   verifyMFALogin
 );
 
@@ -146,6 +136,12 @@ router.post('/mfa/regenerate-backup',
   tenantMiddleware,
   mfaActivationLimiter,
   regenerateBackupCodes
+);
+
+router.post('/mfa/dismiss-banner',
+  authMiddleware,
+  tenantMiddleware,
+  dismissMFABanner
 );
 
 module.exports = router;

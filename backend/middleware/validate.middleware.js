@@ -1,9 +1,5 @@
 const Joi = require('joi');
 
-// ============================================================
-// FONCTION DE VALIDATION
-// ============================================================
-
 const validate = (schema) => {
     return (req, res, next) => {
         const { error, value } = schema.validate(req.body, {
@@ -18,7 +14,7 @@ const validate = (schema) => {
             }));
 
             return res.status(400).json({
-                message: 'Validation échouée',
+                message: 'Validation echouee',
                 errors
             });
         }
@@ -28,28 +24,41 @@ const validate = (schema) => {
     };
 };
 
-// ============================================================
-// SCHÉMAS EXISTANTS (Calculateur)
-// ============================================================
+const passwordStrengthSchema = Joi.object({
+    password: Joi.string()
+        .min(8)
+        .regex(/[A-Z]/, 'doit contenir une majuscule')
+        .regex(/[a-z]/, 'doit contenir une minuscule')
+        .regex(/[0-9]/, 'doit contenir un chiffre')
+        .regex(/[!@#$%^&*]/, 'doit contenir un caractere special')
+        .required()
+        .messages({
+            'string.min': 'Le mot de passe doit contenir au moins 8 caracteres',
+            'string.pattern.name': 'Le mot de passe {#name}',
+            'any.required': 'Le mot de passe est requis'
+        })
+});
+
+const validatePasswordStrength = validate(passwordStrengthSchema);
 
 const calculTauxUniqueSchema = Joi.object({
     montant: Joi.number().positive().required().messages({
-        'number.base': 'Le montant doit être un nombre',
-        'number.positive': 'Le montant doit être positif',
+        'number.base': 'Le montant doit etre un nombre',
+        'number.positive': 'Le montant doit etre positif',
         'any.required': 'Le montant est requis'
     }),
     date_debut: Joi.date().required().messages({
-        'date.base': 'La date de début est invalide',
-        'any.required': 'La date de début est requise'
+        'date.base': 'La date de debut est invalide',
+        'any.required': 'La date de debut est requise'
     }),
     date_fin: Joi.date().greater(Joi.ref('date_debut')).required().messages({
         'date.base': 'La date de fin est invalide',
-        'date.greater': 'La date de fin doit être après la date de début',
+        'date.greater': 'La date de fin doit etre apres la date de debut',
         'any.required': 'La date de fin est requise'
     }),
     taux: Joi.number().min(0).required().messages({
-        'number.base': 'Le taux doit être un nombre',
-        'number.min': 'Le taux ne peut pas être négatif',
+        'number.base': 'Le taux doit etre un nombre',
+        'number.min': 'Le taux ne peut pas etre negatif',
         'any.required': 'Le taux est requis'
     })
 });
@@ -65,23 +74,28 @@ const calculTauxVariablesSchema = Joi.object({
     ).min(1).required()
 });
 
-// ============================================================
-//  SCHÉMAS AUTH
-// ============================================================
-
 const registerSchema = Joi.object({
     entreprise_nom: Joi.string().min(2).max(150).required().messages({
-        'string.min': 'Le nom de l\'entreprise doit faire au moins 2 caractères',
-        'any.required': 'Le nom de l\'entreprise est requis'
+        'string.min': 'Le nom de l entreprise doit faire au moins 2 caracteres',
+        'any.required': 'Le nom de l entreprise est requis'
     }),
     nom: Joi.string().min(2).max(100).required(),
     prenom: Joi.string().min(2).max(100).required(),
     email: Joi.string().email().required().messages({
         'string.email': 'Email invalide'
     }),
-    password: Joi.string().min(8).required().messages({
-        'string.min': 'Le mot de passe doit contenir au moins 8 caractères'
-    }),
+    password: Joi.string()
+        .min(8)
+        .regex(/[A-Z]/, 'doit contenir une majuscule')
+        .regex(/[a-z]/, 'doit contenir une minuscule')
+        .regex(/[0-9]/, 'doit contenir un chiffre')
+        .regex(/[!@#$%^&*]/, 'doit contenir un caractere special')
+        .required()
+        .messages({
+            'string.min': 'Le mot de passe doit contenir au moins 8 caracteres',
+            'string.pattern.name': 'Le mot de passe {#name}',
+            'any.required': 'Le mot de passe est requis'
+        }),
     plan_type: Joi.string().valid('essai', 'payant').default('essai'),
     id_fiscal: Joi.string().allow('', null).max(50)
 });
@@ -90,10 +104,6 @@ const loginSchema = Joi.object({
     email: Joi.string().email().required(),
     password: Joi.string().required()
 });
-
-// ============================================================
-//  SCHÉMAS VENTES
-// ============================================================
 
 const clientSchema = Joi.object({
     nom: Joi.string().min(2).max(255).required(),
@@ -140,10 +150,6 @@ const promotionSchema = Joi.object({
     actif: Joi.boolean().default(true)
 });
 
-// ============================================================
-//  SCHÉMAS ACHATS
-// ============================================================
-
 const fournisseurSchema = Joi.object({
     nom: Joi.string().min(2).max(255).required(),
     email: Joi.string().email().allow('', null),
@@ -164,10 +170,6 @@ const achatSchema = Joi.object({
     ).min(1).required()
 });
 
-// ============================================================
-//  SCHÉMAS STOCK
-// ============================================================
-
 const produitSchema = Joi.object({
     nom: Joi.string().min(2).max(255).required(),
     description: Joi.string().allow('', null),
@@ -181,10 +183,6 @@ const entrepotSchema = Joi.object({
     responsable: Joi.string().allow('', null),
     actif: Joi.boolean().default(true)
 });
-
-// ============================================================
-//  SCHÉMAS FINANCE
-// ============================================================
 
 const depenseSchema = Joi.object({
     categorie: Joi.string().valid(
@@ -225,10 +223,6 @@ const paiementSchema = Joi.object({
     provider_ref: Joi.string().allow('', null)
 });
 
-// ============================================================
-//  SCHÉMAS ADMIN
-// ============================================================
-
 const userSchema = Joi.object({
     nom: Joi.string().min(2).max(100).required(),
     prenom: Joi.string().min(2).max(100).required(),
@@ -244,10 +238,6 @@ const externalUserSchema = Joi.object({
     password: Joi.string().min(8).required(),
     client_id: Joi.number().integer().positive().required()
 });
-
-// ============================================================
-// CHÉMAS DOCUMENTS
-// ============================================================
 
 const documentSchema = Joi.object({
     nom: Joi.string().allow('', null),
@@ -265,10 +255,6 @@ const archiveSchema = Joi.object({
     supprimer_original: Joi.boolean().default(false)
 });
 
-// ============================================================
-//  SCHÉMAS RÔLES
-// ============================================================
-
 const roleSchema = Joi.object({
     nom: Joi.string().min(2).max(100).required(),
     description: Joi.string().allow('', null)
@@ -284,50 +270,29 @@ const permissionSchema = Joi.object({
     export: Joi.boolean().default(false)
 });
 
-// ============================================================
-// EXPORTS
-// ============================================================
-
 module.exports = {
-    // Fonction
     validate,
-
-    // Calculateur
+    validatePasswordStrength,
+    passwordStrengthSchema,
     calculTauxUniqueSchema,
     calculTauxVariablesSchema,
-
-    // Auth
     registerSchema,
     loginSchema,
-
-    // Ventes
     clientSchema,
     commandeSchema,
     devisSchema,
     promotionSchema,
-
-    // Achats
     fournisseurSchema,
     achatSchema,
-
-    // Stock
     produitSchema,
     entrepotSchema,
-
-    // Finance
     depenseSchema,
     recetteSchema,
     paiementSchema,
-
-    // Admin
     userSchema,
     externalUserSchema,
-
-    // Documents
     documentSchema,
     archiveSchema,
-
-    // Rôles
     roleSchema,
     permissionSchema
 };

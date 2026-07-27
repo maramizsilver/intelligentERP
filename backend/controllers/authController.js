@@ -1,4 +1,3 @@
-// backend/controllers/authController.js
 const databaseService = require('../services/database.service');
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
@@ -298,11 +297,21 @@ exports.login = async (req, res) => {
         );
 
         let mfaEnabled = false;
+        try {
+            const [mfaResult] = await clientPool.promise().query(
+                'SELECT mfa_enabled FROM users WHERE id = ?',
+                [userData.id]
+            );
+            mfaEnabled = mfaResult.length > 0 && mfaResult[0].mfa_enabled === 1;
+        } catch (err) {
+            console.error('[MFA] Erreur recuperation statut:', err);
+            mfaEnabled = false;
+        }
 
         if (mfaEnabled) {
-            const [lockRows] = await db.promisePoolMaster.query(
+            const [lockRows] = await clientPool.promise().query(
                 'SELECT mfa_locked_until FROM users WHERE id = ?',
-                [user.id]
+                [userData.id]
             );
 
             if (lockRows.length && lockRows[0].mfa_locked_until) {
@@ -318,7 +327,7 @@ exports.login = async (req, res) => {
 
             const tempToken = jwt.sign(
                 {
-                    id: user.id,
+                    id: userData.id,
                     mfa_pending: true,
                     entreprise_id: user.entreprise_id,
                     db_name: user.db_name
@@ -333,10 +342,10 @@ exports.login = async (req, res) => {
                 mfa_required: true,
                 temp_token: tempToken,
                 user: {
-                    id: user.id,
-                    email: user.email,
-                    nom: user.nom,
-                    prenom: user.prenom
+                    id: userData.id,
+                    email: userData.email,
+                    nom: userData.nom,
+                    prenom: userData.prenom
                 }
             });
         }
@@ -445,7 +454,7 @@ exports.login = async (req, res) => {
                 plan_type: user.plan_type || null,
                 essai_expire: essaiExpire,
                 connexions_restantes: connexionsRestantes,
-                mfa_enabled: false
+                mfa_enabled: mfaEnabled
             }
         });
 
@@ -485,7 +494,7 @@ exports.getMe = async (req, res) => {
     const [rows] = await db.promisePoolMaster.query(
       `SELECT u.id, u.nom, u.prenom, u.email, u.is_super_admin, u.is_external, u.client_id,
               u.role_id,
-              FALSE as mfa_enabled,
+              u.mfa_enabled,
               e.id AS entreprise_id, e.nom AS entreprise_nom
        FROM users u
        LEFT JOIN entreprises e ON u.entreprise_id = e.id
@@ -810,4 +819,38 @@ exports.getUserStats = async (req, res) => {
     console.error('Erreur getUserStats:', err);
     res.status(500).json({ message: 'Erreur serveur' });
   }
+};
+
+exports.getActiveSessions = async (req, res) => {
+    try {
+        const [sessions] = await db.promisePoolMaster.query(
+            `SELECT s.*, u.nom, u.prenom, u.email
+             FROM sessions s
+             JOIN users u ON s.user_id = u.id
+             WHERE s.user_id = ? AND s.is_active = TRUE
+             ORDER BY s.last_activity DESC`,
+            [req.user.id]
+        );
+
+        res.json({ sessions });
+    } catch (err) {
+        console.error('Erreur getActiveSessions:', err);
+        res.status(500).json({ message: 'Erreur serveur' });
+    }
+};
+
+exports.revokeOtherSessions = async (req, res) => {
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+        
+        await db.promisePoolMaster.query(
+            'UPDATE sessions SET is_active = FALSE WHERE user_id = ? AND token != ?',
+            [req.user.id, token]
+        );
+
+        res.json({ message: 'Autres sessions deconnectees avec succes' });
+    } catch (err) {
+        console.error('Erreur revokeOtherSessions:', err);
+        res.status(500).json({ message: 'Erreur serveur' });
+    }
 };
