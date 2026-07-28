@@ -6,40 +6,55 @@ const authMiddleware = require('../middleware/authMiddleware');
 const tenantMiddleware = require('../middleware/tenant.middleware');
 const checkPermission = require('../middleware/permissionMiddleware');
 const checkEssaiActif = require('../middleware/checkEssaiActif');
-const auditMiddleware = require('../middleware/audit.middleware');
+const superAdminMiddleware = require('../middleware/superAdminMiddleware');
 
-// ============================================================
-// MIDDLEWARES
-// ============================================================
 router.use(authMiddleware);
-router.use(tenantMiddleware);
-router.use(checkEssaiActif);
 
-// ============================================================
-// ROUTES D'AUDIT
-// ============================================================
-
-// Statistiques
 router.get('/stats', 
-    checkPermission('Utilisateurs', 'consultation'), 
+    superAdminMiddleware,
     auditController.getAuditStats
 );
 
-// Logs généraux
 router.get('/logs', 
-    checkPermission('Utilisateurs', 'consultation'), 
+    superAdminMiddleware,
     auditController.getLogs
 );
 
-// Logs de connexion
 router.get('/connexions', 
-    checkPermission('Utilisateurs', 'consultation'), 
+    superAdminMiddleware,
     auditController.getConnexions
 );
 
-// Opérations CRUD
 router.get('/operations', 
-    checkPermission('Utilisateurs', 'consultation'), 
+    superAdminMiddleware,
+    auditController.getOperations
+);
+
+router.get('/entreprise/stats', 
+    tenantMiddleware,
+    checkEssaiActif,
+    checkPermission('Utilisateurs', 'consultation'),
+    auditController.getAuditStats
+);
+
+router.get('/entreprise/logs', 
+    tenantMiddleware,
+    checkEssaiActif,
+    checkPermission('Utilisateurs', 'consultation'),
+    auditController.getLogs
+);
+
+router.get('/entreprise/connexions', 
+    tenantMiddleware,
+    checkEssaiActif,
+    checkPermission('Utilisateurs', 'consultation'),
+    auditController.getConnexions
+);
+
+router.get('/entreprise/operations', 
+    tenantMiddleware,
+    checkEssaiActif,
+    checkPermission('Utilisateurs', 'consultation'),
     auditController.getOperations
 );
 

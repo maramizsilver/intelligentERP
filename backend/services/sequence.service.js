@@ -1,4 +1,5 @@
 // backend/services/sequence.service.js
+
 class SequenceService {
     static async genererNumeroBC(db, entrepriseId) {
         return this._genererNumero(db, 'dernier_numero_bc', 'BC', entrepriseId);
@@ -14,6 +15,7 @@ class SequenceService {
 
     static async _genererNumero(db, champ, prefix, entrepriseId) {
         try {
+            // Initialiser la séquence si elle n'existe pas
             const [rows] = await db.promise().query(
                 'SELECT id FROM sequences WHERE entreprise_id = ? LIMIT 1',
                 [entrepriseId]
@@ -28,21 +30,56 @@ class SequenceService {
                 );
             }
 
+            // Incrémenter le compteur
             await db.promise().query(
                 `UPDATE sequences SET ${champ} = ${champ} + 1 WHERE entreprise_id = ?`,
                 [entrepriseId]
             );
 
+            // Récupérer la nouvelle valeur
             const [result] = await db.promise().query(
                 `SELECT ${champ} FROM sequences WHERE entreprise_id = ?`,
                 [entrepriseId]
             );
-            const numero = result[0]?.[champ] || 1;
+            
+            let numero = result[0]?.[champ] || 1;
+
+            // Vérifier les doublons et sauter si nécessaire
+            let numeroFormate;
+            let exists = true;
+            let attempts = 0;
+            const maxAttempts = 100;
+
+            while (exists && attempts < maxAttempts) {
+                const annee = new Date().getFullYear();
+                const mois = String(new Date().getMonth() + 1).padStart(2, '0');
+                const longueur = prefix === 'TR' ? 5 : 4;
+                numeroFormate = String(numero).padStart(longueur, '0');
+                const transactionNumber = `${prefix}-${annee}${mois}-${numeroFormate}`;
+
+                // Vérifier si ce numéro existe déjà
+                const [check] = await db.promise().query(
+                    'SELECT id FROM paiements WHERE numero_transaction = ?',
+                    [transactionNumber]
+                );
+
+                if (check.length === 0) {
+                    exists = false;
+                } else {
+                    // Incrémenter et réessayer
+                    numero++;
+                    await db.promise().query(
+                        `UPDATE sequences SET ${champ} = ${champ} + 1 WHERE entreprise_id = ?`,
+                        [entrepriseId]
+                    );
+                    attempts++;
+                }
+            }
 
             const annee = new Date().getFullYear();
             const mois = String(new Date().getMonth() + 1).padStart(2, '0');
             const longueur = prefix === 'TR' ? 5 : 4;
-            const numeroFormate = String(numero).padStart(longueur, '0');
+            numeroFormate = String(numero).padStart(longueur, '0');
 
             return `${prefix}-${annee}${mois}-${numeroFormate}`;
         } catch (err) {
