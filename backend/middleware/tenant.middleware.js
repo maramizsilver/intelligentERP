@@ -1,10 +1,8 @@
-const masterDb = require('../config/db'); // pool master + getClientPool
+const masterDb = require('../config/db');
 const { getClientPool } = masterDb;
-// Cache mémoire : entreprise_id -> { dbName, expiresAt }
-// Évite d'interroger la base master à CHAQUE requête pour retrouver
-// db_name. TTL court pour absorber un éventuel changement de db_name.
+
 const dbNameCache = new Map();
-const CACHE_TTL_MS = parseInt(process.env.TENANT_CACHE_TTL_MS || '60000', 10); // 1 min
+const CACHE_TTL_MS = parseInt(process.env.TENANT_CACHE_TTL_MS || '60000', 10);
 
 function getCachedDbName(entrepriseId) {
   const entry = dbNameCache.get(entrepriseId);
@@ -17,23 +15,11 @@ function setCachedDbName(entrepriseId, dbName) {
   dbNameCache.set(entrepriseId, { dbName, expiresAt: Date.now() + CACHE_TTL_MS });
 }
 
-// Middleware à placer JUSTE APRÈS authMiddleware dans chaque route
-// (ex: router.use(authMiddleware); router.use(tenantMiddleware);).
-//
-// - SuperAdmin plateforme : reste sur la base master (req.db = master).
-// - Compte d'entreprise (interne ou externe) : résout req.db vers le
-//   pool MySQL dédié à SON entreprise, via entreprises.db_name.
-//
-// PHASE 2 À PRÉVOIR : les contrôleurs existants utilisent encore
-// `const db = require('../config/db')` (donc la base MASTER). Pour que
-// l'isolation soit effective, il faudra les faire passer à `req.db`
-// injecté ici, module par module.
 module.exports = function tenantMiddleware(req, res, next) {
   if (!req.user) {
     return res.status(401).json({ message: 'Non authentifié' });
   }
 
-  // Le SuperAdmin travaille exclusivement sur la base plateforme (master).
   if (req.user.is_super_admin) {
     req.db = masterDb;
     return next();
@@ -83,8 +69,6 @@ module.exports = function tenantMiddleware(req, res, next) {
   );
 };
 
-// Permet d'invalider le cache (ex: après changement manuel de db_name
-// par un SuperAdmin) sans redémarrer le serveur.
 module.exports.invalidateCache = function invalidateCache(entrepriseId) {
   dbNameCache.delete(entrepriseId);
 };

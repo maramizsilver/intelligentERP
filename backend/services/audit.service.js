@@ -1,3 +1,5 @@
+const masterDb = require('../config/db');
+
 class AuditService {
     static async logAction(db, data) {
         const {
@@ -12,7 +14,7 @@ class AuditService {
         } = data;
 
         try {
-            await db.promise().query(
+            await masterDb.promisePoolMaster.query(
                 `INSERT INTO audit_logs 
                  (entreprise_id, utilisateur_id, action, module, details, ip, user_agent, status) 
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -42,7 +44,7 @@ class AuditService {
         } = data;
 
         try {
-            await db.promise().query(
+            await masterDb.promisePoolMaster.query(
                 `INSERT INTO audit_connexions 
                  (utilisateur_id, email, ip, user_agent, status, created_at) 
                  VALUES (?, ?, ?, ?, ?, NOW())`,
@@ -73,7 +75,7 @@ class AuditService {
         } = data;
 
         try {
-            await db.promise().query(
+            await masterDb.promisePoolMaster.query(
                 `INSERT INTO audit_operations 
                  (entreprise_id, utilisateur_id, operation, table_name, record_id, 
                   anciennes_valeurs, nouvelles_valeurs, ip, user_agent) 
@@ -95,7 +97,7 @@ class AuditService {
         }
     }
 
-    static async getLogs(db, filters = {}) {
+    static async getLogs(filters = {}) {
         const {
             utilisateur_id,
             module,
@@ -133,11 +135,11 @@ class AuditService {
         sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
         params.push(parseInt(limit), parseInt(offset));
 
-        const [rows] = await db.promise().query(sql, params);
+        const [rows] = await masterDb.promisePoolMaster.query(sql, params);
         return rows;
     }
 
-    static async getConnexions(db, filters = {}) {
+    static async getConnexions(filters = {}) {
         const {
             email,
             status,
@@ -170,11 +172,11 @@ class AuditService {
         sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
         params.push(parseInt(limit), parseInt(offset));
 
-        const [rows] = await db.promise().query(sql, params);
+        const [rows] = await masterDb.promisePoolMaster.query(sql, params);
         return rows;
     }
 
-    static async getOperations(db, filters = {}) {
+    static async getOperations(filters = {}) {
         const {
             utilisateur_id,
             operation,
@@ -212,7 +214,7 @@ class AuditService {
         sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
         params.push(parseInt(limit), parseInt(offset));
 
-        const [rows] = await db.promise().query(sql, params);
+        const [rows] = await masterDb.promisePoolMaster.query(sql, params);
         return rows;
     }
 }

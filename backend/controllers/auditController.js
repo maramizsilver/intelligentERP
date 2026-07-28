@@ -1,8 +1,6 @@
-// backend/controllers/auditController.js
 const AuditService = require('../services/audit.service');
 
 exports.getLogs = async (req, res) => {
-    const db = req.db;
     const {
         utilisateur_id,
         module,
@@ -14,7 +12,7 @@ exports.getLogs = async (req, res) => {
     } = req.query;
 
     try {
-        const logs = await AuditService.getLogs(db, {
+        const logs = await AuditService.getLogs({
             utilisateur_id,
             module,
             action,
@@ -24,7 +22,15 @@ exports.getLogs = async (req, res) => {
             offset
         });
 
-        res.json({ logs, total: logs.length });
+        const db = require('../config/db');
+        const [total] = await db.promisePoolMaster.query(
+            'SELECT COUNT(*) as total FROM audit_logs'
+        );
+
+        res.json({ 
+            logs, 
+            total: total[0]?.total || 0 
+        });
     } catch (err) {
         console.error('Erreur getLogs:', err);
         res.status(500).json({ message: 'Erreur serveur' });
@@ -32,7 +38,6 @@ exports.getLogs = async (req, res) => {
 };
 
 exports.getConnexions = async (req, res) => {
-    const db = req.db;
     const {
         email,
         status,
@@ -43,7 +48,7 @@ exports.getConnexions = async (req, res) => {
     } = req.query;
 
     try {
-        const logs = await AuditService.getConnexions(db, {
+        const logs = await AuditService.getConnexions({
             email,
             status,
             date_debut,
@@ -52,7 +57,15 @@ exports.getConnexions = async (req, res) => {
             offset
         });
 
-        res.json({ logs, total: logs.length });
+        const db = require('../config/db');
+        const [total] = await db.promisePoolMaster.query(
+            'SELECT COUNT(*) as total FROM audit_connexions'
+        );
+
+        res.json({ 
+            logs, 
+            total: total[0]?.total || 0 
+        });
     } catch (err) {
         console.error('Erreur getConnexions:', err);
         res.status(500).json({ message: 'Erreur serveur' });
@@ -60,7 +73,6 @@ exports.getConnexions = async (req, res) => {
 };
 
 exports.getOperations = async (req, res) => {
-    const db = req.db;
     const {
         utilisateur_id,
         operation,
@@ -72,7 +84,7 @@ exports.getOperations = async (req, res) => {
     } = req.query;
 
     try {
-        const logs = await AuditService.getOperations(db, {
+        const logs = await AuditService.getOperations({
             utilisateur_id,
             operation,
             table_name,
@@ -82,7 +94,15 @@ exports.getOperations = async (req, res) => {
             offset
         });
 
-        res.json({ logs, total: logs.length });
+        const db = require('../config/db');
+        const [total] = await db.promisePoolMaster.query(
+            'SELECT COUNT(*) as total FROM audit_operations'
+        );
+
+        res.json({ 
+            logs, 
+            total: total[0]?.total || 0 
+        });
     } catch (err) {
         console.error('Erreur getOperations:', err);
         res.status(500).json({ message: 'Erreur serveur' });
@@ -90,20 +110,22 @@ exports.getOperations = async (req, res) => {
 };
 
 exports.getAuditStats = async (req, res) => {
-    const db = req.db;
-
     try {
-        const [totalLogs] = await db.promise().query('SELECT COUNT(*) as total FROM audit_logs');
+        const db = require('../config/db');
         
-        const [logsByModule] = await db.promise().query(
+        const [totalLogs] = await db.promisePoolMaster.query(
+            'SELECT COUNT(*) as total FROM audit_logs'
+        );
+        
+        const [logsByModule] = await db.promisePoolMaster.query(
             'SELECT module, COUNT(*) as total FROM audit_logs GROUP BY module ORDER BY total DESC'
         );
 
-        const [connexionsByStatus] = await db.promise().query(
+        const [connexionsByStatus] = await db.promisePoolMaster.query(
             'SELECT status, COUNT(*) as total FROM audit_connexions GROUP BY status'
         );
 
-        const [recentLogs] = await db.promise().query(
+        const [recentLogs] = await db.promisePoolMaster.query(
             'SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 10'
         );
 

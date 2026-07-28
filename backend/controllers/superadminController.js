@@ -11,7 +11,6 @@ exports.getActiveSessions = async (req, res) => {
              WHERE s.is_active = TRUE
              ORDER BY s.last_activity DESC`
         );
-
         res.json({ sessions });
     } catch (err) {
         console.error('Erreur getActiveSessions:', err);
