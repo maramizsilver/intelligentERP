@@ -13,5 +13,125 @@
     "timestamp": "2026-07-28T11:09:49.226Z",
     "databases": [],
     "total": 0
+  },
+  {
+    "timestamp": "2026-07-28T14:25:41.013Z",
+    "databases": [],
+    "total": 0,
+    "encrypted": 0
+  },
+  {
+    "timestamp": "2026-07-28T14:25:46.328Z",
+    "databases": [],
+    "total": 0,
+    "encrypted": 0
+  },
+  {
+    "timestamp": "2026-07-28T14:37:46.422Z",
+    "databases": [],
+    "total": 0,
+    "encrypted": 0
+  },
+  {
+    "timestamp": "2026-07-28T14:44:26.549Z",
+    "databases": [
+      {
+        "dbName": "entreprise_tunisiedrop_1",
+        "backupPath": "backups\\entreprise_tunisiedrop_1_2026-07-28T14-44-20-020Z.sql",
+        "encryptedPath": "backups\\encrypted\\entreprise_tunisiedrop_1_2026-07-28T14-44-20-020Z.enc",
+        "size": 36455,
+        "encryptedSize": 36487,
+        "checksum": "cf4531d4fb6ad848c86f6073dddf292e1ead5deac18fcca60e66e3aefe1043ad",
+        "signature": null,
+        "timestamp": "2026-07-28T14:44:22.154Z",
+        "encrypted": true
+      },
+      {
+        "dbName": "entreprise_tunisieout_2",
+        "backupPath": "backups\\entreprise_tunisieout_2_2026-07-28T14-44-22-154Z.sql",
+        "encryptedPath": "backups\\encrypted\\entreprise_tunisieout_2_2026-07-28T14-44-22-154Z.enc",
+        "size": 33116,
+        "encryptedSize": 33148,
+        "checksum": "b1b11b2f8de99e56b490707192770313deaf452d80d03f56713f725c34ff6ee7",
+        "signature": null,
+        "timestamp": "2026-07-28T14:44:24.102Z",
+        "encrypted": true
+      },
+      {
+        "dbName": "entreprise_tunisnat_3",
+        "backupPath": "backups\\entreprise_tunisnat_3_2026-07-28T14-44-24-102Z.sql",
+        "encryptedPath": "backups\\encrypted\\entreprise_tunisnat_3_2026-07-28T14-44-24-102Z.enc",
+        "size": 37750,
+        "encryptedSize": 37782,
+        "checksum": "dc4a32d828d2477d741295f690039998edef519f8efb2c88be2d3b26742cc958",
+        "signature": null,
+        "timestamp": "2026-07-28T14:44:25.503Z",
+        "encrypted": true
+      },
+      {
+        "dbName": "erp_db",
+        "backupPath": "backups\\erp_db_2026-07-28T14-44-25-503Z.sql",
+        "encryptedPath": "backups\\encrypted\\erp_db_2026-07-28T14-44-25-503Z.enc",
+        "size": 95744,
+        "encryptedSize": 95776,
+        "checksum": "601410df93836c531551049eb240246f65ab10346add6d17a0e7d2f51c6d01ee",
+        "signature": null,
+        "timestamp": "2026-07-28T14:44:26.546Z",
+        "encrypted": true
+      }
+    ],
+    "total": 4,
+    "encrypted": 4
+  },
+  {
+    "timestamp": "2026-07-28T14:51:18.804Z",
+    "databases": [
+      {
+        "dbName": "entreprise_tunisiedrop_1",
+        "backupPath": "backups\\entreprise_tunisiedrop_1_2026-07-28T14-51-13-707Z.sql",
+        "encryptedPath": "backups\\encrypted\\entreprise_tunisiedrop_1_2026-07-28T14-51-13-707Z.enc",
+        "size": 36455,
+        "encryptedSize": 36487,
+        "checksum": "fe852fa582dc7fb71522dd015c1f8029fff5a7652bda0c2e509256e3f642eed2",
+        "signature": null,
+        "timestamp": "2026-07-28T14:51:15.195Z",
+        "encrypted": true
+      },
+      {
+        "dbName": "entreprise_tunisieout_2",
+        "backupPath": "backups\\entreprise_tunisieout_2_2026-07-28T14-51-15-195Z.sql",
+        "encryptedPath": "backups\\encrypted\\entreprise_tunisieout_2_2026-07-28T14-51-15-195Z.enc",
+        "size": 33116,
+        "encryptedSize": 33148,
+        "checksum": "85a7f6a33d98858e5c3b8f216d6aea4b4154a570ea9d46263967c229d771c0ab",
+        "signature": null,
+        "timestamp": "2026-07-28T14:51:16.527Z",
+        "encrypted": true
+      },
+      {
+        "dbName": "entreprise_tunisnat_3",
+        "backupPath": "backups\\entreprise_tunisnat_3_2026-07-28T14-51-16-527Z.sql",
+        "encryptedPath": "backups\\encrypted\\entreprise_tunisnat_3_2026-07-28T14-51-16-527Z.enc",
+        "size": 37750,
+        "encryptedSize": 37782,
+        "checksum": "2fff43fdd8855e0522e49553d452b3d8649aeff7642d52a294d827c5995dfeb4",
+        "signature": null,
+        "timestamp": "2026-07-28T14:51:17.980Z",
+        "encrypted": true
+      },
+      {
+        "dbName": "erp_db",
+        "backupPath": "backups\\erp_db_2026-07-28T14-51-17-980Z.sql",
+        "encryptedPath": "backups\\encrypted\\erp_db_2026-07-28T14-51-17-980Z.enc",
+        "size": 95930,
+        "encryptedSize": 95962,
+        "checksum": "35ad8d5958f8faeb1597fe5190010f7cfa56159fe42d9f3af370d409e2358476",
+        "signature": null,
+        "timestamp": "2026-07-28T14:51:18.800Z",
+        "encrypted": true
+      }
+    ],
+    "total": 4,
+    "encrypted": 4
   }
 ]

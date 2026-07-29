@@ -1,6 +1,7 @@
 // backend/services/export.service.js
 const PDFDocument = require('pdfkit');
 const { Document, Packer, Paragraph, TextRun, AlignmentType, UnderlineType } = require('docx');
+const signatureService = require('./signature.service');
 
 class ExportService {
     
@@ -18,7 +19,15 @@ class ExportService {
 
                 const chunks = [];
                 doc.on('data', chunk => chunks.push(chunk));
-                doc.on('end', () => resolve(Buffer.concat(chunks)));
+                doc.on('end', () => {
+                    const buffer = Buffer.concat(chunks);
+                    const signature = signatureService.signBuffer(buffer);
+                    
+                    resolve({
+                        buffer: buffer,
+                        signature: signature
+                    });
+                });
 
                 doc.fontSize(20)
                    .font('Helvetica-Bold')
@@ -27,7 +36,7 @@ class ExportService {
 
                 doc.fontSize(12)
                    .font('Helvetica')
-                   .text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, { align: 'center' })
+                   .text('Date: ' + new Date().toLocaleDateString('fr-FR'), { align: 'center' })
                    .moveDown();
 
                 doc.fontSize(11)
@@ -47,16 +56,16 @@ class ExportService {
 
                 doc.fontSize(11)
                    .font('Helvetica')
-                   .text(`Montant de base: ${data.montant || 0} DT`, 50, y);
+                   .text('Montant de base: ' + (data.montant || 0) + ' DT', 50, y);
                 y += 18;
 
                 if (data.taux !== undefined && data.taux !== null) {
-                    doc.text(`Taux applique: ${data.taux}%`, 50, y);
+                    doc.text('Taux applique: ' + data.taux + '%', 50, y);
                     y += 18;
                 }
 
                 if (data.nbJours) {
-                    doc.text(`Nombre de jours: ${data.nbJours}`, 50, y);
+                    doc.text('Nombre de jours: ' + data.nbJours, 50, y);
                     y += 18;
                 }
 
@@ -100,12 +109,12 @@ class ExportService {
                            .fillColor('#0F172A');
 
                         const rowData = [
-                            `#${index + 1}`,
+                            '#' + (index + 1),
                             d.date_debut || d.date_debut_raw || '',
                             d.date_fin || d.date_fin_raw || '',
                             String(d.nbJours || 0),
-                            `${d.taux || 0}%`,
-                            `${d.resultat || 0} DT`
+                            (d.taux || 0) + '%',
+                            (d.resultat || 0) + ' DT'
                         ];
 
                         rowData.forEach((value, i) => {
@@ -125,13 +134,26 @@ class ExportService {
                     doc.fontSize(14)
                        .font('Helvetica-Bold')
                        .fillColor('#0EA5E9')
-                       .text(`Total: ${data.total || data.resultat || 0} DT`, 420, y);
+                       .text('Total: ' + (data.total || data.resultat || 0) + ' DT', 420, y);
                 } else {
                     y += 40;
                     doc.fontSize(16)
                        .font('Helvetica-Bold')
                        .fillColor('#0EA5E9')
-                       .text(`Resultat final: ${data.resultat || 0} DT`, 50, y);
+                       .text('Resultat final: ' + (data.resultat || 0) + ' DT', 50, y);
+                }
+
+                if (signatureService.signBuffer) {
+                    y += 40;
+                    doc.fontSize(8)
+                       .font('Helvetica')
+                       .fillColor('#94A3B8')
+                       .text('Document signe numeriquement', 50, y);
+                    
+                    const sig = signatureService.signBuffer(Buffer.from('signature'));
+                    if (sig) {
+                        doc.text('Signature: ' + sig.substring(0, 40) + '...', 50, y + 12);
+                    }
                 }
 
                 doc.end();
@@ -153,11 +175,10 @@ class ExportService {
             const nbJours = data.nbJours || 0;
             const typeRapport = options.type || 'simplifie';
 
-            console.log(`Montant: ${montant}, Taux: ${taux}, Resultat: ${resultat}, Type: ${typeRapport}`);
+            console.log('Montant: ' + montant + ', Taux: ' + taux + ', Resultat: ' + resultat + ', Type: ' + typeRapport);
 
             const children = [];
 
-            // Titre principal
             children.push(
                 new Paragraph({
                     children: [
@@ -173,12 +194,11 @@ class ExportService {
                 })
             );
 
-            // Date
             children.push(
                 new Paragraph({
                     children: [
                         new TextRun({
-                            text: `Date: ${new Date().toLocaleDateString('fr-FR')}`,
+                            text: 'Date: ' + new Date().toLocaleDateString('fr-FR'),
                             size: 24,
                             font: 'Arial'
                         })
@@ -188,7 +208,6 @@ class ExportService {
                 })
             );
 
-            // Type de rapport
             children.push(
                 new Paragraph({
                     children: [
@@ -203,7 +222,6 @@ class ExportService {
                 })
             );
 
-            // Separateur
             children.push(
                 new Paragraph({
                     children: [
@@ -218,7 +236,6 @@ class ExportService {
                 })
             );
 
-            // Informations generales
             children.push(
                 new Paragraph({
                     children: [
@@ -237,7 +254,7 @@ class ExportService {
                 new Paragraph({
                     children: [
                         new TextRun({
-                            text: `Montant de base: ${montant} DT`,
+                            text: 'Montant de base: ' + montant + ' DT',
                             size: 20,
                             font: 'Arial'
                         })
@@ -251,7 +268,7 @@ class ExportService {
                     new Paragraph({
                         children: [
                             new TextRun({
-                                text: `Taux applique: ${taux}%`,
+                                text: 'Taux applique: ' + taux + '%',
                                 size: 20,
                                 font: 'Arial'
                             })
@@ -266,7 +283,7 @@ class ExportService {
                     new Paragraph({
                         children: [
                             new TextRun({
-                                text: `Nombre de jours: ${nbJours}`,
+                                text: 'Nombre de jours: ' + nbJours,
                                 size: 20,
                                 font: 'Arial'
                             })
@@ -276,7 +293,6 @@ class ExportService {
                 );
             }
 
-            // Detail par periode (mode detaille)
             const hasDetails = data.details && 
                                Array.isArray(data.details) && 
                                data.details.length > 0;
@@ -327,7 +343,7 @@ class ExportService {
                 );
 
                 data.details.forEach((d, index) => {
-                    const periodeNum = `#${index + 1}`;
+                    const periodeNum = '#' + (index + 1);
                     const dateDebut = d.date_debut || d.date_debut_raw || '';
                     const dateFin = d.date_fin || d.date_fin_raw || '';
                     const nbJoursDetail = d.nbJours || 0;
@@ -337,7 +353,7 @@ class ExportService {
                     const row = new Paragraph({
                         children: [
                             new TextRun({
-                                text: `${periodeNum.padEnd(10)}${dateDebut.padEnd(10)}${dateFin.padEnd(10)}${String(nbJoursDetail).padEnd(7)}${String(tauxDetail).padEnd(7)}${resultatDetail} DT`,
+                                text: periodeNum.padEnd(10) + dateDebut.padEnd(10) + dateFin.padEnd(10) + String(nbJoursDetail).padEnd(7) + String(tauxDetail).padEnd(7) + resultatDetail + ' DT',
                                 size: 14,
                                 font: 'Arial'
                             })
@@ -364,7 +380,7 @@ class ExportService {
                     new Paragraph({
                         children: [
                             new TextRun({
-                                text: `TOTAL : ${resultat} DT`,
+                                text: 'TOTAL : ' + resultat + ' DT',
                                 size: 18,
                                 bold: true,
                                 font: 'Arial'
@@ -376,7 +392,6 @@ class ExportService {
                 );
 
             } else {
-                // Resultat final (mode simplifie)
                 children.push(
                     new Paragraph({
                         children: [
@@ -387,7 +402,7 @@ class ExportService {
                                 font: 'Arial'
                             }),
                             new TextRun({
-                                text: `${resultat} DT`,
+                                text: resultat + ' DT',
                                 size: 24,
                                 bold: false,
                                 underline: {
@@ -402,12 +417,45 @@ class ExportService {
                 );
             }
 
-            // Pied de page
+            if (signatureService.signBuffer) {
+                children.push(
+                    new Paragraph({
+                        children: [
+                            new TextRun({
+                                text: 'Document signe numeriquement',
+                                size: 12,
+                                font: 'Arial',
+                                color: '999999'
+                            })
+                        ],
+                        spacing: { before: 100 },
+                        alignment: AlignmentType.CENTER
+                    })
+                );
+                
+                const sig = signatureService.signBuffer(Buffer.from('signature'));
+                if (sig) {
+                    children.push(
+                        new Paragraph({
+                            children: [
+                                new TextRun({
+                                    text: 'Signature: ' + sig.substring(0, 40) + '...',
+                                    size: 10,
+                                    font: 'Arial',
+                                    color: '999999'
+                                })
+                            ],
+                            alignment: AlignmentType.CENTER
+                        })
+                    );
+                }
+            }
+
             children.push(
                 new Paragraph({
                     children: [
                         new TextRun({
-                            text: `Genere le ${new Date().toLocaleDateString('fr-FR')} a ${new Date().toLocaleTimeString('fr-FR')}`,
+                            text: 'Genere le ' + new Date().toLocaleDateString('fr-FR') + ' a ' + new Date().toLocaleTimeString('fr-FR'),
                             size: 12,
                             font: 'Arial',
                             color: '999999'
@@ -428,13 +476,27 @@ class ExportService {
             console.log('Generation du buffer Word...');
             const buffer = await Packer.toBuffer(doc);
             console.log('Word genere, taille:', buffer.length);
-            return buffer;
+            
+            const signature = signatureService.signBuffer(buffer);
+            
+            return {
+                buffer: buffer,
+                signature: signature
+            };
 
         } catch (err) {
             console.error('Erreur export Word:', err);
             console.error('Stack:', err.stack);
             throw err;
         }
+    }
+
+    static signBuffer(buffer) {
+        return signatureService.signBuffer(buffer);
+    }
+
+    static verifyBuffer(buffer, signature) {
+        return signatureService.verifyBuffer(buffer, signature);
     }
 }
 

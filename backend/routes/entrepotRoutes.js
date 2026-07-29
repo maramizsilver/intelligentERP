@@ -12,8 +12,7 @@ const tenantMiddleware = require('../middleware/tenant.middleware');
 router.use(authMiddleware);
 router.use(checkEssaiActif);
 router.use(tenantMiddleware);
-// IMPORTANT : route statique /transfert déclarée AVANT /:id (cf. principe déjà
-// appliqué pour /stats dans authRoutes / commandeRoutes)
+
 router.post('/transfert', checkPermission('Stock', 'modification'), transfererStock);
 
 router.get('/', checkPermission('Stock', 'consultation'), getAllEntrepots);

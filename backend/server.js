@@ -9,10 +9,11 @@ const sessionMiddleware = require('./middleware/sessionMiddleware');
 const auditMiddleware = require('./middleware/audit.middleware');
 const { securityHeaders, xssProtection, noCache } = require('./middleware/security.middleware');
 const SessionService = require('./services/session.service');
+const encryptionMiddleware = require('./middleware/encryption.middleware');
+const backupScheduler = require('./scripts/backup-scheduler');
 
 const app = express();
 
-// Configuration CORS pour CSRF
 app.use(cors({
     origin: ['http://localhost:3000', 'http://localhost:3001'],
     credentials: true,
@@ -26,6 +27,9 @@ app.use(xssProtection);
 app.use(noCache);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.use(encryptionMiddleware.encryptSensitiveData);
+app.use(encryptionMiddleware.decryptSensitiveResponse);
 
 app.use('/api/csrf', require('./routes/csrfRoutes'));
 
@@ -73,9 +77,18 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(`Serveur demarre sur le port ${PORT}`);
+    console.log('Serveur demarre sur le port ' + PORT);
     SessionService.cleanupExpiredSessions();
     setInterval(() => {
         SessionService.cleanupExpiredSessions();
     }, 30 * 60 * 1000);
+    
+    if (process.env.NODE_ENV !== 'test') {
+        try {
+            backupScheduler.startScheduler();
+            console.log('[SERVER] Planificateur de sauvegarde demarre');
+        } catch (err) {
+            console.error('[SERVER] Erreur demarrage scheduler:', err.message);
+        }
+    }
 });
