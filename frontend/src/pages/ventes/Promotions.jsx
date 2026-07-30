@@ -1,7 +1,8 @@
-
+// frontend/src/pages/ventes/Promotions.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 
 import Card from '../../components/common/Card';
@@ -13,6 +14,7 @@ import Modal from '../../components/common/Modal';
 
 export default function Promotions() {
   const { hasPermission } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [promotions, setPromotions] = useState([]);
@@ -86,10 +88,10 @@ export default function Promotions() {
 
       if (editingId) {
         await API.put(`/promotions/${editingId}`, data);
-        setSuccess(' Promotion mise à jour avec succès');
+        setSuccess(t('promotion_modifiee') || 'Promotion mise à jour avec succès');
       } else {
         await API.post('/promotions', data);
-        setSuccess(' Promotion créée avec succès');
+        setSuccess(t('promotion_cree') || 'Promotion créée avec succès');
       }
 
       setIsModalOpen(false);
@@ -134,10 +136,10 @@ export default function Promotions() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Supprimer cette promotion ?')) return;
+    if (!window.confirm(t('confirmation_suppression'))) return;
     try {
       await API.delete(`/promotions/${id}`);
-      setSuccess(' Promotion supprimée');
+      setSuccess(t('promotion_supprimee') || 'Promotion supprimée');
       loadPromotions();
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur');
@@ -158,15 +160,15 @@ export default function Promotions() {
     const debut = new Date(promo.date_debut);
     const fin = new Date(promo.date_fin);
 
-    if (!promo.actif) return { label: 'Inactif', variant: 'outline' };
-    if (maintenant < debut) return { label: 'À venir', variant: 'primary' };
-    if (maintenant > fin) return { label: 'Expirée', variant: 'danger' };
-    return { label: 'Active', variant: 'success' };
+    if (!promo.actif) return { label: t('inactif'), variant: 'outline' };
+    if (maintenant < debut) return { label: t('a_venir') || 'À venir', variant: 'primary' };
+    if (maintenant > fin) return { label: t('expire'), variant: 'danger' };
+    return { label: t('actif'), variant: 'success' };
   };
 
   const columns = [
     { key: 'code', label: 'Code' },
-    { key: 'nom', label: 'Nom' },
+    { key: 'nom', label: t('nom') },
     {
       key: 'type',
       label: 'Type',
@@ -179,7 +181,7 @@ export default function Promotions() {
     },
     {
       key: 'date_debut',
-      label: 'Période',
+      label: t('periode') || 'Période',
       render: (row) => (
         <span style={{ fontSize: '12px' }}>
           {new Date(row.date_debut).toLocaleDateString('fr-FR')}
@@ -189,7 +191,7 @@ export default function Promotions() {
     },
     {
       key: 'statut',
-      label: 'Statut',
+      label: t('statut'),
       render: (row) => {
         const statut = getStatutBadge(row);
         return <Badge variant={statut.variant}>{statut.label}</Badge>;
@@ -197,7 +199,7 @@ export default function Promotions() {
     },
     {
       key: 'utilisation_count',
-      label: 'Utilisations',
+      label: t('utilisations') || 'Utilisations',
       render: (row) => (
         <span>
           {row.utilisation_count || 0}
@@ -210,14 +212,14 @@ export default function Promotions() {
   const actions = [];
   if (peutModifier) {
     actions.push({
-      label: 'modif',
+      label: t('modifier'),
       variant: 'primary',
       onClick: (row) => handleEdit(row)
     });
   }
   if (peutSupprimer) {
     actions.push({
-      label: 'suppr',
+      label: t('supprimer'),
       variant: 'danger',
       onClick: (row) => handleDelete(row.id)
     });
@@ -227,12 +229,12 @@ export default function Promotions() {
     <div>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}> Gestion des Promotions</h1>
-          <p style={styles.subtitle}>Gérez vos promotions et codes promo</p>
+          <h1 style={styles.title}>{t('gestion_promotions') || 'Gestion des Promotions'}</h1>
+          <p style={styles.subtitle}>{t('gerer_promotions') || 'Gérez vos promotions et codes promo'}</p>
         </div>
         <div style={styles.headerActions}>
           <Button variant="secondary" onClick={() => navigate('/dashboard')} icon="←">
-            Retour
+            {t('retour')}
           </Button>
           {peutCreer && (
             <Button
@@ -256,7 +258,7 @@ export default function Promotions() {
                 setIsModalOpen(true);
               }}
             >
-              Nouvelle promotion
+              {t('nouvelle_promotion') || 'Nouvelle promotion'}
             </Button>
           )}
         </div>
@@ -270,23 +272,23 @@ export default function Promotions() {
       )}
       {success && (
         <div style={styles.successContainer}>
-          <span>done</span>
+          <span>✅</span>
           <span style={styles.successText}>{success}</span>
         </div>
       )}
 
-      <Card title=" Liste des promotions" variant="primary">
+      <Card title={t('liste_promotions') || 'Liste des promotions'} variant="primary">
         <Table columns={columns} data={promotions} loading={loading} actions={actions} />
       </Card>
 
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingId ? 'Modifier la promotion' : ' Nouvelle promotion'}
+        title={editingId ? t('modifier_promotion') || 'Modifier la promotion' : t('nouvelle_promotion') || 'Nouvelle promotion'}
         size="lg"
         actions={[
           {
-            label: editingId ? 'Mettre à jour' : 'Créer',
+            label: editingId ? t('modifier') : t('creer'),
             variant: 'primary',
             onClick: handleSubmit,
             loading: formLoading,
@@ -305,22 +307,22 @@ export default function Promotions() {
               disabled={formLoading}
             />
             <Input
-              label="Nom *"
+              label={t('nom') + ' *'}
               name="nom"
               value={form.nom}
               onChange={handleChange}
-              placeholder="Nom de la promotion"
+              placeholder={t('nom_promotion') || 'Nom de la promotion'}
               required
               disabled={formLoading}
             />
           </div>
 
           <div style={styles.formGroup}>
-            <label style={styles.label}>Description</label>
+            <label style={styles.label}>{t('description')}</label>
             <textarea
               style={styles.textarea}
               name="description"
-              placeholder="Description de la promotion"
+              placeholder={t('description_promotion') || 'Description de la promotion'}
               value={form.description}
               onChange={handleChange}
               disabled={formLoading}
@@ -357,7 +359,7 @@ export default function Promotions() {
 
           <div style={styles.formGrid}>
             <Input
-              label="Date de début *"
+              label={t('date_debut') + ' *'}
               name="date_debut"
               type="datetime-local"
               value={form.date_debut}
@@ -366,7 +368,7 @@ export default function Promotions() {
               disabled={formLoading}
             />
             <Input
-              label="Date de fin *"
+              label={t('date_fin') + ' *'}
               name="date_fin"
               type="datetime-local"
               value={form.date_fin}
@@ -378,7 +380,7 @@ export default function Promotions() {
 
           <div style={styles.formGrid}>
             <Input
-              label="Utilisation max"
+              label={t('utilisation_max') || 'Utilisation max'}
               name="utilisation_max"
               type="number"
               min="1"
@@ -388,7 +390,7 @@ export default function Promotions() {
               disabled={formLoading}
             />
             <Input
-              label="Produits concernés (IDs)"
+              label={t('produits_concernes') || 'Produits concernés (IDs)'}
               name="produits_concernes"
               value={form.produits_concernes}
               onChange={handleChange}
@@ -396,7 +398,7 @@ export default function Promotions() {
               disabled={formLoading}
             />
             <Input
-              label="Clients concernés (IDs)"
+              label={t('clients_concernes') || 'Clients concernés (IDs)'}
               name="clients_concernes"
               value={form.clients_concernes}
               onChange={handleChange}
@@ -414,7 +416,7 @@ export default function Promotions() {
                 onChange={handleChange}
                 disabled={formLoading}
               />
-              <span>Actif</span>
+              <span>{t('actif')}</span>
             </label>
           </div>
         </form>
@@ -470,10 +472,6 @@ const styles = {
     boxSizing: 'border-box',
     outline: 'none',
     transition: 'all 0.2s ease',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
   },
   textarea: {
     width: '100%',
@@ -487,10 +485,6 @@ const styles = {
     outline: 'none',
     transition: 'all 0.2s ease',
     fontFamily: 'inherit',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
   },
   checkboxGroup: { marginBottom: '16px' },
   checkboxLabel: {

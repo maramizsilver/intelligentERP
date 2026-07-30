@@ -1,6 +1,11 @@
 const AuditService = require('../services/audit.service');
 const encryptionService = require('../services/encryption.service');
 
+// Seuls les champs réellement présents dans la table `clients`
+const SENSITIVE_FIELDS = encryptionService
+  .getEncryptedFieldNames()
+  .filter(f => ['email', 'telephone', 'adresse'].includes(f));
+
 exports.getAllClients = (req, res) => {
     const db = req.db;
     db.query('SELECT * FROM clients ORDER BY id DESC', (err, results) => {
@@ -9,13 +14,9 @@ exports.getAllClients = (req, res) => {
             return res.status(500).json({ message: 'Erreur serveur' });
         }
 
-        const clients = results.map(client => ({
-            ...client,
-            nom: encryptionService.decrypt(client.nom),
-            email: encryptionService.decrypt(client.email),
-            telephone: encryptionService.decrypt(client.telephone),
-            adresse: encryptionService.decrypt(client.adresse)
-        }));
+        const clients = results.map(client => 
+            encryptionService.decryptSensitiveFields(client, SENSITIVE_FIELDS)
+        );
 
         res.json({ clients: clients });
     });
@@ -32,11 +33,7 @@ exports.getClientById = (req, res) => {
             return res.status(404).json({ message: 'Client introuvable' });
         }
 
-        const client = results[0];
-        client.nom = encryptionService.decrypt(client.nom);
-        client.email = encryptionService.decrypt(client.email);
-        client.telephone = encryptionService.decrypt(client.telephone);
-        client.adresse = encryptionService.decrypt(client.adresse);
+        const client = encryptionService.decryptSensitiveFields(results[0], SENSITIVE_FIELDS);
 
         res.json({ client: client });
     });
@@ -50,13 +47,13 @@ exports.createClient = (req, res) => {
         return res.status(400).json({ message: 'Le nom du client est requis' });
     }
 
-    const encryptedNom = encryptionService.encrypt(nom.trim());
-    const encryptedEmail = email ? encryptionService.encrypt(email) : null;
-    const encryptedTelephone = telephone ? encryptionService.encrypt(telephone) : null;
-    const encryptedAdresse = adresse ? encryptionService.encrypt(adresse) : null;
+    const encryptedData = encryptionService.encryptSensitiveFields(
+        { email: email || null, telephone: telephone || null, adresse: adresse || null },
+        SENSITIVE_FIELDS
+    );
 
     const sql = 'INSERT INTO clients (nom, email, telephone, adresse) VALUES (?, ?, ?, ?)';
-    db.query(sql, [encryptedNom, encryptedEmail, encryptedTelephone, encryptedAdresse], (err, result) => {
+    db.query(sql, [nom.trim(), encryptedData.email, encryptedData.telephone, encryptedData.adresse], (err, result) => {
         if (err) {
             console.error(err);
             return res.status(500).json({ message: 'Erreur serveur' });
@@ -94,13 +91,13 @@ exports.updateClient = (req, res) => {
             return res.status(500).json({ message: 'Erreur serveur' });
         }
 
-        const encryptedNom = encryptionService.encrypt(nom.trim());
-        const encryptedEmail = email ? encryptionService.encrypt(email) : null;
-        const encryptedTelephone = telephone ? encryptionService.encrypt(telephone) : null;
-        const encryptedAdresse = adresse ? encryptionService.encrypt(adresse) : null;
+        const encryptedData = encryptionService.encryptSensitiveFields(
+            { email: email || null, telephone: telephone || null, adresse: adresse || null },
+            SENSITIVE_FIELDS
+        );
 
         const sql = 'UPDATE clients SET nom = ?, email = ?, telephone = ?, adresse = ? WHERE id = ?';
-        db.query(sql, [encryptedNom, encryptedEmail, encryptedTelephone, encryptedAdresse, req.params.id], (err, result) => {
+        db.query(sql, [nom.trim(), encryptedData.email, encryptedData.telephone, encryptedData.adresse, req.params.id], (err, result) => {
             if (err) {
                 console.error(err);
                 return res.status(500).json({ message: 'Erreur serveur' });

@@ -1,3 +1,4 @@
+// backend/middleware/tenant.middleware.js
 const masterDb = require('../config/db');
 const { getClientPool } = masterDb;
 
@@ -42,7 +43,7 @@ module.exports = function tenantMiddleware(req, res, next) {
   }
 
   masterDb.query(
-    'SELECT db_name FROM entreprises WHERE id = ?',
+    'SELECT db_name, statut FROM entreprises WHERE id = ?',
     [entrepriseId],
     (err, rows) => {
       if (err) {
@@ -52,6 +53,14 @@ module.exports = function tenantMiddleware(req, res, next) {
       if (rows.length === 0 || !rows[0].db_name) {
         return res.status(500).json({
           message: "Configuration de la base de l'entreprise introuvable. Contactez le support."
+        });
+      }
+
+      if (rows[0].statut !== 'actif' && req.path !== '/essai-expire') {
+        return res.status(403).json({
+          message: rows[0].statut === 'en_attente'
+            ? 'Votre entreprise est en attente de validation'
+            : 'Votre entreprise est suspendue'
         });
       }
 

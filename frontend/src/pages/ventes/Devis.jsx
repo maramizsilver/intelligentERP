@@ -1,7 +1,8 @@
-// src/pages/ventes/Devis.jsx
+// frontend/src/pages/ventes/Devis.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 
 import Card from '../../components/common/Card';
@@ -13,6 +14,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 export default function Devis() {
   const { hasPermission } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [devis, setDevis] = useState([]);
@@ -80,7 +82,7 @@ export default function Devis() {
 
     try {
       await API.post('/devis', form);
-      setSuccess(' Devis créé avec succès');
+      setSuccess(t('devis_cree') || 'Devis créé avec succès');
       setShowForm(false);
       setForm({
         client_id: '',
@@ -107,10 +109,10 @@ export default function Devis() {
   };
 
   const handleConvertToCommande = async (id) => {
-    if (!window.confirm('Convertir ce devis en commande ?')) return;
+    if (!window.confirm(t('confirmation_suppression'))) return;
     try {
       await API.post(`/devis/${id}/convertir-commande`);
-      setSuccess(' Devis converti en commande');
+      setSuccess(t('devis_converti') || 'Devis converti en commande');
       loadData();
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur');
@@ -118,10 +120,10 @@ export default function Devis() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Supprimer ce devis ?')) return;
+    if (!window.confirm(t('confirmation_suppression'))) return;
     try {
       await API.delete(`/devis/${id}`);
-      setSuccess(' Devis supprimé');
+      setSuccess(t('devis_supprime') || 'Devis supprimé');
       loadData();
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur');
@@ -130,36 +132,36 @@ export default function Devis() {
 
   const getStatutBadge = (statut) => {
     const statuts = {
-      brouillon: { label: 'Brouillon', variant: 'outline' },
-      envoye: { label: 'Envoyé', variant: 'primary' },
-      accepte: { label: 'Accepté', variant: 'success' },
-      refuse: { label: 'Refusé', variant: 'danger' },
-      expire: { label: 'Expiré', variant: 'warning' }
+      brouillon: { label: t('brouillon'), variant: 'outline' },
+      envoye: { label: t('envoye'), variant: 'primary' },
+      accepte: { label: t('accepte'), variant: 'success' },
+      refuse: { label: t('refuse'), variant: 'danger' },
+      expire: { label: t('expire'), variant: 'warning' }
     };
     return statuts[statut] || statuts.brouillon;
   };
 
   const columns = [
     { key: 'numero_devis', label: 'N°' },
-    { key: 'client_nom', label: 'Client' },
+    { key: 'client_nom', label: t('clients') },
     {
       key: 'date_devis',
-      label: 'Date',
+      label: t('date'),
       render: (row) => new Date(row.date_devis).toLocaleDateString('fr-FR')
     },
     {
       key: 'date_validite',
-      label: 'Validité',
+      label: t('date_validite') || 'Validité',
       render: (row) => new Date(row.date_validite).toLocaleDateString('fr-FR')
     },
     {
       key: 'total_ttc',
-      label: 'Total',
+      label: t('total'),
       render: (row) => `${row.total_ttc} DT`
     },
     {
       key: 'statut',
-      label: 'Statut',
+      label: t('statut'),
       render: (row) => {
         const statut = getStatutBadge(row.statut);
         return <Badge variant={statut.variant}>{statut.label}</Badge>;
@@ -170,7 +172,7 @@ export default function Devis() {
   const actions = [];
   if (peutValider) {
     actions.push({
-      label: 'Changer statut',
+      label: t('changer_statut') || 'Changer statut',
       variant: 'primary',
       onClick: (row) => {
         const statuts = ['brouillon', 'envoye', 'accepte', 'refuse', 'expire'];
@@ -181,7 +183,7 @@ export default function Devis() {
   }
   if (peutCreer) {
     actions.push({
-      label: '➜ Commande',
+      label: t('convertir_commande') || '➜ Commande',
       variant: 'success',
       onClick: (row) => handleConvertToCommande(row.id),
       disabled: (row) => row.statut !== 'accepte'
@@ -189,7 +191,7 @@ export default function Devis() {
   }
   if (peutSupprimer) {
     actions.push({
-      label: ' Supprimer',
+      label: t('supprimer'),
       variant: 'danger',
       onClick: (row) => handleDelete(row.id),
       disabled: (row) => row.statut !== 'brouillon'
@@ -200,12 +202,12 @@ export default function Devis() {
     <div>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}> Gestion des Devis</h1>
-          <p style={styles.subtitle}>Gérez tous vos devis</p>
+          <h1 style={styles.title}>{t('gestion_devis') || 'Gestion des Devis'}</h1>
+          <p style={styles.subtitle}>{t('gerer_devis') || 'Gérez tous vos devis'}</p>
         </div>
         <div style={styles.headerActions}>
           <Button variant="secondary" onClick={() => navigate('/dashboard')} icon="←">
-            Retour
+            {t('retour')}
           </Button>
           {peutCreer && (
             <Button
@@ -213,7 +215,7 @@ export default function Devis() {
               icon={showForm ? '✕' : '+'}
               onClick={() => setShowForm(!showForm)}
             >
-              {showForm ? 'Fermer' : 'Nouveau devis'}
+              {showForm ? t('fermer') || 'Fermer' : t('nouveau_devis') || 'Nouveau devis'}
             </Button>
           )}
         </div>
@@ -227,17 +229,17 @@ export default function Devis() {
       )}
       {success && (
         <div style={styles.successContainer}>
-          <span>done</span>
+          <span>✅</span>
           <span style={styles.successText}>{success}</span>
         </div>
       )}
 
       {showForm && (
-        <Card title=" Nouveau devis" variant="primary" style={{ marginBottom: '24px' }}>
+        <Card title={t('nouveau_devis') || 'Nouveau devis'} variant="primary" style={{ marginBottom: '24px' }}>
           <form onSubmit={handleSubmit}>
             <div style={styles.formGrid}>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Client *</label>
+                <label style={styles.label}>{t('clients')} *</label>
                 <select
                   style={styles.select}
                   value={form.client_id}
@@ -245,14 +247,14 @@ export default function Devis() {
                   required
                   disabled={formLoading}
                 >
-                  <option value="">-- Choisir un client --</option>
+                  <option value="">-- {t('choisir_client') || 'Choisir un client'} --</option>
                   {clients.map(c => (
                     <option key={c.id} value={c.id}>{c.nom}</option>
                   ))}
                 </select>
               </div>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Date de validité *</label>
+                <label style={styles.label}>{t('date_validite') || 'Date de validité'} *</label>
                 <input
                   style={styles.input}
                   type="date"
@@ -263,7 +265,7 @@ export default function Devis() {
                 />
               </div>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Remise (%)</label>
+                <label style={styles.label}>{t('remise') || 'Remise (%)'}</label>
                 <input
                   style={styles.input}
                   type="number"
@@ -279,9 +281,9 @@ export default function Devis() {
 
             <div style={styles.lignesContainer}>
               <div style={styles.lignesHeader}>
-                <span style={styles.lignesTitle}>Produits</span>
+                <span style={styles.lignesTitle}>{t('produits')}</span>
                 <Button type="button" variant="outline" size="sm" onClick={addLigne} icon="+">
-                  Ajouter un produit
+                  {t('ajouter_produit') || 'Ajouter un produit'}
                 </Button>
               </div>
 
@@ -294,7 +296,7 @@ export default function Devis() {
                     required
                     disabled={formLoading}
                   >
-                    <option value="">-- Produit --</option>
+                    <option value="">-- {t('produits')} --</option>
                     {produits.map(p => (
                       <option key={p.id} value={p.id}>
                         {p.nom} ({p.prix} DT)
@@ -305,7 +307,7 @@ export default function Devis() {
                     style={{ ...styles.input, width: '80px' }}
                     type="number"
                     min="1"
-                    placeholder="Qté"
+                    placeholder={t('quantite')}
                     value={ligne.quantite}
                     onChange={(e) => handleLigneChange(index, 'quantite', e.target.value)}
                     required
@@ -316,7 +318,7 @@ export default function Devis() {
                     type="number"
                     min="0"
                     max="100"
-                    placeholder="Remise %"
+                    placeholder={t('remise') || 'Remise %'}
                     value={ligne.remise_ligne}
                     onChange={(e) => handleLigneChange(index, 'remise_ligne', e.target.value)}
                     disabled={formLoading}
@@ -331,10 +333,10 @@ export default function Devis() {
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Notes</label>
+              <label style={styles.label}>{t('notes') || 'Notes'}</label>
               <textarea
                 style={styles.textarea}
-                placeholder="Notes supplémentaires"
+                placeholder={t('notes_supplementaires') || 'Notes supplémentaires'}
                 value={form.notes}
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 disabled={formLoading}
@@ -342,13 +344,13 @@ export default function Devis() {
             </div>
 
             <Button type="submit" variant="primary" loading={formLoading} fullWidth>
-              Créer le devis
+              {t('creer')}
             </Button>
           </form>
         </Card>
       )}
 
-      <Card title=" Liste des devis" variant="primary">
+      <Card title={t('liste_devis') || 'Liste des devis'} variant="primary">
         <Table columns={columns} data={devis} loading={loading} actions={actions} />
       </Card>
     </div>
@@ -402,10 +404,6 @@ const styles = {
     boxSizing: 'border-box',
     outline: 'none',
     transition: 'all 0.2s ease',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
   },
   input: {
     padding: '10px 14px',
@@ -415,10 +413,6 @@ const styles = {
     backgroundColor: '#F8FAFC',
     outline: 'none',
     transition: 'all 0.2s ease',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
   },
   textarea: {
     width: '100%',
@@ -432,10 +426,6 @@ const styles = {
     outline: 'none',
     transition: 'all 0.2s ease',
     fontFamily: 'inherit',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
   },
   lignesContainer: {
     backgroundColor: '#F8FAFC',

@@ -2,6 +2,8 @@
 const PDFDocument = require('pdfkit');
 const { Document, Packer, Paragraph, TextRun, AlignmentType, UnderlineType } = require('docx');
 const signatureService = require('./signature.service');
+const fs = require('fs');
+const path = require('path');
 
 class ExportService {
     
@@ -29,33 +31,37 @@ class ExportService {
                     });
                 });
 
+                // En-tête avec logo
                 doc.fontSize(20)
                    .font('Helvetica-Bold')
-                   .text('RAPPORT DE CALCUL', { align: 'center' })
+                   .fillColor('#0EA5E9')
+                   .text('🏢 ERP', 50, 40, { align: 'center' })
+                   .fontSize(16)
+                   .fillColor('#0F172A')
+                   .text(options.title || 'RAPPORT DE CALCUL', { align: 'center' })
                    .moveDown();
 
-                doc.fontSize(12)
+                doc.fontSize(10)
                    .font('Helvetica')
+                   .fillColor('#64748B')
                    .text('Date: ' + new Date().toLocaleDateString('fr-FR'), { align: 'center' })
                    .moveDown();
 
-                doc.fontSize(11)
-                   .font('Helvetica')
-                   .text(options.type === 'detaille' ? 'Rapport detaille' : 'Rapport simplifie', { align: 'center' })
-                   .moveDown();
-
-                doc.moveTo(50, 140)
-                   .lineTo(545, 140)
+                doc.moveTo(50, 120)
+                   .lineTo(545, 120)
+                   .strokeColor('#E2E8F0')
                    .stroke();
 
-                let y = 160;
+                let y = 150;
                 doc.fontSize(12)
                    .font('Helvetica-Bold')
+                   .fillColor('#0F172A')
                    .text('Informations generales', 50, y);
                 y += 25;
 
                 doc.fontSize(11)
                    .font('Helvetica')
+                   .fillColor('#475569')
                    .text('Montant de base: ' + (data.montant || 0) + ' DT', 50, y);
                 y += 18;
 
@@ -75,9 +81,9 @@ class ExportService {
                                    data.details.length > 0;
 
                 if (options.type === 'detaille' && hasDetails) {
-        
                     doc.fontSize(12)
                        .font('Helvetica-Bold')
+                       .fillColor('#0F172A')
                        .text('Detail par periode', 50, y);
                     y += 20;
 
@@ -143,17 +149,15 @@ class ExportService {
                        .text('Resultat final: ' + (data.resultat || 0) + ' DT', 50, y);
                 }
 
+                // Pied de page
+                y = doc.page.height - 50;
+                doc.fontSize(8)
+                   .font('Helvetica')
+                   .fillColor('#94A3B8')
+                   .text('Document genere automatiquement par ERP SaaS', 50, y, { align: 'center' });
+                
                 if (signatureService.signBuffer) {
-                    y += 40;
-                    doc.fontSize(8)
-                       .font('Helvetica')
-                       .fillColor('#94A3B8')
-                       .text('Document signe numeriquement', 50, y);
-                    
-                    const sig = signatureService.signBuffer(Buffer.from('signature'));
-                    if (sig) {
-                        doc.text('Signature: ' + sig.substring(0, 40) + '...', 50, y + 12);
-                    }
+                    doc.text('Signe numeriquement', 50, y + 12, { align: 'center' });
                 }
 
                 doc.end();
@@ -167,15 +171,11 @@ class ExportService {
 
     static async exportWord(data, options = {}) {
         try {
-            console.log('Debut export Word...');
-
             const montant = data.montant || 0;
             const taux = data.taux || 0;
             const resultat = data.total || data.resultat || 0;
             const nbJours = data.nbJours || 0;
             const typeRapport = options.type || 'simplifie';
-
-            console.log('Montant: ' + montant + ', Taux: ' + taux + ', Resultat: ' + resultat + ', Type: ' + typeRapport);
 
             const children = [];
 
@@ -186,7 +186,8 @@ class ExportService {
                             text: 'RAPPORT DE CALCUL',
                             size: 36,
                             bold: true,
-                            font: 'Arial'
+                            font: 'Arial',
+                            color: '0EA5E9'
                         })
                     ],
                     alignment: AlignmentType.CENTER,
@@ -200,21 +201,8 @@ class ExportService {
                         new TextRun({
                             text: 'Date: ' + new Date().toLocaleDateString('fr-FR'),
                             size: 24,
-                            font: 'Arial'
-                        })
-                    ],
-                    alignment: AlignmentType.CENTER,
-                    spacing: { after: 200 }
-                })
-            );
-
-            children.push(
-                new Paragraph({
-                    children: [
-                        new TextRun({
-                            text: typeRapport === 'detaille' ? 'Rapport detaille' : 'Rapport simplifie',
-                            size: 20,
-                            font: 'Arial'
+                            font: 'Arial',
+                            color: '64748B'
                         })
                     ],
                     alignment: AlignmentType.CENTER,
@@ -228,7 +216,8 @@ class ExportService {
                         new TextRun({
                             text: '----------------------------------------------------',
                             size: 15,
-                            font: 'Arial'
+                            font: 'Arial',
+                            color: 'E2E8F0'
                         })
                     ],
                     alignment: AlignmentType.CENTER,
@@ -243,7 +232,8 @@ class ExportService {
                             text: 'INFORMATIONS GENERALES',
                             size: 20,
                             bold: true,
-                            font: 'Arial'
+                            font: 'Arial',
+                            color: '0F172A'
                         })
                     ],
                     spacing: { after: 150 }
@@ -256,7 +246,8 @@ class ExportService {
                         new TextRun({
                             text: 'Montant de base: ' + montant + ' DT',
                             size: 20,
-                            font: 'Arial'
+                            font: 'Arial',
+                            color: '475569'
                         })
                     ],
                     spacing: { after: 100 }
@@ -270,7 +261,8 @@ class ExportService {
                             new TextRun({
                                 text: 'Taux applique: ' + taux + '%',
                                 size: 20,
-                                font: 'Arial'
+                                font: 'Arial',
+                                color: '475569'
                             })
                         ],
                         spacing: { after: 100 }
@@ -285,7 +277,8 @@ class ExportService {
                             new TextRun({
                                 text: 'Nombre de jours: ' + nbJours,
                                 size: 20,
-                                font: 'Arial'
+                                font: 'Arial',
+                                color: '475569'
                             })
                         ],
                         spacing: { after: 200 }
@@ -298,8 +291,6 @@ class ExportService {
                                data.details.length > 0;
 
             if (typeRapport === 'detaille' && hasDetails) {
-                console.log('Ajout du detail par periode...');
-
                 children.push(
                     new Paragraph({
                         children: [
@@ -307,7 +298,8 @@ class ExportService {
                                 text: 'DETAIL PAR PERIODE',
                                 size: 20,
                                 bold: true,
-                                font: 'Arial'
+                                font: 'Arial',
+                                color: '0F172A'
                             })
                         ],
                         spacing: { before: 200, after: 150 }
@@ -322,7 +314,8 @@ class ExportService {
                             text: h + (isLast ? '' : ' | '),
                             size: 16,
                             bold: true,
-                            font: 'Arial'
+                            font: 'Arial',
+                            color: '1E293B'
                         });
                     }),
                     spacing: { after: 80 }
@@ -335,7 +328,8 @@ class ExportService {
                             new TextRun({
                                 text: '----------+----------+----------+-------+-------+----------',
                                 size: 14,
-                                font: 'Arial'
+                                font: 'Arial',
+                                color: '94A3B8'
                             })
                         ],
                         spacing: { after: 60 }
@@ -355,7 +349,8 @@ class ExportService {
                             new TextRun({
                                 text: periodeNum.padEnd(10) + dateDebut.padEnd(10) + dateFin.padEnd(10) + String(nbJoursDetail).padEnd(7) + String(tauxDetail).padEnd(7) + resultatDetail + ' DT',
                                 size: 14,
-                                font: 'Arial'
+                                font: 'Arial',
+                                color: '0F172A'
                             })
                         ],
                         spacing: { after: 60 }
@@ -369,7 +364,8 @@ class ExportService {
                             new TextRun({
                                 text: '----------+----------+----------+-------+-------+----------',
                                 size: 14,
-                                font: 'Arial'
+                                font: 'Arial',
+                                color: '94A3B8'
                             })
                         ],
                         spacing: { before: 60, after: 100 }
@@ -383,7 +379,8 @@ class ExportService {
                                 text: 'TOTAL : ' + resultat + ' DT',
                                 size: 18,
                                 bold: true,
-                                font: 'Arial'
+                                font: 'Arial',
+                                color: '0EA5E9'
                             })
                         ],
                         alignment: AlignmentType.RIGHT,
@@ -399,16 +396,15 @@ class ExportService {
                                 text: 'RESULTAT FINAL: ',
                                 size: 24,
                                 bold: true,
-                                font: 'Arial'
+                                font: 'Arial',
+                                color: '0F172A'
                             }),
                             new TextRun({
                                 text: resultat + ' DT',
                                 size: 24,
-                                bold: false,
-                                underline: {
-                                    type: UnderlineType.SINGLE
-                                },
-                                font: 'Arial'
+                                bold: true,
+                                font: 'Arial',
+                                color: '0EA5E9'
                             })
                         ],
                         alignment: AlignmentType.CENTER,
@@ -425,30 +421,13 @@ class ExportService {
                                 text: 'Document signe numeriquement',
                                 size: 12,
                                 font: 'Arial',
-                                color: '999999'
+                                color: '94A3B8'
                             })
                         ],
                         spacing: { before: 100 },
                         alignment: AlignmentType.CENTER
                     })
                 );
-                
-                const sig = signatureService.signBuffer(Buffer.from('signature'));
-                if (sig) {
-                    children.push(
-                        new Paragraph({
-                            children: [
-                                new TextRun({
-                                    text: 'Signature: ' + sig.substring(0, 40) + '...',
-                                    size: 10,
-                                    font: 'Arial',
-                                    color: '999999'
-                                })
-                            ],
-                            alignment: AlignmentType.CENTER
-                        })
-                    );
-                }
             }
 
             children.push(
@@ -458,7 +437,7 @@ class ExportService {
                             text: 'Genere le ' + new Date().toLocaleDateString('fr-FR') + ' a ' + new Date().toLocaleTimeString('fr-FR'),
                             size: 12,
                             font: 'Arial',
-                            color: '999999'
+                            color: '94A3B8'
                         })
                     ],
                     alignment: AlignmentType.CENTER,
@@ -473,10 +452,7 @@ class ExportService {
                 }]
             });
 
-            console.log('Generation du buffer Word...');
             const buffer = await Packer.toBuffer(doc);
-            console.log('Word genere, taille:', buffer.length);
-            
             const signature = signatureService.signBuffer(buffer);
             
             return {
@@ -486,7 +462,6 @@ class ExportService {
 
         } catch (err) {
             console.error('Erreur export Word:', err);
-            console.error('Stack:', err.stack);
             throw err;
         }
     }

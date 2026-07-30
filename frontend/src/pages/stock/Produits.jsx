@@ -1,7 +1,8 @@
-// src/pages/stock/Produits.jsx
+// frontend/src/pages/stock/Produits.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 
 import Card from '../../components/common/Card';
@@ -13,6 +14,7 @@ import Modal from '../../components/common/Modal';
 
 export default function Produits() {
   const { hasPermission } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [produits, setProduits] = useState([]);
@@ -55,10 +57,10 @@ export default function Produits() {
     try {
       if (editingId) {
         await API.put(`/produits/${editingId}`, form);
-        setSuccess('Produit mis à jour avec succès');
+        setSuccess(t('produit_modifie') || 'Produit mis à jour avec succès');
       } else {
         await API.post('/produits', form);
-        setSuccess('Produit créé avec succès');
+        setSuccess(t('produit_cree') || 'Produit créé avec succès');
       }
       setIsModalOpen(false);
       setForm({ nom: '', description: '', prix: '', quantite_stock: '' });
@@ -83,10 +85,10 @@ export default function Produits() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Supprimer ce produit ?')) return;
+    if (!window.confirm(t('confirmation_suppression'))) return;
     try {
       await API.delete(`/produits/${id}`);
-      setSuccess(' Produit supprimé');
+      setSuccess(t('produit_supprime') || 'Produit supprimé');
       loadData();
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur');
@@ -94,23 +96,23 @@ export default function Produits() {
   };
 
   const getStockBadge = (stock) => {
-    if (stock <= 0) return { variant: 'danger', label: 'Rupture' };
-    if (stock <= 5) return { variant: 'warning', label: 'Critique' };
-    if (stock <= 10) return { variant: 'primary', label: 'Bas' };
-    return { variant: 'success', label: 'Normal' };
+    if (stock <= 0) return { variant: 'danger', label: t('rupture') || 'Rupture' };
+    if (stock <= 5) return { variant: 'warning', label: t('critique') || 'Critique' };
+    if (stock <= 10) return { variant: 'primary', label: t('bas') || 'Bas' };
+    return { variant: 'success', label: t('normal') || 'Normal' };
   };
 
   const columns = [
-    { key: 'nom', label: 'Nom' },
-    { key: 'description', label: 'Description' },
+    { key: 'nom', label: t('nom') },
+    { key: 'description', label: t('description') },
     {
       key: 'prix',
-      label: 'Prix',
+      label: t('prix'),
       render: (row) => `${row.prix} DT`
     },
     {
       key: 'quantite_stock',
-      label: 'Stock',
+      label: t('stock') || 'Stock',
       render: (row) => {
         const badge = getStockBadge(row.quantite_stock);
         return <Badge variant={badge.variant}>{badge.label} ({row.quantite_stock})</Badge>;
@@ -120,22 +122,22 @@ export default function Produits() {
 
   const actions = [];
   if (peutModifier) {
-    actions.push({ label: 'modif', variant: 'primary', onClick: (row) => handleEdit(row) });
+    actions.push({ label: t('modifier'), variant: 'primary', onClick: (row) => handleEdit(row) });
   }
   if (peutSupprimer) {
-    actions.push({ label: 'suppr', variant: 'danger', onClick: (row) => handleDelete(row.id) });
+    actions.push({ label: t('supprimer'), variant: 'danger', onClick: (row) => handleDelete(row.id) });
   }
 
   return (
     <div>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}> Gestion des Produits</h1>
-          <p style={styles.subtitle}>Gérez votre catalogue produits</p>
+          <h1 style={styles.title}>{t('gestion_produits') || 'Gestion des Produits'}</h1>
+          <p style={styles.subtitle}>{t('gerer_produits') || 'Gérez votre catalogue produits'}</p>
         </div>
         <div style={styles.headerActions}>
           <Button variant="secondary" onClick={() => navigate('/dashboard')} icon="←">
-            Retour
+            {t('retour')}
           </Button>
           {peutCreer && (
             <Button
@@ -147,7 +149,7 @@ export default function Produits() {
                 setIsModalOpen(true);
               }}
             >
-              Nouveau produit
+              {t('nouveau_produit') || 'Nouveau produit'}
             </Button>
           )}
         </div>
@@ -161,23 +163,23 @@ export default function Produits() {
       )}
       {success && (
         <div style={styles.successContainer}>
-          <span>done</span>
+          <span>✅</span>
           <span style={styles.successText}>{success}</span>
         </div>
       )}
 
-      <Card title=" Catalogue des produits" variant="primary">
+      <Card title={t('catalogue_produits') || 'Catalogue des produits'} variant="primary">
         <Table columns={columns} data={produits} loading={loading} actions={actions} />
       </Card>
 
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingId ? ' Modifier le produit' : ' Nouveau produit'}
+        title={editingId ? t('modifier_produit') || 'Modifier le produit' : t('nouveau_produit') || 'Nouveau produit'}
         size="md"
         actions={[
           {
-            label: editingId ? 'Mettre à jour' : 'Créer',
+            label: editingId ? t('modifier') : t('creer'),
             variant: 'primary',
             onClick: handleSubmit,
             loading: formLoading,
@@ -186,41 +188,10 @@ export default function Produits() {
       >
         <form onSubmit={handleSubmit}>
           <div style={styles.formGrid}>
-            <Input
-              label="Nom *"
-              name="nom"
-              value={form.nom}
-              onChange={handleChange}
-              required
-              disabled={formLoading}
-            />
-            <Input
-              label="Description"
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              disabled={formLoading}
-            />
-            <Input
-              label="Prix (DT) *"
-              name="prix"
-              type="number"
-              step="0.01"
-              min="0"
-              value={form.prix}
-              onChange={handleChange}
-              required
-              disabled={formLoading}
-            />
-            <Input
-              label="Quantité en stock"
-              name="quantite_stock"
-              type="number"
-              min="0"
-              value={form.quantite_stock}
-              onChange={handleChange}
-              disabled={formLoading}
-            />
+            <Input label={t('nom') + ' *'} name="nom" value={form.nom} onChange={handleChange} required disabled={formLoading} />
+            <Input label={t('description')} name="description" value={form.description} onChange={handleChange} disabled={formLoading} />
+            <Input label={t('prix') + ' (DT) *'} name="prix" type="number" step="0.01" min="0" value={form.prix} onChange={handleChange} required disabled={formLoading} />
+            <Input label={t('quantite_stock') || 'Quantité en stock'} name="quantite_stock" type="number" min="0" value={form.quantite_stock} onChange={handleChange} disabled={formLoading} />
           </div>
         </form>
       </Modal>

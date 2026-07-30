@@ -1,6 +1,11 @@
 const AuditService = require('../services/audit.service');
 const encryptionService = require('../services/encryption.service');
 
+// Seuls les champs réellement présents dans la table `fournisseurs`
+const SENSITIVE_FIELDS = encryptionService
+  .getEncryptedFieldNames()
+  .filter(f => ['email', 'telephone', 'adresse'].includes(f));
+
 exports.getAllFournisseurs = (req, res) => {
     const db = req.db;
     db.query('SELECT * FROM fournisseurs ORDER BY id DESC', (err, results) => {
@@ -9,13 +14,9 @@ exports.getAllFournisseurs = (req, res) => {
             return res.status(500).json({ message: 'Erreur serveur' });
         }
 
-        const fournisseurs = results.map(f => ({
-            ...f,
-            nom: encryptionService.decrypt(f.nom),
-            email: encryptionService.decrypt(f.email),
-            telephone: encryptionService.decrypt(f.telephone),
-            adresse: encryptionService.decrypt(f.adresse)
-        }));
+        const fournisseurs = results.map(fournisseur =>
+            encryptionService.decryptSensitiveFields(fournisseur, SENSITIVE_FIELDS)
+        );
 
         res.json({ fournisseurs: fournisseurs });
     });
@@ -32,11 +33,7 @@ exports.getFournisseurById = (req, res) => {
             return res.status(404).json({ message: 'Fournisseur introuvable' });
         }
 
-        const fournisseur = results[0];
-        fournisseur.nom = encryptionService.decrypt(fournisseur.nom);
-        fournisseur.email = encryptionService.decrypt(fournisseur.email);
-        fournisseur.telephone = encryptionService.decrypt(fournisseur.telephone);
-        fournisseur.adresse = encryptionService.decrypt(fournisseur.adresse);
+        const fournisseur = encryptionService.decryptSensitiveFields(results[0], SENSITIVE_FIELDS);
 
         res.json({ fournisseur: fournisseur });
     });
@@ -50,13 +47,13 @@ exports.createFournisseur = (req, res) => {
         return res.status(400).json({ message: 'Le nom du fournisseur est requis' });
     }
 
-    const encryptedNom = encryptionService.encrypt(nom.trim());
-    const encryptedEmail = email ? encryptionService.encrypt(email) : null;
-    const encryptedTelephone = telephone ? encryptionService.encrypt(telephone) : null;
-    const encryptedAdresse = adresse ? encryptionService.encrypt(adresse) : null;
+    const encryptedData = encryptionService.encryptSensitiveFields(
+        { email: email || null, telephone: telephone || null, adresse: adresse || null },
+        SENSITIVE_FIELDS
+    );
 
     const sql = 'INSERT INTO fournisseurs (nom, email, telephone, adresse) VALUES (?, ?, ?, ?)';
-    db.query(sql, [encryptedNom, encryptedEmail, encryptedTelephone, encryptedAdresse], (err, result) => {
+    db.query(sql, [nom.trim(), encryptedData.email, encryptedData.telephone, encryptedData.adresse], (err, result) => {
         if (err) {
             console.error(err);
             return res.status(500).json({ message: 'Erreur serveur' });
@@ -94,13 +91,13 @@ exports.updateFournisseur = (req, res) => {
             return res.status(500).json({ message: 'Erreur serveur' });
         }
 
-        const encryptedNom = encryptionService.encrypt(nom.trim());
-        const encryptedEmail = email ? encryptionService.encrypt(email) : null;
-        const encryptedTelephone = telephone ? encryptionService.encrypt(telephone) : null;
-        const encryptedAdresse = adresse ? encryptionService.encrypt(adresse) : null;
+        const encryptedData = encryptionService.encryptSensitiveFields(
+            { email: email || null, telephone: telephone || null, adresse: adresse || null },
+            SENSITIVE_FIELDS
+        );
 
         const sql = 'UPDATE fournisseurs SET nom = ?, email = ?, telephone = ?, adresse = ? WHERE id = ?';
-        db.query(sql, [encryptedNom, encryptedEmail, encryptedTelephone, encryptedAdresse, req.params.id], (err, result) => {
+        db.query(sql, [nom.trim(), encryptedData.email, encryptedData.telephone, encryptedData.adresse, req.params.id], (err, result) => {
             if (err) {
                 console.error(err);
                 return res.status(500).json({ message: 'Erreur serveur' });

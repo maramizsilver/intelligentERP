@@ -1,6 +1,8 @@
+// frontend/src/pages/dashboard/Dashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
@@ -9,6 +11,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 export default function Dashboard() {
   const { user, hasPermission } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [stats, setStats] = useState({
     clients: 0,
@@ -78,9 +81,6 @@ export default function Dashboard() {
     }
   };
 
-  // ============================================================
-  // EXPORT DES DONNEES
-  // ============================================================
   const exporterDonnees = async () => {
     setExporting(true);
     setError('');
@@ -95,11 +95,10 @@ export default function Dashboard() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      setSuccess('Donnees exportees avec succes');
-      
+      setSuccess(t('export_succes') || 'Données exportées avec succès');
       setTimeout(() => setSuccess(''), 5000);
     } catch (err) {
-      setError('Erreur lors de l\'export');
+      setError(t('erreur_export') || 'Erreur lors de l\'export');
       setTimeout(() => setError(''), 5000);
     } finally {
       setExporting(false);
@@ -116,52 +115,52 @@ export default function Dashboard() {
   }
 
   if (loading) {
-    return <LoadingSpinner size="lg" text="Chargement de votre espace..." />;
+    return <LoadingSpinner size="lg" text={t('chargement')} />;
   }
 
   const menuItems = [];
 
   if (hasPermission('Ventes', 'consultation')) {
     menuItems.push(
-      { path: '/clients', label: 'Clients', desc: `${stats.clients} enregistres` },
-      { path: '/devis', label: 'Devis', desc: `${stats.devis} total · ${stats.devisEnAttente} en attente` },
-      { path: '/commandes', label: 'Commandes', desc: `${stats.commandes} total · ${stats.commandesEnAttente} en attente` },
-      { path: '/promotions', label: 'Promotions', desc: `${stats.promotionsActives} actives` }
+      { path: '/clients', label: t('clients'), desc: `${stats.clients} ${t('enregistres') || 'enregistrés'}` },
+      { path: '/devis', label: t('devis'), desc: `${stats.devis} ${t('total')} · ${stats.devisEnAttente} ${t('en_attente')}` },
+      { path: '/commandes', label: t('commandes'), desc: `${stats.commandes} ${t('total')} · ${stats.commandesEnAttente} ${t('en_attente')}` },
+      { path: '/promotions', label: t('promotions') || 'Promotions', desc: `${stats.promotionsActives} ${t('actives') || 'actives'}` }
     );
   }
 
   if (hasPermission('Achats', 'consultation')) {
     menuItems.push(
-      { path: '/fournisseurs', label: 'Fournisseurs', desc: `${stats.fournisseurs} enregistres` },
-      { path: '/achats', label: 'Achats', desc: `${stats.achatsEnCours} en cours` }
+      { path: '/fournisseurs', label: t('fournisseurs'), desc: `${stats.fournisseurs} ${t('enregistres') || 'enregistrés'}` },
+      { path: '/achats', label: t('achats'), desc: `${stats.achatsEnCours} ${t('en_cours') || 'en cours'}` }
     );
   }
 
   if (hasPermission('Stock', 'consultation')) {
     menuItems.push(
-      { path: '/produits', label: 'Produits', desc: `${stats.produits} references` },
-      { path: '/mouvements-stock', label: 'Mouvements', desc: 'Historique des stocks' },
+      { path: '/produits', label: t('produits'), desc: `${stats.produits} ${t('references') || 'références'}` },
+      { path: '/mouvements-stock', label: t('mouvements_stock'), desc: t('historique_stock') || 'Historique des stocks' },
       { 
         path: '/alertes-stock', 
-        label: 'Alertes', 
-        desc: stats.alertesStock > 0 ? `${stats.alertesStock} produit(s) critique(s)` : 'Aucune alerte',
+        label: t('alertes') || 'Alertes', 
+        desc: stats.alertesStock > 0 ? `${stats.alertesStock} ${t('produits_critiques') || 'produit(s) critique(s)'}` : t('aucune_alerte') || 'Aucune alerte',
         danger: stats.alertesStock > 0
       },
-      { path: '/entrepots', label: 'Entrepots', desc: 'Gestion des entrepots' },
-      { path: '/calculateur', label: 'Calculateur', desc: 'Moteur de calcul' },
-      { path: '/inventaires', label: 'Inventaires', desc: 'Gestion des inventaires' }
+      { path: '/entrepots', label: t('entrepots') || 'Entrepôts', desc: t('gestion_entrepots') || 'Gestion des entrepôts' },
+      { path: '/calculateur', label: t('calculateur') || 'Calculateur', desc: t('moteur_calcul') || 'Moteur de calcul' },
+      { path: '/inventaires', label: t('inventaire'), desc: t('gestion_inventaires') || 'Gestion des inventaires' }
     );
   }
 
   if (hasPermission('Utilisateurs', 'consultation')) {
     menuItems.push(
-      { path: '/utilisateurs', label: 'Utilisateurs', desc: 'Gestion des acces' }
+      { path: '/utilisateurs', label: t('utilisateurs'), desc: t('gestion_acces') || 'Gestion des accès' }
     );
   }
   if (hasPermission('Documents', 'consultation')) {
     menuItems.push(
-      { path: '/documents', label: 'Documents', desc: 'Gestion documentaire' },
-      { path: '/archives', label: 'Archives', desc: 'Archivage numerique' }
+      { path: '/documents', label: t('documents'), desc: t('gestion_documentaire') || 'Gestion documentaire' },
+      { path: '/archives', label: t('archives'), desc: t('archivage_numerique') || 'Archivage numérique' }
     );
   }
 
@@ -169,7 +168,7 @@ export default function Dashboard() {
     <div>
       {error && (
         <div style={styles.errorContainer}>
-          <span style={styles.errorIcon}>X</span>
+          <span style={styles.errorIcon}>✕</span>
           <span style={styles.errorText}>{error}</span>
         </div>
       )}
@@ -182,9 +181,9 @@ export default function Dashboard() {
 
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>Tableau de bord</h1>
+          <h1 style={styles.title}>{t('dashboard')}</h1>
           <p style={styles.subtitle}>
-            Bonjour {user?.prenom} {user?.nom} · {user?.role || 'Utilisateur'}
+            {t('bonjour') || 'Bonjour'} {user?.prenom} {user?.nom} · {user?.role || 'Utilisateur'}
             {user?.entreprise && ` · ${user.entreprise}`}
           </p>
         </div>
@@ -195,10 +194,10 @@ export default function Dashboard() {
             loading={exporting}
             size="sm"
           >
-            Exporter mes donnees
+            {t('exporter_donnees') || 'Exporter mes données'}
           </Button>
           <Button variant="secondary" onClick={loadStats} size="sm">
-            Actualiser
+            {t('actualiser') || 'Actualiser'}
           </Button>
         </div>
       </div>
@@ -206,23 +205,23 @@ export default function Dashboard() {
       <div style={styles.statsGrid}>
         <div style={styles.statCard}>
           <div style={styles.statNumber}>{stats.clients}</div>
-          <div style={styles.statLabel}>Clients</div>
+          <div style={styles.statLabel}>{t('clients')}</div>
         </div>
         <div style={styles.statCard}>
           <div style={styles.statNumber}>{stats.fournisseurs}</div>
-          <div style={styles.statLabel}>Fournisseurs</div>
+          <div style={styles.statLabel}>{t('fournisseurs')}</div>
         </div>
         <div style={styles.statCard}>
           <div style={styles.statNumber}>{stats.produits}</div>
-          <div style={styles.statLabel}>Produits</div>
+          <div style={styles.statLabel}>{t('produits')}</div>
         </div>
         <div style={styles.statCard}>
           <div style={styles.statNumber}>{stats.commandes}</div>
           <div style={styles.statLabel}>
-            Commandes
+            {t('commandes')}
             {stats.commandesEnAttente > 0 && (
               <Badge variant="warning" style={{ marginLeft: '6px' }}>
-                {stats.commandesEnAttente} en attente
+                {stats.commandesEnAttente} {t('en_attente')}
               </Badge>
             )}
           </div>
@@ -230,36 +229,36 @@ export default function Dashboard() {
         <div style={styles.statCard}>
           <div style={styles.statNumber}>{stats.devis}</div>
           <div style={styles.statLabel}>
-            Devis
+            {t('devis')}
             {stats.devisEnAttente > 0 && (
               <Badge variant="warning" style={{ marginLeft: '6px' }}>
-                {stats.devisEnAttente} en attente
+                {stats.devisEnAttente} {t('en_attente')}
               </Badge>
             )}
           </div>
         </div>
         <div style={styles.statCard}>
           <div style={styles.statNumber}>{stats.promotionsActives}</div>
-          <div style={styles.statLabel}>Promotions actives</div>
+          <div style={styles.statLabel}>{t('promotions_actives') || 'Promotions actives'}</div>
         </div>
         <div style={{ ...styles.statCard, ...(stats.alertesStock > 0 ? styles.statCardDanger : {}) }}>
           <div style={{ ...styles.statNumber, color: stats.alertesStock > 0 ? '#DC2626' : '#0F172A' }}>
             {stats.alertesStock}
           </div>
           <div style={styles.statLabel}>
-            Alertes stock
+            {t('alertes_stock') || 'Alertes stock'}
             {stats.alertesStock > 0 && (
-              <Badge variant="danger" style={{ marginLeft: '6px' }}>rupture</Badge>
+              <Badge variant="danger" style={{ marginLeft: '6px' }}>{t('rupture') || 'rupture'}</Badge>
             )}
           </div>
         </div>
         <div style={styles.statCard}>
           <div style={styles.statNumber}>{stats.achatsEnCours}</div>
-          <div style={styles.statLabel}>Achats en cours</div>
+          <div style={styles.statLabel}>{t('achats_en_cours') || 'Achats en cours'}</div>
         </div>
       </div>
 
-      <Card title="Acces rapide" variant="primary">
+      <Card title={t('acces_rapide') || 'Accès rapide'} variant="primary">
         <div style={styles.menuGrid}>
           {menuItems.map((item, idx) => (
             <div
@@ -282,9 +281,6 @@ export default function Dashboard() {
   );
 }
 
-// ============================================================
-// STYLES
-// ============================================================
 const styles = {
   header: {
     display: 'flex',
@@ -310,7 +306,6 @@ const styles = {
     color: '#64748B',
     margin: '4px 0 0',
   },
-  
   errorContainer: {
     display: 'flex',
     alignItems: 'center',
@@ -351,7 +346,6 @@ const styles = {
     fontSize: '13px',
     fontWeight: 500,
   },
-
   statsGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
@@ -383,7 +377,6 @@ const styles = {
     flexWrap: 'wrap',
     gap: '4px',
   },
-  
   menuGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
