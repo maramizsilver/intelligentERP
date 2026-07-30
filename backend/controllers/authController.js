@@ -1,4 +1,3 @@
-// backend/controllers/authController.js
 const databaseService = require('../services/database.service');
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
@@ -7,7 +6,6 @@ const MFAService = require('../services/mfa.service');
 const mfaConfig = require('../config/mfa.config');
 const SessionService = require('../services/session.service');
 const AuditService = require('../services/audit.service');
-const encryptionService = require('../services/encryption.service');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -29,17 +27,7 @@ async function findUserByEmail(email) {
     );
     
     if (superAdmins.length > 0) {
-        const user = superAdmins[0];
-        try {
-            user.nom = encryptionService.decrypt(user.nom) || user.nom;
-        } catch (e) {}
-        try {
-            user.prenom = encryptionService.decrypt(user.prenom) || user.prenom;
-        } catch (e) {}
-        try {
-            user.email = encryptionService.decrypt(user.email) || user.email;
-        } catch (e) {}
-        return user;
+        return superAdmins[0];
     }
     
     const [allUsers] = await db.promisePoolMaster.query(
@@ -53,23 +41,7 @@ async function findUserByEmail(email) {
     );
     
     for (const user of allUsers) {
-        let userEmail = user.email;
-        if (user.email && user.email.includes(':')) {
-            try {
-                userEmail = encryptionService.decrypt(user.email);
-            } catch (err) {}
-        }
-        if (userEmail === cleanEmail) {
-            try {
-                user.nom = encryptionService.decrypt(user.nom) || user.nom;
-            } catch (e) {}
-            try {
-                user.prenom = encryptionService.decrypt(user.prenom) || user.prenom;
-            } catch (e) {}
-            try {
-                user.entreprise_nom = encryptionService.decrypt(user.entreprise_nom) || user.entreprise_nom;
-            } catch (e) {}
-            user.email = userEmail;
+        if (user.email === cleanEmail) {
             return user;
         }
     }
@@ -80,20 +52,7 @@ async function findTenantUserByEmail(clientPool, email) {
     const cleanEmail = email.trim().toLowerCase();
     const [tenantUsers] = await clientPool.promise().query('SELECT * FROM users');
     for (const user of tenantUsers) {
-        let userEmail = user.email;
-        if (user.email && user.email.includes(':')) {
-            try {
-                userEmail = encryptionService.decrypt(user.email);
-            } catch (err) {}
-        }
-        if (userEmail === cleanEmail) {
-            try {
-                user.nom = encryptionService.decrypt(user.nom) || user.nom;
-            } catch (e) {}
-            try {
-                user.prenom = encryptionService.decrypt(user.prenom) || user.prenom;
-            } catch (e) {}
-            user.email = userEmail;
+        if (user.email === cleanEmail) {
             return user;
         }
     }
@@ -117,7 +76,7 @@ exports.registerEntreprise = async (req, res) => {
 
         const [result] = await db.promisePoolMaster.query(
             'INSERT INTO entreprises (nom, email, statut, plan_type) VALUES (?, ?, ?, ?)',
-            [entreprise_nom.trim(), encryptionService.encrypt(cleanEmail), 'en_attente', planChoisi]
+            [entreprise_nom.trim(), cleanEmail, 'en_attente', planChoisi]
         );
         const entrepriseId = result.insertId;
 
@@ -147,9 +106,9 @@ exports.registerEntreprise = async (req, res) => {
             'INSERT INTO users (role_id, nom, prenom, email, password) VALUES (?, ?, ?, ?, ?)',
             [
                 roleId,
-                encryptionService.encrypt(nom.trim()),
-                encryptionService.encrypt(prenom.trim()),
-                encryptionService.encrypt(cleanEmail),
+                nom.trim(),
+                prenom.trim(),
+                cleanEmail,
                 hashedPassword
             ]
         );
@@ -160,9 +119,9 @@ exports.registerEntreprise = async (req, res) => {
             [
                 entrepriseId,
                 roleId,
-                encryptionService.encrypt(nom.trim()),
-                encryptionService.encrypt(prenom.trim()),
-                encryptionService.encrypt(cleanEmail),
+                nom.trim(),
+                prenom.trim(),
+                cleanEmail,
                 hashedPassword,
                 0
             ]
@@ -467,24 +426,26 @@ exports.login = async (req, res) => {
             [user.id, cleanEmail, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
         );
 
+        const userData = {
+            id: user.id,
+            nom: user.nom,
+            prenom: user.prenom,
+            email: cleanEmail,
+            role: user.role_nom || 'Utilisateur',
+            entreprise: user.entreprise_nom || null,
+            is_super_admin: false,
+            is_external: user.is_external || false,
+            plan_type: user.plan_type || null,
+            essai_expire: essaiExpire,
+            connexions_restantes: connexionsRestantes,
+            mfa_enabled: mfaEnabled
+        };
+
         res.json({
             message: 'Connexion reussie',
             messageEssai,
             token,
-            user: {
-                id: user.id,
-                nom: user.nom,
-                prenom: user.prenom,
-                email: cleanEmail,
-                role: user.role_nom || 'Utilisateur',
-                entreprise: user.entreprise_nom || null,
-                is_super_admin: false,
-                is_external: user.is_external || false,
-                plan_type: user.plan_type || null,
-                essai_expire: essaiExpire,
-                connexions_restantes: connexionsRestantes,
-                mfa_enabled: mfaEnabled
-            }
+            user: userData
         });
 
     } catch (err) {
@@ -530,23 +491,7 @@ exports.getMe = async (req, res) => {
             return res.status(404).json({ message: 'Utilisateur introuvable' });
         }
         
-        const user = rows[0];
-        
-        // Déchiffrer les champs sensibles
-        try {
-            user.nom = encryptionService.decrypt(user.nom) || user.nom;
-        } catch (e) {}
-        try {
-            user.prenom = encryptionService.decrypt(user.prenom) || user.prenom;
-        } catch (e) {}
-        try {
-            user.email = encryptionService.decrypt(user.email) || user.email;
-        } catch (e) {}
-        try {
-            user.entreprise_nom = encryptionService.decrypt(user.entreprise_nom) || user.entreprise_nom;
-        } catch (e) {}
-        
-        res.json({ user: user });
+        res.json({ user: rows[0] });
     } catch (err) {
         console.error('Erreur getMe:', err);
         res.status(500).json({ message: 'Erreur serveur' });
@@ -589,28 +534,24 @@ exports.updateMe = async (req, res) => {
         const cleanEmail = email.trim().toLowerCase();
         const clientPool = db.getClientPool(req.user.entreprise_id, req.user.db_name);
         
-        const encryptedNom = encryptionService.encrypt(nom.trim());
-        const encryptedPrenom = encryptionService.encrypt(prenom.trim());
-        const encryptedEmail = encryptionService.encrypt(cleanEmail);
-        
         if (password) {
             const hashedPassword = await bcrypt.hash(password, 10);
             await db.promisePoolMaster.query(
                 'UPDATE users SET nom = ?, prenom = ?, email = ?, password = ? WHERE id = ? AND entreprise_id = ?',
-                [encryptedNom, encryptedPrenom, encryptedEmail, hashedPassword, req.user.id, req.user.entreprise_id]
+                [nom.trim(), prenom.trim(), cleanEmail, hashedPassword, req.user.id, req.user.entreprise_id]
             );
             await clientPool.promise().query(
                 'UPDATE users SET nom = ?, prenom = ?, email = ?, password = ? WHERE id = ?',
-                [encryptedNom, encryptedPrenom, encryptedEmail, hashedPassword, req.user.id]
+                [nom.trim(), prenom.trim(), cleanEmail, hashedPassword, req.user.id]
             );
         } else {
             await db.promisePoolMaster.query(
                 'UPDATE users SET nom = ?, prenom = ?, email = ? WHERE id = ? AND entreprise_id = ?',
-                [encryptedNom, encryptedPrenom, encryptedEmail, req.user.id, req.user.entreprise_id]
+                [nom.trim(), prenom.trim(), cleanEmail, req.user.id, req.user.entreprise_id]
             );
             await clientPool.promise().query(
                 'UPDATE users SET nom = ?, prenom = ?, email = ? WHERE id = ?',
-                [encryptedNom, encryptedPrenom, encryptedEmail, req.user.id]
+                [nom.trim(), prenom.trim(), cleanEmail, req.user.id]
             );
         }
 
@@ -636,20 +577,7 @@ exports.getUsersEntreprise = async (req, res) => {
             [req.user.entreprise_id]
         );
         
-        const users = rows.map(user => {
-            try {
-                user.nom = encryptionService.decrypt(user.nom) || user.nom;
-            } catch (e) {}
-            try {
-                user.prenom = encryptionService.decrypt(user.prenom) || user.prenom;
-            } catch (e) {}
-            try {
-                user.email = encryptionService.decrypt(user.email) || user.email;
-            } catch (e) {}
-            return user;
-        });
-        
-        res.json({ users: users });
+        res.json({ users: rows });
     } catch (err) {
         console.error('Erreur getUsersEntreprise:', err);
         res.status(500).json({ message: 'Erreur serveur' });
@@ -679,23 +607,19 @@ exports.createUserByAdmin = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const cleanEmail = email.trim().toLowerCase();
-        
-        const encryptedNom = encryptionService.encrypt(nom.trim());
-        const encryptedPrenom = encryptionService.encrypt(prenom.trim());
-        const encryptedEmail = encryptionService.encrypt(cleanEmail);
 
         const [masterResult] = await db.promisePoolMaster.query(
             `INSERT INTO users 
              (entreprise_id, role_id, nom, prenom, email, password, created_at)
              VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-            [req.user.entreprise_id, role_id, encryptedNom, encryptedPrenom, encryptedEmail, hashedPassword]
+            [req.user.entreprise_id, role_id, nom.trim(), prenom.trim(), cleanEmail, hashedPassword]
         );
 
         await clientPool.promise().query(
             `INSERT INTO users 
              (id, role_id, nom, prenom, email, password, created_by)
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [masterResult.insertId, role_id, encryptedNom, encryptedPrenom, encryptedEmail, hashedPassword, req.user.id]
+            [masterResult.insertId, role_id, nom.trim(), prenom.trim(), cleanEmail, hashedPassword, req.user.id]
         );
 
         console.log('[AUDIT] Admin id=' + req.user.id + ' a cree le compte ' + cleanEmail + ' (role_id=' + role_id + ')');
@@ -733,23 +657,19 @@ exports.createExternalUser = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const cleanEmail = email.trim().toLowerCase();
-        
-        const encryptedNom = encryptionService.encrypt(nom.trim());
-        const encryptedPrenom = encryptionService.encrypt(prenom.trim());
-        const encryptedEmail = encryptionService.encrypt(cleanEmail);
 
         const [masterResult] = await db.promisePoolMaster.query(
             `INSERT INTO users 
              (entreprise_id, nom, prenom, email, password, is_external, client_id, created_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
-            [req.user.entreprise_id, encryptedNom, encryptedPrenom, encryptedEmail, hashedPassword, 1, client_id]
+            [req.user.entreprise_id, nom.trim(), prenom.trim(), cleanEmail, hashedPassword, 1, client_id]
         );
 
         await clientPool.promise().query(
             `INSERT INTO users 
              (id, is_external, nom, prenom, email, password, client_id, created_by)
              VALUES (?, TRUE, ?, ?, ?, ?, ?, ?)`,
-            [masterResult.insertId, encryptedNom, encryptedPrenom, encryptedEmail, hashedPassword, client_id, req.user.id]
+            [masterResult.insertId, nom.trim(), prenom.trim(), cleanEmail, hashedPassword, client_id, req.user.id]
         );
 
         console.log('[AUDIT] Admin id=' + req.user.id + ' a cree le compte externe ' + cleanEmail + ' (client_id=' + client_id + ')');
@@ -898,20 +818,7 @@ exports.getActiveSessions = async (req, res) => {
             [req.user.id]
         );
 
-        const decryptedSessions = sessions.map(session => {
-            try {
-                session.nom = encryptionService.decrypt(session.nom) || session.nom;
-            } catch (e) {}
-            try {
-                session.prenom = encryptionService.decrypt(session.prenom) || session.prenom;
-            } catch (e) {}
-            try {
-                session.email = encryptionService.decrypt(session.email) || session.email;
-            } catch (e) {}
-            return session;
-        });
-
-        res.json({ sessions: decryptedSessions });
+        res.json({ sessions: sessions });
     } catch (err) {
         console.error('Erreur getActiveSessions:', err);
         res.status(500).json({ message: 'Erreur serveur' });

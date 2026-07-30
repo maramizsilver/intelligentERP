@@ -59,3 +59,6 @@ desktop.ini
 /frontend/.env.development.local
 /frontend/.env.test.local
 /frontend/.env.production.local
+
+/backend/scripts
+ backend/backups
