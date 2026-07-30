@@ -1,7 +1,7 @@
-// src/pages/ventes/Clients.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 
 import Card from '../../components/common/Card';
@@ -12,6 +12,7 @@ import Modal from '../../components/common/Modal';
 
 export default function Clients() {
   const { hasPermission } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [clients, setClients] = useState([]);
@@ -54,10 +55,10 @@ export default function Clients() {
     try {
       if (editingId) {
         await API.put(`/clients/${editingId}`, form);
-        setSuccess(' Client mis à jour avec succès');
+        setSuccess(t('client_modifie'));
       } else {
         await API.post('/clients', form);
-        setSuccess(' Client créé avec succès');
+        setSuccess(t('client_cree'));
       }
       setIsModalOpen(false);
       setForm({ nom: '', email: '', telephone: '', adresse: '' });
@@ -82,10 +83,10 @@ export default function Clients() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Supprimer ce client ?')) return;
+    if (!window.confirm(t('confirmation_suppression'))) return;
     try {
       await API.delete(`/clients/${id}`);
-      setSuccess(' Client supprimé');
+      setSuccess(t('client_supprime'));
       loadClients();
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur');
@@ -93,30 +94,30 @@ export default function Clients() {
   };
 
   const columns = [
-    { key: 'nom', label: 'Nom' },
-    { key: 'email', label: 'Email' },
-    { key: 'telephone', label: 'Téléphone' },
-    { key: 'adresse', label: 'Adresse' },
+    { key: 'nom', label: t('nom') },
+    { key: 'email', label: t('email') },
+    { key: 'telephone', label: t('telephone') },
+    { key: 'adresse', label: t('adresse') },
   ];
 
   const actions = [];
   if (peutModifier) {
-    actions.push({ label: 'modif', variant: 'primary', onClick: (row) => handleEdit(row) });
+    actions.push({ label: t('modifier'), variant: 'primary', onClick: (row) => handleEdit(row) });
   }
   if (peutSupprimer) {
-    actions.push({ label: 'suppr', variant: 'danger', onClick: (row) => handleDelete(row.id) });
+    actions.push({ label: t('supprimer'), variant: 'danger', onClick: (row) => handleDelete(row.id) });
   }
 
   return (
     <div>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>👥 Gestion des Clients</h1>
-          <p style={styles.subtitle}>Gérez tous vos clients</p>
+          <h1 style={styles.title}>👥 {t('gestion_clients')}</h1>
+          <p style={styles.subtitle}>{t('gerer_clients')}</p>
         </div>
         <div style={styles.headerActions}>
           <Button variant="secondary" onClick={() => navigate('/dashboard')} icon="←">
-            Retour
+            {t('retour')}
           </Button>
           {peutCreer && (
             <Button
@@ -128,7 +129,7 @@ export default function Clients() {
                 setIsModalOpen(true);
               }}
             >
-              Nouveau client
+              {t('nouveau_client')}
             </Button>
           )}
         </div>
@@ -136,13 +137,13 @@ export default function Clients() {
 
       {error && (
         <div style={styles.errorContainer}>
-          <span>erreur</span>
+          <span>❌</span>
           <span style={styles.errorText}>{error}</span>
         </div>
       )}
       {success && (
         <div style={styles.successContainer}>
-          <span>done</span>
+          <span>✅</span>
           <span style={styles.successText}>{success}</span>
         </div>
       )}
@@ -154,11 +155,11 @@ export default function Clients() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingId ? ' Modifier le client' : ' Nouveau client'}
+        title={editingId ? t('modifier_client') : t('nouveau_client')}
         size="md"
         actions={[
           {
-            label: editingId ? 'Mettre à jour' : 'Créer',
+            label: editingId ? t('modifier') : t('creer'),
             variant: 'primary',
             onClick: handleSubmit,
             loading: formLoading,
@@ -167,10 +168,10 @@ export default function Clients() {
       >
         <form onSubmit={handleSubmit}>
           <div style={styles.formGrid}>
-            <Input label="Nom *" name="nom" value={form.nom} onChange={handleChange} required disabled={formLoading} />
-            <Input label="Email" name="email" type="email" value={form.email} onChange={handleChange} disabled={formLoading} />
-            <Input label="Téléphone" name="telephone" value={form.telephone} onChange={handleChange} disabled={formLoading} />
-            <Input label="Adresse" name="adresse" value={form.adresse} onChange={handleChange} disabled={formLoading} />
+            <Input label={t('nom') + ' *'} name="nom" value={form.nom} onChange={handleChange} required disabled={formLoading} />
+            <Input label={t('email')} name="email" type="email" value={form.email} onChange={handleChange} disabled={formLoading} />
+            <Input label={t('telephone')} name="telephone" value={form.telephone} onChange={handleChange} disabled={formLoading} />
+            <Input label={t('adresse')} name="adresse" value={form.adresse} onChange={handleChange} disabled={formLoading} />
           </div>
         </form>
       </Modal>

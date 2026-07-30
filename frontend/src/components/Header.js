@@ -1,9 +1,13 @@
+// frontend/src/components/Header.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+import LanguageSwitcher from './common/LanguageSwitcher';
 
 export default function Header() {
   const { user, logout, hasPermission } = useAuth();
+  const { t, dir } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -39,7 +43,7 @@ export default function Header() {
     <button
       style={{
         padding: isMobile ? '6px 10px' : '6px 14px',
-        borderRadius: '6px',
+        borderRadius: '8px',
         backgroundColor: active ? '#F0F9FF' : 'transparent',
         color: active ? '#0EA5E9' : '#64748B',
         border: 'none',
@@ -50,30 +54,17 @@ export default function Header() {
         whiteSpace: 'nowrap',
       }}
       onClick={onClick}
-      onMouseEnter={(e) => {
-        if (!active) {
-          e.target.style.backgroundColor = '#F1F5F9';
-          e.target.style.color = '#1A1A2E';
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!active) {
-          e.target.style.backgroundColor = 'transparent';
-          e.target.style.color = '#64748B';
-        }
-      }}
     >
       {label}
     </button>
   );
 
-  
   const renderNavButtons = () => {
     if (user.is_super_admin) {
       return (
         <NavButton
           to="/superadmin/dashboard"
-          label="Entreprises"
+          label={t('dashboard')}
           active={isActive('/superadmin/dashboard')}
           onClick={() => navigate('/superadmin/dashboard')}
         />
@@ -81,14 +72,13 @@ export default function Header() {
     }
 
     if (user.is_external) {
-      const externalRoutes = [
-        { path: '/client/dashboard', label: 'Dashboard' },
-        { path: '/client/commandes', label: 'Commandes' },
-        { path: '/client/produits', label: 'Produits' },
-        { path: '/client/factures', label: 'Factures' },
-        { path: '/client/profil', label: 'Profil' },
-      ];
-      return externalRoutes.map((route) => (
+      return [
+        { path: '/client/dashboard', label: t('dashboard') },
+        { path: '/client/commandes', label: t('commandes') },
+        { path: '/client/produits', label: t('produits') },
+        { path: '/client/factures', label: t('factures') },
+        { path: '/client/profil', label: t('profil') },
+      ].map((route) => (
         <NavButton
           key={route.path}
           to={route.path}
@@ -99,51 +89,39 @@ export default function Header() {
       ));
     }
 
-    // Utilisateur interne
     const internalRoutes = [];
+    internalRoutes.push({ path: '/dashboard', label: t('dashboard') });
 
-    // Dashboard
-    internalRoutes.push({
-      path: '/dashboard',
-      label: 'Dashboard',
-      permission: null,
-    });
-
-    // Ventes
     if (hasPermission('Ventes', 'consultation')) {
-      internalRoutes.push({ path: '/clients', label: 'Clients', permission: 'Ventes' });
-      internalRoutes.push({ path: '/devis', label: 'Devis', permission: 'Ventes' });
-      internalRoutes.push({ path: '/commandes', label: 'Commandes', permission: 'Ventes' });
-      internalRoutes.push({ path: '/promotions', label: 'Promotions', permission: 'Ventes' });
+      internalRoutes.push({ path: '/clients', label: t('clients') });
+      internalRoutes.push({ path: '/devis', label: t('devis') });
+      internalRoutes.push({ path: '/commandes', label: t('commandes') });
+      internalRoutes.push({ path: '/promotions', label: 'Promotions' });
     }
 
-    // Achats
     if (hasPermission('Achats', 'consultation')) {
-      internalRoutes.push({ path: '/fournisseurs', label: 'Fournisseurs', permission: 'Achats' });
-      internalRoutes.push({ path: '/achats', label: 'Achats', permission: 'Achats' });
-    }
- if (hasPermission('Finance', 'consultation')) {
-      internalRoutes.push({ path: '/finance', label: 'Finance', permission: 'Finance' });
-    }
-    // Stock
-    if (hasPermission('Stock', 'consultation')) {
-      internalRoutes.push({ path: '/produits', label: 'Produits', permission: 'Stock' });
-      internalRoutes.push({ path: '/mouvements-stock', label: 'Mouvements', permission: 'Stock' });
-      internalRoutes.push({ path: '/alertes-stock', label: 'Alertes', permission: 'Stock' });
-      internalRoutes.push({ path: '/entrepots', label: 'Entrepots', permission: 'Stock' });
-      if (hasPermission('Stock', 'modification')) {
-        internalRoutes.push({ path: '/transfert-stock', label: 'Transfert', permission: 'Stock' });
-      }
-      internalRoutes.push({ path: '/inventaires', label: 'Inventaires', permission: 'Stock' });
+      internalRoutes.push({ path: '/fournisseurs', label: t('fournisseurs') });
+      internalRoutes.push({ path: '/achats', label: t('achats') });
     }
 
-    // Administration
+    if (hasPermission('Finance', 'consultation')) {
+      internalRoutes.push({ path: '/finance', label: t('finance') });
+    }
+
+    if (hasPermission('Stock', 'consultation')) {
+      internalRoutes.push({ path: '/produits', label: t('produits') });
+      internalRoutes.push({ path: '/mouvements-stock', label: t('mouvements_stock') });
+      internalRoutes.push({ path: '/alertes-stock', label: t('alerte_rupture') });
+      internalRoutes.push({ path: '/entrepots', label: 'Entrepôts' });
+      internalRoutes.push({ path: '/inventaires', label: t('inventaire') });
+    }
+
     if (hasPermission('Utilisateurs', 'consultation')) {
-      internalRoutes.push({ path: '/utilisateurs', label: 'Utilisateurs', permission: 'Utilisateurs' });
+      internalRoutes.push({ path: '/utilisateurs', label: t('utilisateurs') });
     }
     if (hasPermission('Documents', 'consultation')) {
-      internalRoutes.push({ path: '/documents', label: 'Documents', permission: 'Documents' });
-      internalRoutes.push({ path: '/archives', label: 'Archives', permission: 'Documents' });
+      internalRoutes.push({ path: '/documents', label: t('documents') });
+      internalRoutes.push({ path: '/archives', label: t('archives') });
     }
 
     return internalRoutes.map((route) => (
@@ -174,9 +152,9 @@ export default function Header() {
         flexWrap: 'wrap',
         gap: '8px',
         minHeight: isMobile ? '56px' : 'auto',
+        direction: dir,
       }}
     >
-      {/* Gauche : Logo + Navigation */}
       <div
         style={{
           display: 'flex',
@@ -190,7 +168,10 @@ export default function Header() {
           style={{
             fontSize: isMobile ? '16px' : '18px',
             fontWeight: 'bold',
-            color: '#0EA5E9',
+            background: 'linear-gradient(135deg, #0EA5E9 0%, #7C3AED 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
             cursor: 'pointer',
             letterSpacing: '0.5px',
           }}
@@ -207,7 +188,6 @@ export default function Header() {
           ERP
         </span>
 
-        {/* Navigation - sur mobile on limite à 2 boutons + "..." */}
         <nav
           style={{
             display: 'flex',
@@ -219,13 +199,12 @@ export default function Header() {
         >
           {isMobile ? (
             <>
-              {/* Afficher seulement les 2 premiers boutons sur mobile */}
               {renderNavButtons().slice(0, 2)}
               {renderNavButtons().length > 2 && (
                 <button
                   style={{
                     padding: '6px 10px',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     backgroundColor: menuOpen ? '#F0F9FF' : 'transparent',
                     color: menuOpen ? '#0EA5E9' : '#64748B',
                     border: 'none',
@@ -244,7 +223,6 @@ export default function Header() {
           )}
         </nav>
 
-        {/* Menu dropdown sur mobile pour les routes supplémentaires */}
         {isMobile && menuOpen && (
           <div
             style={{
@@ -269,7 +247,6 @@ export default function Header() {
         )}
       </div>
 
-      {/* Droite : User info + Notifications + Deconnexion */}
       <div
         style={{
           display: 'flex',
@@ -278,6 +255,8 @@ export default function Header() {
           flexWrap: 'wrap',
         }}
       >
+        <LanguageSwitcher variant={isMobile ? 'default' : 'default'} />
+
         {!isMobile && (
           <>
             <span style={{ fontSize: '13px', color: '#64748B' }}>
@@ -312,29 +291,20 @@ export default function Header() {
           </>
         )}
 
-        {/* ICONE NOTIFICATION */}
         <button
           style={{
             padding: isMobile ? '6px 10px' : '8px 12px',
             backgroundColor: location.pathname === '/notifications' ? '#F0F9FF' : 'transparent',
             color: '#0EA5E9',
             border: 'none',
-            borderRadius: '6px',
+            borderRadius: '8px',
             cursor: 'pointer',
             fontSize: isMobile ? '16px' : '18px',
             transition: 'all 0.2s ease',
             position: 'relative',
           }}
           onClick={() => navigate('/notifications')}
-          onMouseEnter={(e) => {
-            e.target.style.backgroundColor = '#F0F9FF';
-          }}
-          onMouseLeave={(e) => {
-            if (location.pathname !== '/notifications') {
-              e.target.style.backgroundColor = 'transparent';
-            }
-          }}
-          title="Notifications"
+          title={t('notifications')}
         >
           🔔
           <span
@@ -358,24 +328,21 @@ export default function Header() {
           </span>
         </button>
 
-        {/* Bouton de deconnexion */}
         <button
           style={{
             padding: isMobile ? '6px 12px' : '6px 16px',
-            backgroundColor: '#EF4444',
+            background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
             color: 'white',
             border: 'none',
-            borderRadius: '6px',
+            borderRadius: '8px',
             cursor: 'pointer',
             fontSize: isMobile ? '12px' : '13px',
             fontWeight: 500,
             transition: 'all 0.2s ease',
           }}
           onClick={handleLogout}
-          onMouseEnter={(e) => (e.target.style.backgroundColor = '#DC2626')}
-          onMouseLeave={(e) => (e.target.style.backgroundColor = '#EF4444')}
         >
-          {isMobile ? 'Déconnexion' : 'Déconnexion'}
+          {t('deconnexion')}
         </button>
       </div>
     </header>

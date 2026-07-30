@@ -1,7 +1,8 @@
-// src/pages/Finance/Finance.jsx
+// frontend/src/pages/Finance/Finance.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 
 import Card from '../../components/common/Card';
@@ -37,6 +38,7 @@ const MODES_PAIEMENT = [
 
 export default function Finance() {
   const { hasPermission } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [onglet, setOnglet] = useState('rapport');
@@ -44,11 +46,9 @@ export default function Finance() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Rapport
   const [rapport, setRapport] = useState(null);
   const [periode, setPeriode] = useState({ date_debut: '', date_fin: '' });
 
-  // Dépenses
   const [depenses, setDepenses] = useState([]);
   const [fournisseurs, setFournisseurs] = useState([]);
   const [isModalDepenseOpen, setIsModalDepenseOpen] = useState(false);
@@ -62,7 +62,6 @@ export default function Finance() {
     mode_paiement: ''
   });
 
-  // Recettes
   const [recettes, setRecettes] = useState([]);
   const [clients, setClients] = useState([]);
   const [isModalRecetteOpen, setIsModalRecetteOpen] = useState(false);
@@ -75,7 +74,6 @@ export default function Finance() {
     mode_paiement: ''
   });
 
-  // Paiements
   const [paiements, setPaiements] = useState([]);
   const [isModalPaiementOpen, setIsModalPaiementOpen] = useState(false);
   const [formPaiement, setFormPaiement] = useState({
@@ -167,7 +165,6 @@ export default function Finance() {
   const flashSuccess = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3500); };
   const flashError = (msg) => { setError(msg); setTimeout(() => setError(''), 4500); };
 
-  // ============ DÉPENSES ============
   const handleDepenseChange = (e) => {
     const { name, value } = e.target;
     setFormDepense({ ...formDepense, [name]: value });
@@ -181,10 +178,10 @@ export default function Finance() {
     try {
       if (editingDepenseId) {
         await API.put(`/finance/depenses/${editingDepenseId}`, formDepense);
-        flashSuccess('Dépense mise à jour avec succès');
+        flashSuccess(t('depense_modifiee') || 'Dépense mise à jour avec succès');
       } else {
         await API.post('/finance/depenses', formDepense);
-        flashSuccess('Dépense enregistrée avec succès');
+        flashSuccess(t('depense_cree') || 'Dépense enregistrée avec succès');
       }
       setIsModalDepenseOpen(false);
       setEditingDepenseId(null);
@@ -211,17 +208,16 @@ export default function Finance() {
   };
 
   const handleDeleteDepense = async (id) => {
-    if (!window.confirm('Supprimer cette dépense ?')) return;
+    if (!window.confirm(t('confirmation_suppression'))) return;
     try {
       await API.delete(`/finance/depenses/${id}`);
-      flashSuccess('Dépense supprimée');
+      flashSuccess(t('depense_supprimee') || 'Dépense supprimée');
       loadDepenses();
     } catch (err) {
       flashError(err.response?.data?.message || 'Erreur');
     }
   };
 
-  // ============ RECETTES ============
   const handleRecetteChange = (e) => {
     const { name, value } = e.target;
     setFormRecette({ ...formRecette, [name]: value });
@@ -234,7 +230,7 @@ export default function Finance() {
 
     try {
       await API.post('/finance/recettes', formRecette);
-      flashSuccess('Recette enregistrée avec succès');
+      flashSuccess(t('recette_cree') || 'Recette enregistrée avec succès');
       setIsModalRecetteOpen(false);
       setFormRecette({ source: '', montant: '', description: '', date_recette: '', client_id: '', mode_paiement: '' });
       loadRecettes();
@@ -246,17 +242,16 @@ export default function Finance() {
   };
 
   const handleDeleteRecette = async (id) => {
-    if (!window.confirm('Supprimer cette recette ?')) return;
+    if (!window.confirm(t('confirmation_suppression'))) return;
     try {
       await API.delete(`/finance/recettes/${id}`);
-      flashSuccess('Recette supprimée');
+      flashSuccess(t('recette_supprimee') || 'Recette supprimée');
       loadRecettes();
     } catch (err) {
       flashError(err.response?.data?.message || 'Erreur');
     }
   };
 
-  // ============ PAIEMENTS ============
   const handlePaiementChange = (e) => {
     const { name, value } = e.target;
     setFormPaiement({ ...formPaiement, [name]: value });
@@ -269,7 +264,7 @@ export default function Finance() {
 
     try {
       const res = await API.post('/finance/paiements', formPaiement);
-      flashSuccess(res.data.message || 'Paiement enregistré');
+      flashSuccess(res.data.message || t('paiement_cree') || 'Paiement enregistré');
       setIsModalPaiementOpen(false);
       setFormPaiement({ reference_type: 'commande', reference_id: '', montant: '', mode_paiement: 'virement' });
       loadPaiements();
@@ -283,20 +278,19 @@ export default function Finance() {
   const handleConfirmerPaiement = async (id, statut) => {
     try {
       await API.put(`/finance/paiements/${id}/statut`, { statut });
-      flashSuccess('Statut du paiement mis à jour');
+      flashSuccess(t('statut_paiement_modifie') || 'Statut du paiement mis à jour');
       loadPaiements();
     } catch (err) {
       flashError(err.response?.data?.message || 'Erreur');
     }
   };
 
-  // ============ UTILITAIRES ============
   const getStatutPaiementBadge = (statut) => {
     const statuts = {
-      en_attente: { label: 'En attente', variant: 'warning' },
-      valide: { label: 'Validé', variant: 'success' },
-      echoue: { label: 'Échoué', variant: 'danger' },
-      rembourse: { label: 'Remboursé', variant: 'outline' }
+      en_attente: { label: t('en_attente'), variant: 'warning' },
+      valide: { label: t('valide') || 'Validé', variant: 'success' },
+      echoue: { label: t('echoue') || 'Échoué', variant: 'danger' },
+      rembourse: { label: t('rembourse') || 'Remboursé', variant: 'outline' }
     };
     return statuts[statut] || { label: statut, variant: 'outline' };
   };
@@ -304,33 +298,32 @@ export default function Finance() {
   const getModeLabel = (mode) => MODES_PAIEMENT.find(m => m.value === mode)?.label || mode || '—';
   const getCategorieLabel = (cat) => CATEGORIES_DEPENSE.find(c => c.value === cat)?.label || cat;
 
-  // ============ COLONNES TABLEAUX ============
   const columnsDepenses = [
-    { key: 'categorie', label: 'Catégorie', render: (row) => getCategorieLabel(row.categorie) },
-    { key: 'description', label: 'Description' },
-    { key: 'fournisseur_nom', label: 'Fournisseur', render: (row) => row.fournisseur_nom || '—' },
-    { key: 'montant', label: 'Montant', render: (row) => `${row.montant} DT` },
-    { key: 'mode_paiement', label: 'Mode', render: (row) => getModeLabel(row.mode_paiement) },
-    { key: 'date_depense', label: 'Date', render: (row) => new Date(row.date_depense).toLocaleDateString('fr-FR') }
+    { key: 'categorie', label: t('categorie') || 'Catégorie', render: (row) => getCategorieLabel(row.categorie) },
+    { key: 'description', label: t('description') },
+    { key: 'fournisseur_nom', label: t('fournisseurs'), render: (row) => row.fournisseur_nom || '—' },
+    { key: 'montant', label: t('montant'), render: (row) => `${row.montant} DT` },
+    { key: 'mode_paiement', label: t('mode_paiement') || 'Mode', render: (row) => getModeLabel(row.mode_paiement) },
+    { key: 'date_depense', label: t('date'), render: (row) => new Date(row.date_depense).toLocaleDateString('fr-FR') }
   ];
 
   const columnsRecettes = [
-    { key: 'source', label: 'Source' },
-    { key: 'client_nom', label: 'Client', render: (row) => row.client_nom || '—' },
-    { key: 'montant', label: 'Montant', render: (row) => `${row.montant} DT` },
-    { key: 'mode_paiement', label: 'Mode', render: (row) => getModeLabel(row.mode_paiement) },
-    { key: 'date_recette', label: 'Date', render: (row) => new Date(row.date_recette).toLocaleDateString('fr-FR') }
+    { key: 'source', label: t('source') || 'Source' },
+    { key: 'client_nom', label: t('clients'), render: (row) => row.client_nom || '—' },
+    { key: 'montant', label: t('montant'), render: (row) => `${row.montant} DT` },
+    { key: 'mode_paiement', label: t('mode_paiement') || 'Mode', render: (row) => getModeLabel(row.mode_paiement) },
+    { key: 'date_recette', label: t('date'), render: (row) => new Date(row.date_recette).toLocaleDateString('fr-FR') }
   ];
 
   const columnsPaiements = [
-    { key: 'numero_transaction', label: 'N° Transaction' },
-    { key: 'reference_type', label: 'Type', render: (row) => row.reference_type === 'commande' ? 'Commande' : 'Achat' },
+    { key: 'numero_transaction', label: t('numero_transaction') || 'N° Transaction' },
+    { key: 'reference_type', label: t('type') || 'Type', render: (row) => row.reference_type === 'commande' ? t('commande') || 'Commande' : t('achat') || 'Achat' },
     { key: 'reference_id', label: 'Réf.', render: (row) => `#${row.reference_id}` },
-    { key: 'montant', label: 'Montant', render: (row) => `${row.montant} DT` },
-    { key: 'mode_paiement', label: 'Mode', render: (row) => getModeLabel(row.mode_paiement) },
+    { key: 'montant', label: t('montant'), render: (row) => `${row.montant} DT` },
+    { key: 'mode_paiement', label: t('mode_paiement') || 'Mode', render: (row) => getModeLabel(row.mode_paiement) },
     {
       key: 'statut',
-      label: 'Statut',
+      label: t('statut'),
       render: (row) => {
         const s = getStatutPaiementBadge(row.statut);
         return <Badge variant={s.variant}>{s.label}</Badge>;
@@ -339,22 +332,22 @@ export default function Finance() {
   ];
 
   const actionsDepenses = [];
-  if (peutModifier) actionsDepenses.push({ label: 'Modifier', variant: 'primary', onClick: (r) => handleEditDepense(r) });
-  if (peutSupprimer) actionsDepenses.push({ label: 'Supprimer', variant: 'danger', onClick: (r) => handleDeleteDepense(r.id) });
+  if (peutModifier) actionsDepenses.push({ label: t('modifier'), variant: 'primary', onClick: (r) => handleEditDepense(r) });
+  if (peutSupprimer) actionsDepenses.push({ label: t('supprimer'), variant: 'danger', onClick: (r) => handleDeleteDepense(r.id) });
 
   const actionsRecettes = [];
-  if (peutSupprimer) actionsRecettes.push({ label: 'Supprimer', variant: 'danger', onClick: (r) => handleDeleteRecette(r.id) });
+  if (peutSupprimer) actionsRecettes.push({ label: t('supprimer'), variant: 'danger', onClick: (r) => handleDeleteRecette(r.id) });
 
   const actionsPaiements = [];
   if (peutValider) {
     actionsPaiements.push({
-      label: 'Valider',
+      label: t('valider'),
       variant: 'success',
       onClick: (r) => handleConfirmerPaiement(r.id, 'valide'),
       disabled: (r) => r.statut !== 'en_attente'
     });
     actionsPaiements.push({
-      label: 'Échoué',
+      label: t('echoue') || 'Échoué',
       variant: 'danger',
       onClick: (r) => handleConfirmerPaiement(r.id, 'echoue'),
       disabled: (r) => r.statut !== 'en_attente'
@@ -363,24 +356,18 @@ export default function Finance() {
 
   return (
     <div>
-      {/* ============================================================
-          HEADER - IDENTIQUE À ACHATS.JSX
-          ============================================================ */}
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>Module Financier</h1>
-          <p style={styles.subtitle}>Comptabilité, paiements, dépenses et recettes</p>
+          <h1 style={styles.title}>{t('gestion_finance')}</h1>
+          <p style={styles.subtitle}>{t('gerer_finance') || 'Comptabilité, paiements, dépenses et recettes'}</p>
         </div>
         <div style={styles.headerActions}>
           <Button variant="secondary" onClick={() => navigate('/dashboard')}>
-            Retour
+            {t('retour')}
           </Button>
         </div>
       </div>
 
-      {/* ============================================================
-          MESSAGES D'ERREUR / SUCCÈS - IDENTIQUE À ACHATS.JSX
-          ============================================================ */}
       {error && (
         <div style={styles.errorContainer}>
           <span>❌</span>
@@ -394,88 +381,82 @@ export default function Finance() {
         </div>
       )}
 
-      {/* ============================================================
-          ONGLETS
-          ============================================================ */}
       <div style={styles.segmentedControl}>
         {[
-          { key: 'rapport', label: 'Rapport' },
-          { key: 'depenses', label: 'Dépenses' },
-          { key: 'recettes', label: 'Recettes' },
-          { key: 'paiements', label: 'Paiements' }
-        ].map(t => (
+          { key: 'rapport', label: t('rapport') || 'Rapport' },
+          { key: 'depenses', label: t('depenses') },
+          { key: 'recettes', label: t('recettes') },
+          { key: 'paiements', label: t('paiements') }
+        ].map(tab => (
           <button
-            key={t.key}
-            style={{ ...styles.segment, ...(onglet === t.key ? styles.segmentActive : {}) }}
-            onClick={() => setOnglet(t.key)}
+            key={tab.key}
+            style={{ ...styles.segment, ...(onglet === tab.key ? styles.segmentActive : {}) }}
+            onClick={() => setOnglet(tab.key)}
           >
-            {t.label}
+            {tab.label}
           </button>
         ))}
       </div>
 
-      {/* ============================================================
-          RAPPORT
-          ============================================================ */}
       {onglet === 'rapport' && (
         <>
-          <Card title="Filtrer par période" variant="primary" style={{ marginBottom: '20px' }}>
+          <Card title={t('filtrer_periode') || 'Filtrer par période'} variant="primary" style={{ marginBottom: '20px' }}>
             <div style={styles.filterGrid}>
               <Input
-                label="Date début"
+                label={t('date_debut')}
                 type="date"
                 value={periode.date_debut}
                 onChange={(e) => setPeriode({ ...periode, date_debut: e.target.value })}
               />
               <Input
-                label="Date fin"
+                label={t('date_fin')}
                 type="date"
                 value={periode.date_fin}
                 onChange={(e) => setPeriode({ ...periode, date_fin: e.target.value })}
               />
               <div style={styles.filterButtonWrapper}>
                 <Button variant="primary" onClick={loadRapport} loading={loading} fullWidth>
-                  Appliquer
+                  {t('appliquer') || 'Appliquer'}
                 </Button>
               </div>
             </div>
           </Card>
 
           {loading ? (
-            <LoadingSpinner size="lg" text="Chargement du rapport..." />
+            <LoadingSpinner size="lg" text={t('chargement')} />
           ) : rapport ? (
             <>
               <div style={styles.statsGrid}>
                 <div style={{ ...styles.statCard, borderLeft: '4px solid #22C55E' }}>
                   <span style={styles.statNumber}>{rapport.recettes.total.toFixed(2)} DT</span>
-                  <span style={styles.statLabel}>Total recettes</span>
+                  <span style={styles.statLabel}>{t('total_recettes') || 'Total recettes'}</span>
                 </div>
                 <div style={{ ...styles.statCard, borderLeft: '4px solid #EF4444' }}>
                   <span style={styles.statNumber}>{rapport.depenses.total.toFixed(2)} DT</span>
-                  <span style={styles.statLabel}>Total dépenses</span>
+                  <span style={styles.statLabel}>{t('total_depenses') || 'Total dépenses'}</span>
                 </div>
                 <div style={{ ...styles.statCard, borderLeft: `4px solid ${rapport.resultat_net >= 0 ? '#0EA5E9' : '#EF4444'}` }}>
                   <span style={{ ...styles.statNumber, color: rapport.resultat_net >= 0 ? '#0F172A' : '#EF4444' }}>
                     {rapport.resultat_net.toFixed(2)} DT
                   </span>
-                  <span style={styles.statLabel}>Résultat net</span>
+                  <span style={styles.statLabel}>{t('resultat_net') || 'Résultat net'}</span>
                 </div>
               </div>
 
-              <Card title="Détail des recettes" variant="success" style={{ marginBottom: '20px' }}>
+              <Card title={t('detail_recettes') || 'Détail des recettes'} variant="success" style={{ marginBottom: '20px' }}>
                 <div style={styles.detailRow}>
-                  <span>Commandes livrées</span>
+                  <span>{t('commandes_livrees') || 'Commandes livrées'}</span>
                   <strong>{rapport.recettes.commandes_livrees.toFixed(2)} DT</strong>
                 </div>
                 <div style={styles.detailRow}>
-                  <span>Recettes manuelles</span>
+                  <span>{t('recettes_manuelles') || 'Recettes manuelles'}</span>
                   <strong>{rapport.recettes.recettes_manuelles.toFixed(2)} DT</strong>
                 </div>
               </Card>
 
-              <Card title="Dépenses par catégorie" variant="danger">
+              <Card title={t('depenses_par_categorie') || 'Dépenses par catégorie'} variant="danger">
                 {rapport.depenses.par_categorie.length === 0 ? (
-                  <EmptyState title="Aucune dépense" description="Aucune dépense enregistrée sur cette période." />
+                  <EmptyState title={t('aucune_donnee')} description={t('aucune_depense') || 'Aucune dépense enregistrée sur cette période.'} />
                 ) : (
                   rapport.depenses.par_categorie.map((c, i) => (
                     <div key={i} style={styles.detailRow}>
@@ -490,9 +471,6 @@ export default function Finance() {
         </>
       )}
 
-      {/* ============================================================
-          DÉPENSES
-          ============================================================ */}
       {onglet === 'depenses' && (
         <>
           <div style={styles.actionBar}>
@@ -505,23 +483,23 @@ export default function Finance() {
                   setIsModalDepenseOpen(true);
                 }}
               >
-                Nouvelle dépense
+                {t('nouvelle_depense')}
               </Button>
             )}
           </div>
 
-          <Card title="Liste des dépenses" variant="primary">
+          <Card title={t('liste_depenses') || 'Liste des dépenses'} variant="primary">
             <Table columns={columnsDepenses} data={depenses} loading={loading} actions={actionsDepenses} />
           </Card>
 
           <Modal
             isOpen={isModalDepenseOpen}
             onClose={() => setIsModalDepenseOpen(false)}
-            title={editingDepenseId ? 'Modifier la dépense' : 'Nouvelle dépense'}
+            title={editingDepenseId ? t('modifier_depense') || 'Modifier la dépense' : t('nouvelle_depense')}
             size="md"
             actions={[
               {
-                label: editingDepenseId ? 'Mettre à jour' : 'Créer',
+                label: editingDepenseId ? t('modifier') : t('creer'),
                 variant: 'primary',
                 onClick: handleSubmitDepense,
                 loading: formLoading,
@@ -531,7 +509,7 @@ export default function Finance() {
             <form onSubmit={handleSubmitDepense}>
               <div style={styles.formGrid}>
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>Catégorie *</label>
+                  <label style={styles.label}>{t('categorie') || 'Catégorie'} *</label>
                   <select
                     style={styles.select}
                     name="categorie"
@@ -546,7 +524,7 @@ export default function Finance() {
                   </select>
                 </div>
                 <Input
-                  label="Montant (DT) *"
+                  label={t('montant') + ' (DT) *'}
                   name="montant"
                   type="number"
                   step="0.01"
@@ -557,7 +535,7 @@ export default function Finance() {
                   disabled={formLoading}
                 />
                 <Input
-                  label="Date *"
+                  label={t('date') + ' *'}
                   name="date_depense"
                   type="date"
                   value={formDepense.date_depense}
@@ -566,7 +544,7 @@ export default function Finance() {
                   disabled={formLoading}
                 />
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>Mode de paiement</label>
+                  <label style={styles.label}>{t('mode_paiement') || 'Mode de paiement'}</label>
                   <select
                     style={styles.select}
                     name="mode_paiement"
@@ -574,14 +552,14 @@ export default function Finance() {
                     onChange={handleDepenseChange}
                     disabled={formLoading}
                   >
-                    <option value="">-- Non spécifié --</option>
+                    <option value="">-- {t('non_specifie') || 'Non spécifié'} --</option>
                     {MODES_PAIEMENT.map(m => (
                       <option key={m.value} value={m.value}>{m.label}</option>
                     ))}
                   </select>
                 </div>
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>Fournisseur</label>
+                  <label style={styles.label}>{t('fournisseurs')}</label>
                   <select
                     style={styles.select}
                     name="fournisseur_id"
@@ -589,7 +567,7 @@ export default function Finance() {
                     onChange={handleDepenseChange}
                     disabled={formLoading}
                   >
-                    <option value="">-- Aucun --</option>
+                    <option value="">-- {t('aucun') || 'Aucun'} --</option>
                     {fournisseurs.map(f => (
                       <option key={f.id} value={f.id}>{f.nom}</option>
                     ))}
@@ -597,7 +575,7 @@ export default function Finance() {
                 </div>
               </div>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Description</label>
+                <label style={styles.label}>{t('description')}</label>
                 <textarea
                   style={styles.textarea}
                   name="description"
@@ -612,9 +590,6 @@ export default function Finance() {
         </>
       )}
 
-      {/* ============================================================
-          RECETTES
-          ============================================================ */}
       {onglet === 'recettes' && (
         <>
           <div style={styles.actionBar}>
@@ -626,23 +601,23 @@ export default function Finance() {
                   setIsModalRecetteOpen(true);
                 }}
               >
-                Nouvelle recette
+                {t('nouvelle_recette')}
               </Button>
             )}
           </div>
 
-          <Card title="Liste des recettes" variant="primary">
+          <Card title={t('liste_recettes') || 'Liste des recettes'} variant="primary">
             <Table columns={columnsRecettes} data={recettes} loading={loading} actions={actionsRecettes} />
           </Card>
 
           <Modal
             isOpen={isModalRecetteOpen}
             onClose={() => setIsModalRecetteOpen(false)}
-            title="Nouvelle recette"
+            title={t('nouvelle_recette')}
             size="md"
             actions={[
               {
-                label: 'Créer',
+                label: t('creer'),
                 variant: 'primary',
                 onClick: handleSubmitRecette,
                 loading: formLoading,
@@ -652,16 +627,16 @@ export default function Finance() {
             <form onSubmit={handleSubmitRecette}>
               <div style={styles.formGrid}>
                 <Input
-                  label="Source *"
+                  label={t('source') || 'Source *'}
                   name="source"
-                  placeholder="Ex: Subvention, Remboursement..."
+                  placeholder={t('exemple_source') || 'Ex: Subvention, Remboursement...'}
                   value={formRecette.source}
                   onChange={handleRecetteChange}
                   required
                   disabled={formLoading}
                 />
                 <Input
-                  label="Montant (DT) *"
+                  label={t('montant') + ' (DT) *'}
                   name="montant"
                   type="number"
                   step="0.01"
@@ -672,7 +647,7 @@ export default function Finance() {
                   disabled={formLoading}
                 />
                 <Input
-                  label="Date *"
+                  label={t('date') + ' *'}
                   name="date_recette"
                   type="date"
                   value={formRecette.date_recette}
@@ -681,7 +656,7 @@ export default function Finance() {
                   disabled={formLoading}
                 />
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>Mode de paiement</label>
+                  <label style={styles.label}>{t('mode_paiement') || 'Mode de paiement'}</label>
                   <select
                     style={styles.select}
                     name="mode_paiement"
@@ -689,14 +664,14 @@ export default function Finance() {
                     onChange={handleRecetteChange}
                     disabled={formLoading}
                   >
-                    <option value="">-- Non spécifié --</option>
+                    <option value="">-- {t('non_specifie') || 'Non spécifié'} --</option>
                     {MODES_PAIEMENT.map(m => (
                       <option key={m.value} value={m.value}>{m.label}</option>
                     ))}
                   </select>
                 </div>
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>Client</label>
+                  <label style={styles.label}>{t('clients')}</label>
                   <select
                     style={styles.select}
                     name="client_id"
@@ -704,7 +679,7 @@ export default function Finance() {
                     onChange={handleRecetteChange}
                     disabled={formLoading}
                   >
-                    <option value="">-- Aucun --</option>
+                    <option value="">-- {t('aucun') || 'Aucun'} --</option>
                     {clients.map(c => (
                       <option key={c.id} value={c.id}>{c.nom}</option>
                     ))}
@@ -712,7 +687,7 @@ export default function Finance() {
                 </div>
               </div>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Description</label>
+                <label style={styles.label}>{t('description')}</label>
                 <textarea
                   style={styles.textarea}
                   name="description"
@@ -727,9 +702,6 @@ export default function Finance() {
         </>
       )}
 
-      {/* ============================================================
-          PAIEMENTS
-          ============================================================ */}
       {onglet === 'paiements' && (
         <>
           <div style={styles.actionBar}>
@@ -741,23 +713,23 @@ export default function Finance() {
                   setIsModalPaiementOpen(true);
                 }}
               >
-                Enregistrer un paiement
+                {t('enregistrer_paiement') || 'Enregistrer un paiement'}
               </Button>
             )}
           </div>
 
-          <Card title="Liste des paiements" variant="primary">
+          <Card title={t('liste_paiements') || 'Liste des paiements'} variant="primary">
             <Table columns={columnsPaiements} data={paiements} loading={loading} actions={actionsPaiements} />
           </Card>
 
           <Modal
             isOpen={isModalPaiementOpen}
             onClose={() => setIsModalPaiementOpen(false)}
-            title="Nouveau paiement"
+            title={t('nouveau_paiement') || 'Nouveau paiement'}
             size="md"
             actions={[
               {
-                label: 'Enregistrer',
+                label: t('enregistrer') || 'Enregistrer',
                 variant: 'primary',
                 onClick: handleSubmitPaiement,
                 loading: formLoading,
@@ -767,7 +739,7 @@ export default function Finance() {
             <form onSubmit={handleSubmitPaiement}>
               <div style={styles.formGrid}>
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>Type de référence *</label>
+                  <label style={styles.label}>{t('type_reference') || 'Type de référence'} *</label>
                   <select
                     style={styles.select}
                     name="reference_type"
@@ -775,12 +747,12 @@ export default function Finance() {
                     onChange={handlePaiementChange}
                     disabled={formLoading}
                   >
-                    <option value="commande">Commande client</option>
-                    <option value="achat">Achat fournisseur</option>
+                    <option value="commande">{t('commande_client') || 'Commande client'}</option>
+                    <option value="achat">{t('achat_fournisseur') || 'Achat fournisseur'}</option>
                   </select>
                 </div>
                 <Input
-                  label="ID de référence *"
+                  label={t('id_reference') || 'ID de référence *'}
                   name="reference_id"
                   type="number"
                   min="1"
@@ -790,7 +762,7 @@ export default function Finance() {
                   disabled={formLoading}
                 />
                 <Input
-                  label="Montant (DT) *"
+                  label={t('montant') + ' (DT) *'}
                   name="montant"
                   type="number"
                   step="0.01"
@@ -801,7 +773,7 @@ export default function Finance() {
                   disabled={formLoading}
                 />
                 <div style={styles.formGroup}>
-                  <label style={styles.label}>Mode de paiement *</label>
+                  <label style={styles.label}>{t('mode_paiement') || 'Mode de paiement'} *</label>
                   <select
                     style={styles.select}
                     name="mode_paiement"
@@ -816,7 +788,7 @@ export default function Finance() {
                 </div>
               </div>
               <p style={styles.hintText}>
-                Les modes Stripe, PayPal, Flouci et Konnect créent un paiement "en attente" jusqu'à confirmation du fournisseur de paiement.
+                {t('paiement_attention') || 'Les modes Stripe, PayPal, Flouci et Konnect créent un paiement "en attente" jusqu\'à confirmation du fournisseur de paiement.'}
               </p>
             </form>
           </Modal>
@@ -826,9 +798,6 @@ export default function Finance() {
   );
 }
 
-// ============================================================
-// STYLES - IDENTIQUE À ACHATS.JSX
-// ============================================================
 const styles = {
   header: {
     display: 'flex',
@@ -961,23 +930,6 @@ const styles = {
     boxSizing: 'border-box',
     outline: 'none',
     transition: 'all 0.2s ease',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
-  },
-  input: {
-    padding: '10px 14px',
-    borderRadius: '8px',
-    border: '2px solid #E2E8F0',
-    fontSize: '14px',
-    backgroundColor: '#F8FAFC',
-    outline: 'none',
-    transition: 'all 0.2s ease',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
   },
   textarea: {
     width: '100%',
@@ -991,10 +943,6 @@ const styles = {
     outline: 'none',
     transition: 'all 0.2s ease',
     fontFamily: 'inherit',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
   },
   hintText: {
     fontSize: '12px',

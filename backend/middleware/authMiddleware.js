@@ -1,6 +1,5 @@
 const jwt = require('jsonwebtoken');
 
-// Décode le token et pose req.user = { id, entreprise_id, role_id, is_super_admin, is_external, client_id }
 module.exports = (req, res, next) => {
   const authHeader = req.headers['authorization'];
 
@@ -12,6 +11,13 @@ module.exports = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
+    
+    // Récupérer la langue préférée
+    const acceptLanguage = req.headers['accept-language'] || 'fr';
+    const supportedLanguages = ['fr', 'en', 'ar'];
+    const preferredLanguage = acceptLanguage.split(',')[0].split('-')[0];
+    req.language = supportedLanguages.includes(preferredLanguage) ? preferredLanguage : 'fr';
+    
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {

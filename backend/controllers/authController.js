@@ -1,3 +1,4 @@
+// backend/controllers/authController.js
 const databaseService = require('../services/database.service');
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
@@ -19,24 +20,84 @@ function validateRegisterInput({ nom, prenom, email, password }) {
     return errors;
 }
 
-async function checkAccountBlocked(db, email) {
-    try {
-        const [rows] = await db.promise().query(
-            'SELECT locked_until FROM users WHERE email = ?',
-            [email]
-        );
-        
-        if (rows.length === 0) return null;
-        
-        const lockedUntil = rows[0].locked_until;
-        if (lockedUntil && new Date(lockedUntil) > new Date()) {
-            return lockedUntil;
-        }
-        return null;
-    } catch (err) {
-        console.error('Erreur checkAccountBlocked:', err);
-        return null;
+async function findUserByEmail(email) {
+    const cleanEmail = email.trim().toLowerCase();
+    
+    const [superAdmins] = await db.promisePoolMaster.query(
+        'SELECT * FROM users WHERE is_super_admin = 1 AND email = ?',
+        [cleanEmail]
+    );
+    
+    if (superAdmins.length > 0) {
+        const user = superAdmins[0];
+        try {
+            user.nom = encryptionService.decrypt(user.nom) || user.nom;
+        } catch (e) {}
+        try {
+            user.prenom = encryptionService.decrypt(user.prenom) || user.prenom;
+        } catch (e) {}
+        try {
+            user.email = encryptionService.decrypt(user.email) || user.email;
+        } catch (e) {}
+        return user;
     }
+    
+    const [allUsers] = await db.promisePoolMaster.query(
+        `SELECT u.*, r.nom AS role_nom, e.nom AS entreprise_nom, 
+                e.statut AS entreprise_statut, e.plan_type, 
+                e.connexions_utilisees, e.limite_connexions_essai, e.db_name
+         FROM users u
+         LEFT JOIN roles r ON u.role_id = r.id
+         LEFT JOIN entreprises e ON u.entreprise_id = e.id
+         WHERE u.is_super_admin = 0`
+    );
+    
+    for (const user of allUsers) {
+        let userEmail = user.email;
+        if (user.email && user.email.includes(':')) {
+            try {
+                userEmail = encryptionService.decrypt(user.email);
+            } catch (err) {}
+        }
+        if (userEmail === cleanEmail) {
+            try {
+                user.nom = encryptionService.decrypt(user.nom) || user.nom;
+            } catch (e) {}
+            try {
+                user.prenom = encryptionService.decrypt(user.prenom) || user.prenom;
+            } catch (e) {}
+            try {
+                user.entreprise_nom = encryptionService.decrypt(user.entreprise_nom) || user.entreprise_nom;
+            } catch (e) {}
+            user.email = userEmail;
+            return user;
+        }
+    }
+    return null;
+}
+
+async function findTenantUserByEmail(clientPool, email) {
+    const cleanEmail = email.trim().toLowerCase();
+    const [tenantUsers] = await clientPool.promise().query('SELECT * FROM users');
+    for (const user of tenantUsers) {
+        let userEmail = user.email;
+        if (user.email && user.email.includes(':')) {
+            try {
+                userEmail = encryptionService.decrypt(user.email);
+            } catch (err) {}
+        }
+        if (userEmail === cleanEmail) {
+            try {
+                user.nom = encryptionService.decrypt(user.nom) || user.nom;
+            } catch (e) {}
+            try {
+                user.prenom = encryptionService.decrypt(user.prenom) || user.prenom;
+            } catch (e) {}
+            user.email = userEmail;
+            return user;
+        }
+    }
+    return null;
 }
 
 exports.registerEntreprise = async (req, res) => {
@@ -122,7 +183,8 @@ exports.registerEntreprise = async (req, res) => {
         }
 
         res.status(201).json({
-            message: "Inscription reussie. Votre entreprise est en attente de validation par l'administrateur de la plateforme."
+            message: "Inscription reussie. Votre entreprise est en attente de validation par l'administrateur de la plateforme.",
+            entreprise_id: entrepriseId
         });
 
     } catch (err) {
@@ -135,8 +197,6 @@ exports.registerEntreprise = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
-    console.log('[LOGIN] === DEBUT LOGIN ===');
-    console.log('[LOGIN] Email recu:', req.body.email);
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -146,70 +206,36 @@ exports.login = async (req, res) => {
     const cleanEmail = email.trim().toLowerCase();
 
     try {
-        // Rechercher l'email en clair uniquement (pas de chiffrement pour le login)
-        const sql = `
-            SELECT u.*, r.nom AS role_nom, e.nom AS entreprise_nom, e.statut AS entreprise_statut,
-                   e.plan_type, e.connexions_utilisees, e.limite_connexions_essai, e.db_name
-            FROM users u
-            LEFT JOIN roles r ON u.role_id = r.id
-            LEFT JOIN entreprises e ON u.entreprise_id = e.id
-            WHERE u.email = ?
-        `;
-        
-        const [results] = await db.promisePoolMaster.query(sql, [cleanEmail]);
+        const user = await findUserByEmail(cleanEmail);
 
-        if (results.length === 0) {
-            try {
+        if (!user) {
+            await db.promisePoolMaster.query(
+                `INSERT INTO audit_connexions 
+                 (utilisateur_id, email, ip, user_agent, status, created_at) 
+                 VALUES (NULL, ?, ?, ?, 'failed', NOW())`,
+                [cleanEmail, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
+            );
+            return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
+        }
+
+        if (user.is_super_admin) {
+            const isMatch = await bcrypt.compare(password, user.password);
+            if (!isMatch) {
                 await db.promisePoolMaster.query(
                     `INSERT INTO audit_connexions 
                      (utilisateur_id, email, ip, user_agent, status, created_at) 
                      VALUES (NULL, ?, ?, ?, 'failed', NOW())`,
                     [cleanEmail, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
                 );
-            } catch (err) {
-                console.error('Erreur log connexion:', err);
-            }
-            return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
-        }
-
-        const user = results[0];
-        
-        // Decoder les donnees pour l'affichage
-        user.nom = encryptionService.decrypt(user.nom);
-        user.prenom = encryptionService.decrypt(user.prenom);
-        user.email = encryptionService.decrypt(user.email);
-
-        console.log('[LOGIN] Utilisateur trouve:', user.email);
-
-        // Verifier si c'est un SuperAdmin
-        if (user.is_super_admin) {
-            const isMatch = await bcrypt.compare(password, user.password);
-            console.log('[LOGIN] Match SuperAdmin:', isMatch);
-            
-            if (!isMatch) {
-                try {
-                    await db.promisePoolMaster.query(
-                        `INSERT INTO audit_connexions 
-                         (utilisateur_id, email, ip, user_agent, status, created_at) 
-                         VALUES (NULL, ?, ?, ?, 'failed', NOW())`,
-                        [cleanEmail, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
-                    );
-                } catch (err) {
-                    console.error('Erreur log connexion:', err);
-                }
                 return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
             }
 
-            try {
-                await db.promisePoolMaster.query(
-                    `INSERT INTO audit_connexions 
-                     (utilisateur_id, email, ip, user_agent, status, created_at) 
-                     VALUES (?, ?, ?, ?, 'success', NOW())`,
-                    [user.id, cleanEmail, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
-                );
-            } catch (err) {
-                console.error('Erreur log connexion:', err);
-            }
+            await db.promisePoolMaster.query(
+                `INSERT INTO audit_connexions 
+                 (utilisateur_id, email, ip, user_agent, status, created_at) 
+                 VALUES (?, ?, ?, ?, 'success', NOW())`,
+                [user.id, cleanEmail, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
+            );
 
             const token = jwt.sign(
                 {
@@ -228,18 +254,19 @@ exports.login = async (req, res) => {
                 token,
                 user: {
                     id: user.id,
-                    nom: user.nom,
-                    prenom: user.prenom,
-                    email: user.email,
+                    nom: user.nom || 'SuperAdmin',
+                    prenom: user.prenom || '',
+                    email: cleanEmail,
                     role: 'SuperAdmin Plateforme',
                     is_super_admin: true,
                     is_external: false,
-                    mfa_enabled: false
+                    mfa_enabled: false,
+                    plan_type: 'payant',
+                    entreprise: 'Plateforme'
                 }
             });
         }
 
-        // Verifier la configuration de l'utilisateur
         if (!user.entreprise_id || !user.db_name) {
             console.error('Configuration utilisateur incomplete:', {
                 user_id: user.id,
@@ -252,7 +279,6 @@ exports.login = async (req, res) => {
             });
         }
 
-        // Verifier si le compte est bloque
         if (user.locked_until && new Date(user.locked_until) > new Date()) {
             return res.status(403).json({
                 message: 'Compte bloque. Reessayez plus tard.',
@@ -261,35 +287,23 @@ exports.login = async (req, res) => {
             });
         }
 
-        // Rechercher l'utilisateur dans la base tenant
         const clientPool = db.getClientPool(user.entreprise_id, user.db_name);
-        const [userRows] = await clientPool.promise().query(
-            'SELECT * FROM users WHERE email = ?',
-            [cleanEmail]
-        );
-        
-        if (userRows.length === 0) {
-            try {
-                await db.promisePoolMaster.query(
-                    `INSERT INTO audit_connexions 
-                     (utilisateur_id, email, ip, user_agent, status, created_at) 
-                     VALUES (NULL, ?, ?, ?, 'failed', NOW())`,
-                    [cleanEmail, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
-                );
-            } catch (err) {
-                console.error('Erreur log connexion:', err);
-            }
+        const tenantUser = await findTenantUserByEmail(clientPool, cleanEmail);
+
+        if (!tenantUser) {
+            await db.promisePoolMaster.query(
+                `INSERT INTO audit_connexions 
+                 (utilisateur_id, email, ip, user_agent, status, created_at) 
+                 VALUES (NULL, ?, ?, ?, 'failed', NOW())`,
+                [cleanEmail, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
+            );
             return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
         }
 
-        const userData = userRows[0];
-        console.log('[LOGIN] Hash tenant:', userData.password);
-        
-        const isMatch = await bcrypt.compare(password, userData.password);
-        console.log('[LOGIN] Match tenant:', isMatch);
+        const isMatch = await bcrypt.compare(password, tenantUser.password);
         
         if (!isMatch) {
-            const attempts = (userData.login_attempts || 0) + 1;
+            const attempts = (tenantUser.login_attempts || 0) + 1;
             let lockedUntil = null;
             let remainingAttempts = 5 - attempts;
             
@@ -300,19 +314,15 @@ exports.login = async (req, res) => {
             
             await clientPool.promise().query(
                 'UPDATE users SET login_attempts = ?, locked_until = ? WHERE id = ?',
-                [attempts, lockedUntil, userData.id]
+                [attempts, lockedUntil, tenantUser.id]
             );
             
-            try {
-                await db.promisePoolMaster.query(
-                    `INSERT INTO audit_connexions 
-                     (utilisateur_id, email, ip, user_agent, status, created_at) 
-                     VALUES (NULL, ?, ?, ?, 'failed', NOW())`,
-                    [cleanEmail, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
-                );
-            } catch (err) {
-                console.error('Erreur log connexion:', err);
-            }
+            await db.promisePoolMaster.query(
+                `INSERT INTO audit_connexions 
+                 (utilisateur_id, email, ip, user_agent, status, created_at) 
+                 VALUES (NULL, ?, ?, ?, 'failed', NOW())`,
+                [cleanEmail, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
+            );
             
             return res.status(401).json({
                 message: 'Email ou mot de passe incorrect',
@@ -322,18 +332,16 @@ exports.login = async (req, res) => {
             });
         }
 
-        // Reinitialiser les tentatives
         await clientPool.promise().query(
             'UPDATE users SET login_attempts = 0, locked_until = NULL, last_login = NOW() WHERE id = ?',
-            [userData.id]
+            [tenantUser.id]
         );
 
-        // Verifier MFA
         let mfaEnabled = false;
         try {
             const [mfaResult] = await clientPool.promise().query(
                 'SELECT mfa_enabled FROM users WHERE id = ?',
-                [userData.id]
+                [tenantUser.id]
             );
             mfaEnabled = mfaResult.length > 0 && mfaResult[0].mfa_enabled === 1;
         } catch (err) {
@@ -344,7 +352,7 @@ exports.login = async (req, res) => {
         if (mfaEnabled) {
             const [lockRows] = await clientPool.promise().query(
                 'SELECT mfa_locked_until FROM users WHERE id = ?',
-                [userData.id]
+                [tenantUser.id]
             );
 
             if (lockRows.length && lockRows[0].mfa_locked_until) {
@@ -360,7 +368,7 @@ exports.login = async (req, res) => {
 
             const tempToken = jwt.sign(
                 {
-                    id: userData.id,
+                    id: tenantUser.id,
                     mfa_pending: true,
                     entreprise_id: user.entreprise_id,
                     db_name: user.db_name
@@ -375,15 +383,14 @@ exports.login = async (req, res) => {
                 mfa_required: true,
                 temp_token: tempToken,
                 user: {
-                    id: userData.id,
-                    email: encryptionService.decrypt(userData.email),
-                    nom: encryptionService.decrypt(userData.nom),
-                    prenom: encryptionService.decrypt(userData.prenom)
+                    id: tenantUser.id,
+                    email: cleanEmail,
+                    nom: user.nom,
+                    prenom: user.prenom
                 }
             });
         }
 
-        // Verifier le statut de l'entreprise
         if (user.entreprise_statut !== 'actif') {
             return res.status(403).json({
                 message: user.entreprise_statut === 'en_attente'
@@ -392,7 +399,6 @@ exports.login = async (req, res) => {
             });
         }
 
-        // Gestion de l'essai gratuit
         let essaiExpire = false;
         let connexionsRestantes = null;
         let messageEssai = null;
@@ -417,7 +423,6 @@ exports.login = async (req, res) => {
             }
         }
 
-        // Generer le token JWT
         const token = jwt.sign(
             {
                 id: user.id,
@@ -434,28 +439,19 @@ exports.login = async (req, res) => {
             { expiresIn: '24h' }
         );
 
-        // Enregistrer la session
-        console.log('[SESSION] Debut enregistrement pour:', user.email);
-        
         try {
             const clientPoolSession = db.getClientPool(user.entreprise_id, user.db_name);
-            console.log('[SESSION] Pool client recupere');
-            
             const result = await SessionService.recordConnection(
                 clientPoolSession,
                 { id: user.id },
                 token,
                 req
             );
-            
-            console.log('[SESSION] Enregistrement reussi:', result);
-            
             if (result.previousSessionCount > 0) {
                 console.log('[SESSION] ' + user.email + ' - ' + result.previousSessionCount + ' ancienne(s) session(s) deconnectee(s)');
             }
         } catch (err) {
             console.error('[SESSION] Erreur:', err.message);
-            console.error('[SESSION] Stack:', err.stack);
             if (err.message === 'DEVICE_BLOCKED') {
                 return res.status(403).json({
                     message: 'Appareil bloque. Contactez votre administrateur.',
@@ -464,19 +460,13 @@ exports.login = async (req, res) => {
             }
         }
 
-        // Log de connexion
-        try {
-            await db.promisePoolMaster.query(
-                `INSERT INTO audit_connexions 
-                 (utilisateur_id, email, ip, user_agent, status, created_at) 
-                 VALUES (?, ?, ?, ?, 'success', NOW())`,
-                [user.id, cleanEmail, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
-            );
-        } catch (err) {
-            console.error('Erreur log connexion:', err);
-        }
+        await db.promisePoolMaster.query(
+            `INSERT INTO audit_connexions 
+             (utilisateur_id, email, ip, user_agent, status, created_at) 
+             VALUES (?, ?, ?, ?, 'success', NOW())`,
+            [user.id, cleanEmail, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
+        );
 
-        // Reponse de succes
         res.json({
             message: 'Connexion reussie',
             messageEssai,
@@ -485,7 +475,7 @@ exports.login = async (req, res) => {
                 id: user.id,
                 nom: user.nom,
                 prenom: user.prenom,
-                email: user.email,
+                email: cleanEmail,
                 role: user.role_nom || 'Utilisateur',
                 entreprise: user.entreprise_nom || null,
                 is_super_admin: false,
@@ -508,16 +498,12 @@ exports.logout = async (req, res) => {
         const userId = req.user.id;
         const email = req.user.email;
         
-        try {
-            await db.promisePoolMaster.query(
-                `INSERT INTO audit_connexions 
-                 (utilisateur_id, email, ip, user_agent, status, created_at) 
-                 VALUES (?, ?, ?, ?, 'deconnexion', NOW())`,
-                [userId, email, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
-            );
-        } catch (err) {
-            console.error('Erreur log deconnexion:', err);
-        }
+        await db.promisePoolMaster.query(
+            `INSERT INTO audit_connexions 
+             (utilisateur_id, email, ip, user_agent, status, created_at) 
+             VALUES (?, ?, ?, ?, 'deconnexion', NOW())`,
+            [userId, email, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
+        );
         
         await SessionService.logoutAllSessions(userId);
         
@@ -545,10 +531,20 @@ exports.getMe = async (req, res) => {
         }
         
         const user = rows[0];
-        user.nom = encryptionService.decrypt(user.nom);
-        user.prenom = encryptionService.decrypt(user.prenom);
-        user.email = encryptionService.decrypt(user.email);
-        user.entreprise_nom = encryptionService.decrypt(user.entreprise_nom);
+        
+        // Déchiffrer les champs sensibles
+        try {
+            user.nom = encryptionService.decrypt(user.nom) || user.nom;
+        } catch (e) {}
+        try {
+            user.prenom = encryptionService.decrypt(user.prenom) || user.prenom;
+        } catch (e) {}
+        try {
+            user.email = encryptionService.decrypt(user.email) || user.email;
+        } catch (e) {}
+        try {
+            user.entreprise_nom = encryptionService.decrypt(user.entreprise_nom) || user.entreprise_nom;
+        } catch (e) {}
         
         res.json({ user: user });
     } catch (err) {
@@ -640,12 +636,18 @@ exports.getUsersEntreprise = async (req, res) => {
             [req.user.entreprise_id]
         );
         
-        const users = rows.map(user => ({
-            ...user,
-            nom: encryptionService.decrypt(user.nom),
-            prenom: encryptionService.decrypt(user.prenom),
-            email: encryptionService.decrypt(user.email)
-        }));
+        const users = rows.map(user => {
+            try {
+                user.nom = encryptionService.decrypt(user.nom) || user.nom;
+            } catch (e) {}
+            try {
+                user.prenom = encryptionService.decrypt(user.prenom) || user.prenom;
+            } catch (e) {}
+            try {
+                user.email = encryptionService.decrypt(user.email) || user.email;
+            } catch (e) {}
+            return user;
+        });
         
         res.json({ users: users });
     } catch (err) {
@@ -896,12 +898,18 @@ exports.getActiveSessions = async (req, res) => {
             [req.user.id]
         );
 
-        const decryptedSessions = sessions.map(session => ({
-            ...session,
-            nom: encryptionService.decrypt(session.nom),
-            prenom: encryptionService.decrypt(session.prenom),
-            email: encryptionService.decrypt(session.email)
-        }));
+        const decryptedSessions = sessions.map(session => {
+            try {
+                session.nom = encryptionService.decrypt(session.nom) || session.nom;
+            } catch (e) {}
+            try {
+                session.prenom = encryptionService.decrypt(session.prenom) || session.prenom;
+            } catch (e) {}
+            try {
+                session.email = encryptionService.decrypt(session.email) || session.email;
+            } catch (e) {}
+            return session;
+        });
 
         res.json({ sessions: decryptedSessions });
     } catch (err) {
@@ -924,4 +932,21 @@ exports.revokeOtherSessions = async (req, res) => {
         console.error('Erreur revokeOtherSessions:', err);
         res.status(500).json({ message: 'Erreur serveur' });
     }
+};
+
+module.exports = {
+    registerEntreprise: exports.registerEntreprise,
+    login: exports.login,
+    logout: exports.logout,
+    getMe: exports.getMe,
+    getMesPermissions: exports.getMesPermissions,
+    updateMe: exports.updateMe,
+    getUsersEntreprise: exports.getUsersEntreprise,
+    createUserByAdmin: exports.createUserByAdmin,
+    createExternalUser: exports.createExternalUser,
+    updateUserRole: exports.updateUserRole,
+    deleteUser: exports.deleteUser,
+    getUserStats: exports.getUserStats,
+    getActiveSessions: exports.getActiveSessions,
+    revokeOtherSessions: exports.revokeOtherSessions
 };

@@ -1,3 +1,4 @@
+// backend/services/session.service.js
 const crypto = require('crypto');
 const db = require('../config/db');
 
@@ -52,6 +53,9 @@ class SessionService {
 
     static async getLocationFromIP(ip) {
         try {
+            // Intégration avec une API de géolocalisation
+            // const response = await fetch(`http://ip-api.com/json/${ip}`);
+            // const data = await response.json();
             return {
                 country: 'Tunisie',
                 region: 'Tunis',
@@ -229,125 +233,6 @@ class SessionService {
             [userId]
         );
         return rows;
-    }
-
-    static async getActiveSessionsAll() {
-        const [rows] = await db.promisePoolMaster.query(
-            `SELECT s.*, u.nom, u.prenom, u.email, e.nom AS entreprise_nom,
-                    (SELECT COUNT(*) FROM sessions WHERE user_id = s.user_id AND is_active = TRUE) as user_session_count
-             FROM sessions s
-             JOIN users u ON s.user_id = u.id
-             JOIN entreprises e ON u.entreprise_id = e.id
-             WHERE s.is_active = TRUE
-             ORDER BY s.last_activity DESC`
-        );
-        return rows;
-    }
-
-    static async revokeSession(sessionId) {
-        await db.promisePoolMaster.query(
-            'UPDATE sessions SET is_active = FALSE WHERE id = ?',
-            [sessionId]
-        );
-        console.log('[SESSION] Session revoquee:', sessionId);
-    }
-
-    static async blockDevice(deviceId, reason) {
-        const [device] = await db.promisePoolMaster.query(
-            'SELECT device_fingerprint, user_id FROM user_devices WHERE id = ?',
-            [deviceId]
-        );
-
-        if (device.length === 0) {
-            throw new Error('Appareil introuvable');
-        }
-
-        await db.promisePoolMaster.query(
-            'UPDATE user_devices SET is_blocked = TRUE WHERE id = ?',
-            [deviceId]
-        );
-
-        await db.promisePoolMaster.query(
-            `UPDATE sessions SET is_active = FALSE 
-             WHERE device_fingerprint = ? AND user_id = ?`,
-            [device[0].device_fingerprint, device[0].user_id]
-        );
-
-        console.log('[SESSION] Appareil bloque:', deviceId, '- Raison:', reason || 'Non specifiee');
-        return device[0];
-    }
-
-    static async getSecurityAlerts(filters = {}) {
-        const { limit = 50, offset = 0, severity, is_read } = filters;
-
-        let sql = `
-            SELECT a.*, u.nom, u.prenom, u.email, e.nom AS entreprise_nom
-            FROM security_alerts a
-            JOIN users u ON a.user_id = u.id
-            JOIN entreprises e ON u.entreprise_id = e.id
-            WHERE 1=1
-        `;
-        const params = [];
-
-        if (severity) {
-            sql += ' AND a.severity = ?';
-            params.push(severity);
-        }
-        if (is_read !== undefined) {
-            sql += ' AND a.is_read = ?';
-            params.push(is_read === 'true' ? 1 : 0);
-        }
-
-        sql += ' ORDER BY a.created_at DESC LIMIT ? OFFSET ?';
-        params.push(parseInt(limit), parseInt(offset));
-
-        const [alerts] = await db.promisePoolMaster.query(sql, params);
-
-        const [total] = await db.promisePoolMaster.query(
-            'SELECT COUNT(*) as total FROM security_alerts'
-        );
-
-        return { alerts, total: total[0].total };
-    }
-
-    static async resolveAlert(alertId) {
-        await db.promisePoolMaster.query(
-            'UPDATE security_alerts SET is_resolved = TRUE, resolved_at = NOW() WHERE id = ?',
-            [alertId]
-        );
-        console.log('[SESSION] Alerte resolue:', alertId);
-    }
-
-    static async getSecurityStats() {
-        const [bySeverity] = await db.promisePoolMaster.query(
-            `SELECT severity, COUNT(*) as total 
-             FROM security_alerts 
-             GROUP BY severity`
-        );
-
-        const [activeSessions] = await db.promisePoolMaster.query(
-            'SELECT COUNT(*) as total FROM sessions WHERE is_active = TRUE'
-        );
-
-        const [blockedDevices] = await db.promisePoolMaster.query(
-            'SELECT COUNT(*) as total FROM user_devices WHERE is_blocked = TRUE'
-        );
-
-        const [dailyConnections] = await db.promisePoolMaster.query(
-            `SELECT DATE(created_at) as date, COUNT(*) as total 
-             FROM user_connections 
-             WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-             GROUP BY DATE(created_at)
-             ORDER BY date DESC`
-        );
-
-        return {
-            alerts_by_severity: bySeverity,
-            active_sessions: activeSessions[0].total,
-            blocked_devices: blockedDevices[0].total,
-            total_alerts: bySeverity.reduce((sum, s) => sum + s.total, 0),
-            daily_connections: dailyConnections
-        };
     }
 
     static async cleanupExpiredSessions() {

@@ -1,10 +1,13 @@
+// frontend/src/components/layout/Sidebar.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { colors, spacing, borderRadius, transitions } from '../../styles/theme';
 
 export default function Sidebar() {
   const { user, hasPermission } = useAuth();
+  const { t, dir } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
@@ -31,32 +34,12 @@ export default function Sidebar() {
     if (user?.is_super_admin) {
       return [
         {
-          section: 'Administration',
+          section: t('administration') || 'Administration',
           items: [
-            {
-              path: '/superadmin/dashboard',
-              label: 'Entreprises',
-              icon: '🏢',
-              description: 'Gerer les entreprises'
-            },
-            {
-              path: '/superadmin/taux-reference',
-              label: 'Taux & Periodes',
-              icon: '📊',
-              description: 'Gerer les taux de reference'
-            },
-            {
-              path: '/superadmin/sessions',
-              label: 'Sessions',
-              icon: '🔐',
-              description: 'Supervision des sessions'
-            },
-            {
-              path: '/notifications',
-              label: 'Notifications',
-              icon: '🔔',
-              description: 'Voir les notifications'
-            }
+            { path: '/superadmin/dashboard', label: t('dashboard'), icon: '🏢' },
+            { path: '/superadmin/taux-reference', label: 'Taux & Périodes', icon: '📊' },
+            { path: '/superadmin/sessions', label: 'Sessions', icon: '🔐' },
+            { path: '/notifications', label: t('notifications'), icon: '🔔' }
           ]
         }
       ];
@@ -65,111 +48,95 @@ export default function Sidebar() {
     const sections = [];
 
     sections.push({
-      section: 'Navigation',
+      section: t('navigation') || 'Navigation',
       items: [
-        {
-          path: '/dashboard',
-          label: 'Tableau de bord',
-          icon: '📊',
-          description: 'Vue d\'ensemble'
-        },
+        { path: '/dashboard', label: t('dashboard'), icon: '📊' }
       ]
     });
 
     if (hasPermission('Ventes', 'consultation')) {
       sections.push({
-        section: 'Ventes',
+        section: t('ventes') || 'Ventes',
         items: [
-          { path: '/clients', label: 'Clients', icon: '👥', description: 'Gestion des clients' },
-          { path: '/devis', label: 'Devis', icon: '📄', description: 'Gestion des devis' },
-          { path: '/commandes', label: 'Commandes', icon: '🛒', description: 'Gestion des commandes' },
-          { path: '/promotions', label: 'Promotions', icon: '🏷️', description: 'Gestion des promotions' },
-          {
-            path: '/paiement/client',
-            label: 'Paiement en ligne',
-            icon: '💳',
-            description: 'Payer vos commandes'
-          }
+          { path: '/clients', label: t('clients'), icon: '👥' },
+          { path: '/devis', label: t('devis'), icon: '📄' },
+          { path: '/commandes', label: t('commandes'), icon: '🛒' },
+          { path: '/promotions', label: 'Promotions', icon: '🏷️' },
+          { path: '/paiement/client', label: 'Paiement en ligne', icon: '💳' }
         ]
       });
     }
 
     if (hasPermission('Achats', 'consultation')) {
       sections.push({
-        section: 'Achats',
+        section: t('achats') || 'Achats',
         items: [
-          { path: '/fournisseurs', label: 'Fournisseurs', icon: '🏭', description: 'Gestion des fournisseurs' },
-          { path: '/achats', label: 'Achats', icon: '📦', description: 'Gestion des achats' },
-          {
-            path: '/paiement/fournisseur',
-            label: 'Paiement fournisseur',
-            icon: '💳',
-            description: 'Payer les factures fournisseurs'
-          }
+          { path: '/fournisseurs', label: t('fournisseurs'), icon: '🏭' },
+          { path: '/achats', label: t('achats'), icon: '📦' },
+          { path: '/paiement/fournisseur', label: 'Paiement fournisseur', icon: '💳' }
         ]
       });
     }
 
     if (hasPermission('Finance', 'consultation')) {
       sections.push({
-        section: 'Finance',
+        section: t('finance') || 'Finance',
         items: [
-          {
-            path: '/finance',
-            label: 'Finance',
-            icon: '💰',
-            description: 'Gestion financiere'
-          }
+          { path: '/finance', label: t('finance'), icon: '💰' }
         ]
       });
     }
 
     if (hasPermission('Stock', 'consultation')) {
       const stockItems = [
-        { path: '/produits', label: 'Produits', icon: '📦', description: 'Catalogue produits' },
-        { path: '/mouvements-stock', label: 'Mouvements', icon: '🔄', description: 'Historique des mouvements' },
-        { path: '/alertes-stock', label: 'Alertes', icon: '⚠️', description: 'Alertes de rupture' },
-        { path: '/entrepots', label: 'Entrepots', icon: '🏚️', description: 'Gestion des entrepots' },
-        { path: '/calculateur', label: 'Calculateur', icon: '🧮', description: 'Moteur de calcul' }
+        { path: '/produits', label: t('produits'), icon: '📦' },
+        { path: '/mouvements-stock', label: t('mouvements_stock'), icon: '🔄' },
+        { path: '/alertes-stock', label: t('alerte_rupture'), icon: '⚠️' },
+        { path: '/entrepots', label: 'Entrepôts', icon: '🏚️' },
+        { path: '/calculateur', label: 'Calculateur', icon: '🧮' }
       ];
       if (hasPermission('Stock', 'modification')) {
-        stockItems.push({ path: '/transfert-stock', label: 'Transfert', icon: '🔄', description: 'Transfert entre entrepots' });
+        stockItems.push({ path: '/transfert-stock', label: t('transfert_stock'), icon: '🔄' });
       }
-      stockItems.push({ path: '/inventaires', label: 'Inventaires', icon: '📋', description: 'Gestion des inventaires' });
-      sections.push({ section: 'Stock', items: stockItems });
+      stockItems.push({ path: '/inventaires', label: t('inventaire'), icon: '📋' });
+      sections.push({ section: t('stock') || 'Stock', items: stockItems });
     }
 
     const adminItems = [];
     if (hasPermission('Utilisateurs', 'consultation')) {
-      adminItems.push({ path: '/utilisateurs', label: 'Utilisateurs', icon: '👤', description: 'Gestion des acces' });
+      adminItems.push({ path: '/utilisateurs', label: t('utilisateurs'), icon: '👤' });
     }
     if (hasPermission('Documents', 'consultation')) {
-      adminItems.push({ path: '/documents', label: 'Documents', icon: '📁', description: 'Gestion documentaire' });
-      adminItems.push({ path: '/archives', label: 'Archives', icon: '🗄️', description: 'Archivage numerique' });
+      adminItems.push({ path: '/documents', label: t('documents'), icon: '📁' });
+      adminItems.push({ path: '/archives', label: t('archives'), icon: '🗄️' });
     }
 
     adminItems.push({
       path: '/securite/mfa',
-      label: 'Securite MFA',
-      icon: '🔐',
-      description: 'Authentification a deux facteurs'
+      label: 'Sécurité MFA',
+      icon: '🔐'
     });
 
     adminItems.push({
       path: '/notifications',
-      label: 'Notifications',
-      icon: '🔔',
-      description: 'Voir les notifications'
+      label: t('notifications'),
+      icon: '🔔'
     });
 
     if (adminItems.length > 0) {
-      sections.push({ section: 'Administration', items: adminItems });
+      sections.push({ section: t('administration') || 'Administration', items: adminItems });
     }
 
     return sections;
   };
 
   const menuItems = getMenuItems();
+
+  const sidebarStyle = {
+    ...styles.sidebar,
+    left: dir === 'rtl' ? 'auto' : '0',
+    right: dir === 'rtl' ? '0' : 'auto',
+  };
 
   return (
     <>
@@ -179,9 +146,12 @@ export default function Sidebar() {
 
       <aside
         style={{
-          ...styles.sidebar,
+          ...sidebarStyle,
           width: isMobile ? '280px' : collapsed ? '68px' : '240px',
           transform: isMobile ? (isMobileOpen ? 'translateX(0)' : 'translateX(-100%)') : 'translateX(0)',
+          ...(dir === 'rtl' && isMobile && {
+            transform: isMobileOpen ? 'translateX(0)' : 'translateX(100%)',
+          }),
         }}
       >
         <div style={styles.logoContainer}>
@@ -250,7 +220,14 @@ export default function Sidebar() {
       </aside>
 
       {isMobile && !isMobileOpen && (
-        <button style={styles.hamburgerBtn} onClick={() => setIsMobileOpen(true)}>
+        <button
+          style={{
+            ...styles.hamburgerBtn,
+            left: dir === 'rtl' ? 'auto' : '12px',
+            right: dir === 'rtl' ? '12px' : 'auto',
+          }}
+          onClick={() => setIsMobileOpen(true)}
+        >
           ☰
         </button>
       )}
@@ -272,7 +249,6 @@ const styles = {
   sidebar: {
     position: 'fixed',
     top: 0,
-    left: 0,
     height: '100vh',
     backgroundColor: '#0F172A',
     color: colors.white,
@@ -315,10 +291,6 @@ const styles = {
     padding: '4px 8px',
     fontSize: '12px',
     transition: `all ${transitions.fast}`,
-    ':hover': {
-      backgroundColor: 'rgba(255,255,255,0.1)',
-      color: colors.white,
-    },
   },
   nav: {
     flex: 1,
@@ -346,17 +318,10 @@ const styles = {
     borderRadius: borderRadius.md,
     marginBottom: '2px',
     color: 'rgba(255,255,255,0.6)',
-    ':hover': {
-      backgroundColor: 'rgba(255,255,255,0.06)',
-      color: colors.white,
-    },
   },
   menuItemActive: {
     backgroundColor: 'rgba(14, 165, 233, 0.15)',
     color: '#0EA5E9',
-    ':hover': {
-      backgroundColor: 'rgba(14, 165, 233, 0.2)',
-    },
   },
   menuIcon: {
     fontSize: '18px',
@@ -423,7 +388,6 @@ const styles = {
   hamburgerBtn: {
     position: 'fixed',
     top: '12px',
-    left: '12px',
     zIndex: 100,
     backgroundColor: '#0F172A',
     border: 'none',

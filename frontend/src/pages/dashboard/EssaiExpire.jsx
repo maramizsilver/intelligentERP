@@ -1,12 +1,14 @@
-// src/pages/dashboard/EssaiExpire.jsx
+// frontend/src/pages/dashboard/EssaiExpire.jsx
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 import Button from '../../components/common/Button';
 import Card from '../../components/common/Card';
 
 export default function EssaiExpire() {
   const { user, logout } = useAuth();
+  const { t } = useLanguage();
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
 
@@ -24,7 +26,7 @@ export default function EssaiExpire() {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      setError("Impossible d'exporter vos données pour le moment.");
+      setError(t('erreur_export_donnees') || "Impossible d'exporter vos données pour le moment.");
     } finally {
       setExporting(false);
     }
@@ -33,12 +35,12 @@ export default function EssaiExpire() {
   return (
     <div style={styles.container}>
       <Card variant="danger" style={styles.card}>
-        
-        <h1 style={styles.title}>Votre période d'essai gratuite est terminée</h1>
+        <h1 style={styles.title}>{t('essai_expire_titre') || "Votre période d'essai gratuite est terminée"}</h1>
         <p style={styles.text}>
-          Vous avez utilisé vos 30 connexions gratuites{user?.entreprise ? ` pour ${user.entreprise}` : ''}.
+          {t('essai_expire_message') || 'Vous avez utilisé vos 30 connexions gratuites'}
+          {user?.entreprise ? ` ${t('pour') || 'pour'} ${user.entreprise}` : ''}.
           <br />
-          <strong>Aucune donnée n'a été perdue</strong> — tout ce que vous avez ajouté reste enregistré.
+          <strong>{t('essai_expire_donnees') || 'Aucune donnée n\'a été perdue'}</strong> — {t('essai_expire_conserve') || 'tout ce que vous avez ajouté reste enregistré.'}
         </p>
 
         {error && (
@@ -55,7 +57,7 @@ export default function EssaiExpire() {
             icon="⬇️"
             fullWidth
           >
-            Exporter mes données
+            {t('exporter_mes_donnees') || 'Exporter mes données'}
           </Button>
           <Button
             variant="outline"
@@ -63,11 +65,11 @@ export default function EssaiExpire() {
             icon="💳"
             fullWidth
           >
-            Souscrire à un abonnement
+            {t('souscrire_abonnement') || 'Souscrire à un abonnement'}
           </Button>
         </div>
 
-        <p style={styles.link} onClick={logout}>Se déconnecter</p>
+        <p style={styles.link} onClick={logout}>{t('deconnexion')}</p>
       </Card>
     </div>
   );

@@ -1,6 +1,8 @@
+// frontend/src/pages/ventes/Commandes.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 
 import Card from '../../components/common/Card';
@@ -12,6 +14,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 export default function Commandes() {
   const { hasPermission } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [commandes, setCommandes] = useState([]);
@@ -85,7 +88,7 @@ export default function Commandes() {
         client_id: clientId,
         lignes: lignesValides
       });
-      setSuccess('Commande creee avec succes');
+      setSuccess(t('commande_cree'));
       setShowForm(false);
       setClientId('');
       setLignes([{ produit_id: '', quantite: 1 }]);
@@ -107,7 +110,7 @@ export default function Commandes() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Supprimer cette commande ?')) return;
+    if (!window.confirm(t('confirmation_suppression'))) return;
     try {
       await API.delete(`/commandes/${id}`);
       setSuccess('Commande supprimee');
@@ -119,34 +122,30 @@ export default function Commandes() {
 
   const getStatutBadge = (statut) => {
     const statuts = {
-      en_attente: { label: 'En attente', variant: 'warning' },
-      confirmee: { label: 'Confirmee', variant: 'primary' },
-      livree: { label: 'Livree', variant: 'success' },
-      annulee: { label: 'Annulee', variant: 'danger' }
+      en_attente: { label: t('en_attente'), variant: 'warning' },
+      confirmee: { label: t('confirmee'), variant: 'primary' },
+      livree: { label: t('livree'), variant: 'success' },
+      annulee: { label: t('annulee'), variant: 'danger' }
     };
     return statuts[statut] || statuts.en_attente;
   };
 
   const columns = [
-    {
-      key: 'id',
-      label: 'N°',
-      width: '60px'
-    },
-    { key: 'client_nom', label: 'Client' },
+    { key: 'id', label: 'N°', width: '60px' },
+    { key: 'client_nom', label: t('clients') },
     {
       key: 'date_commande',
-      label: 'Date',
+      label: t('date'),
       render: (row) => new Date(row.date_commande).toLocaleDateString('fr-FR')
     },
     {
       key: 'total',
-      label: 'Total',
+      label: t('total'),
       render: (row) => `${row.total} DT`
     },
     {
       key: 'statut',
-      label: 'Statut',
+      label: t('statut'),
       render: (row) => {
         const statut = getStatutBadge(row.statut);
         return <Badge variant={statut.variant}>{statut.label}</Badge>;
@@ -157,7 +156,7 @@ export default function Commandes() {
   const actions = [];
   if (peutValider) {
     actions.push({
-      label: 'Changer statut',
+      label: t('changer_statut') || 'Changer statut',
       variant: 'primary',
       onClick: (row) => {
         const statuts = ['en_attente', 'confirmee', 'livree', 'annulee'];
@@ -168,14 +167,14 @@ export default function Commandes() {
   }
   if (peutSupprimer) {
     actions.push({
-      label: 'Supprimer',
+      label: t('supprimer'),
       variant: 'danger',
       onClick: (row) => handleDelete(row.id)
     });
   }
 
   actions.push({
-    label: 'Payer',
+    label: t('payer') || 'Payer',
     variant: 'success',
     onClick: (row) => navigate(`/paiement/client?commande_id=${row.id}&montant=${row.total}`),
     disabled: (row) => row.statut !== 'en_attente'
@@ -185,12 +184,12 @@ export default function Commandes() {
     <div>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>Gestion des Commandes</h1>
-          <p style={styles.subtitle}>Gerez toutes les commandes de votre entreprise</p>
+          <h1 style={styles.title}>{t('gestion_commandes')}</h1>
+          <p style={styles.subtitle}>{t('gerer_commandes') || 'Gerez toutes les commandes de votre entreprise'}</p>
         </div>
         <div style={styles.headerActions}>
           <Button variant="secondary" onClick={() => navigate('/dashboard')}>
-            Retour
+            {t('retour')}
           </Button>
           {peutCreer && (
             <Button
@@ -198,7 +197,7 @@ export default function Commandes() {
               icon={showForm ? '✕' : '+'}
               onClick={() => setShowForm(!showForm)}
             >
-              {showForm ? 'Fermer' : 'Nouvelle commande'}
+              {showForm ? t('fermer') || 'Fermer' : t('nouvelle_commande')}
             </Button>
           )}
         </div>
@@ -216,11 +215,11 @@ export default function Commandes() {
       )}
 
       {showForm && (
-        <Card title="Nouvelle commande" variant="primary" style={{ marginBottom: '24px' }}>
+        <Card title={t('nouvelle_commande')} variant="primary" style={{ marginBottom: '24px' }}>
           <form onSubmit={handleSubmit}>
             <div style={styles.formRow}>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Client *</label>
+                <label style={styles.label}>{t('clients')} *</label>
                 <select
                   style={styles.select}
                   value={clientId}
@@ -228,7 +227,7 @@ export default function Commandes() {
                   required
                   disabled={formLoading}
                 >
-                  <option value="">-- Choisir un client --</option>
+                  <option value="">-- {t('choisir_client') || 'Choisir un client'} --</option>
                   {clients.map(c => (
                     <option key={c.id} value={c.id}>{c.nom}</option>
                   ))}
@@ -238,9 +237,9 @@ export default function Commandes() {
 
             <div style={styles.lignesContainer}>
               <div style={styles.lignesHeader}>
-                <span style={styles.lignesTitle}>Produits</span>
+                <span style={styles.lignesTitle}>{t('produits')}</span>
                 <Button type="button" variant="outline" size="sm" onClick={addLigne}>
-                  + Ajouter un produit
+                  + {t('ajouter_produit') || 'Ajouter un produit'}
                 </Button>
               </div>
 
@@ -253,7 +252,7 @@ export default function Commandes() {
                     required
                     disabled={formLoading}
                   >
-                    <option value="">-- Produit --</option>
+                    <option value="">-- {t('produits')} --</option>
                     {produits.map(p => (
                       <option key={p.id} value={p.id}>
                         {p.nom} ({p.prix} DT)
@@ -264,7 +263,7 @@ export default function Commandes() {
                     style={{ ...styles.input, width: '80px' }}
                     type="number"
                     min="1"
-                    placeholder="Qte"
+                    placeholder={t('quantite')}
                     value={ligne.quantite}
                     onChange={(e) => handleLigneChange(index, 'quantite', e.target.value)}
                     required
@@ -280,13 +279,13 @@ export default function Commandes() {
             </div>
 
             <Button type="submit" variant="primary" loading={formLoading} fullWidth>
-              Creer la commande
+              {t('creer')}
             </Button>
           </form>
         </Card>
       )}
 
-      <Card title="Liste des commandes" variant="primary">
+      <Card title={t('liste_commandes') || 'Liste des commandes'} variant="primary">
         <Table columns={columns} data={commandes} loading={loading} actions={actions} />
       </Card>
     </div>

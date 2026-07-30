@@ -1,7 +1,8 @@
-// src/pages/stock/Entrepots.jsx
+// frontend/src/pages/stock/Entrepots.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 
 import Card from '../../components/common/Card';
@@ -15,6 +16,7 @@ import EmptyState from '../../components/common/EmptyState';
 
 export default function Entrepots() {
   const { hasPermission } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [entrepots, setEntrepots] = useState([]);
@@ -28,7 +30,6 @@ export default function Entrepots() {
   const [form, setForm] = useState({ nom: '', adresse: '', responsable: '', actif: true });
   const [formLoading, setFormLoading] = useState(false);
 
-  // États pour la gestion du stock
   const [showStockModal, setShowStockModal] = useState(false);
   const [selectedEntrepot, setSelectedEntrepot] = useState(null);
   const [stockForm, setStockForm] = useState({ produit_id: '', quantite: '' });
@@ -91,10 +92,10 @@ export default function Entrepots() {
     try {
       if (editingId) {
         await API.put(`/entrepots/${editingId}`, form);
-        setSuccess(' Entrepôt mis à jour avec succès');
+        setSuccess(t('entrepot_modifie') || 'Entrepôt mis à jour avec succès');
       } else {
         await API.post('/entrepots', form);
-        setSuccess(' Entrepôt créé avec succès');
+        setSuccess(t('entrepot_cree') || 'Entrepôt créé avec succès');
       }
       setShowForm(false);
       setEditingId(null);
@@ -119,17 +120,16 @@ export default function Entrepots() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Supprimer cet entrepôt ?')) return;
+    if (!window.confirm(t('confirmation_suppression'))) return;
     try {
       await API.delete(`/entrepots/${id}`);
-      setSuccess(' Entrepôt supprimé');
+      setSuccess(t('entrepot_supprime') || 'Entrepôt supprimé');
       loadEntrepots();
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur');
     }
   };
 
-  // Gestion du stock
   const handleOpenStockModal = async (entrepot) => {
     setSelectedEntrepot(entrepot);
     setStockForm({ produit_id: '', quantite: '' });
@@ -180,15 +180,15 @@ export default function Entrepots() {
   };
 
   const columns = [
-    { key: 'nom', label: 'Nom' },
-    { key: 'adresse', label: 'Adresse' },
+    { key: 'nom', label: t('nom') },
+    { key: 'adresse', label: t('adresse') },
     { key: 'responsable', label: 'Responsable' },
     {
       key: 'actif',
-      label: 'Statut',
+      label: t('statut'),
       render: (row) => (
         <Badge variant={row.actif ? 'success' : 'danger'}>
-          {row.actif ? 'Actif' : 'Inactif'}
+          {row.actif ? t('actif') : t('inactif')}
         </Badge>
       )
     }
@@ -197,19 +197,19 @@ export default function Entrepots() {
   const actions = [];
   if (peutModifier) {
     actions.push({
-      label: ' Stock',
+      label: t('stock') || 'Stock',
       variant: 'primary',
       onClick: (row) => handleOpenStockModal(row)
     });
     actions.push({
-      label: 'modif',
+      label: t('modifier'),
       variant: 'primary',
       onClick: (row) => handleEdit(row)
     });
   }
   if (peutSupprimer) {
     actions.push({
-      label: 'suppr',
+      label: t('supprimer'),
       variant: 'danger',
       onClick: (row) => handleDelete(row.id)
     });
@@ -219,12 +219,12 @@ export default function Entrepots() {
     <div>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}> Gestion des Entrepôts</h1>
-          <p style={styles.subtitle}>Gérez vos entrepôts et leur stock</p>
+          <h1 style={styles.title}>{t('gestion_entrepots') || 'Gestion des Entrepôts'}</h1>
+          <p style={styles.subtitle}>{t('gerer_entrepots') || 'Gérez vos entrepôts et leur stock'}</p>
         </div>
         <div style={styles.headerActions}>
           <Button variant="secondary" onClick={() => navigate('/dashboard')} icon="←">
-            Retour
+            {t('retour')}
           </Button>
           {peutCreer && (
             <Button
@@ -236,7 +236,7 @@ export default function Entrepots() {
                 setForm({ nom: '', adresse: '', responsable: '', actif: true });
               }}
             >
-              {showForm ? 'Fermer' : 'Nouvel entrepôt'}
+              {showForm ? t('fermer') || 'Fermer' : t('nouvel_entrepot') || 'Nouvel entrepôt'}
             </Button>
           )}
         </div>
@@ -250,17 +250,17 @@ export default function Entrepots() {
       )}
       {success && (
         <div style={styles.successContainer}>
-          <span>done</span>
+          <span>✅</span>
           <span style={styles.successText}>{success}</span>
         </div>
       )}
 
       {showForm && (
-        <Card title={editingId ? 'Modifier l\'entrepôt' : ' Nouvel entrepôt'} variant="primary" style={{ marginBottom: '24px' }}>
+        <Card title={editingId ? t('modifier_entrepot') || 'Modifier l\'entrepôt' : t('nouvel_entrepot') || 'Nouvel entrepôt'} variant="primary" style={{ marginBottom: '24px' }}>
           <form onSubmit={handleSubmit}>
             <div style={styles.formGrid}>
               <Input
-                label="Nom *"
+                label={t('nom') + ' *'}
                 name="nom"
                 value={form.nom}
                 onChange={handleChange}
@@ -268,7 +268,7 @@ export default function Entrepots() {
                 disabled={formLoading}
               />
               <Input
-                label="Adresse"
+                label={t('adresse')}
                 name="adresse"
                 value={form.adresse}
                 onChange={handleChange}
@@ -290,26 +290,25 @@ export default function Entrepots() {
                     onChange={handleChange}
                     disabled={formLoading}
                   />
-                  <span>Actif</span>
+                  <span>{t('actif')}</span>
                 </label>
               </div>
             </div>
             <Button type="submit" variant="primary" loading={formLoading} fullWidth>
-              {editingId ? 'Mettre à jour' : 'Créer'}
+              {editingId ? t('modifier') : t('creer')}
             </Button>
           </form>
         </Card>
       )}
 
-      <Card title=" Liste des entrepôts" variant="primary">
+      <Card title={t('liste_entrepots') || 'Liste des entrepôts'} variant="primary">
         <Table columns={columns} data={entrepots} loading={loading} actions={actions} />
       </Card>
 
-      {/* Modal de gestion du stock */}
       {showStockModal && selectedEntrepot && (
         <div style={styles.modalOverlay} onClick={() => setShowStockModal(false)}>
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h3 style={styles.modalTitle}> Gestion du stock - {selectedEntrepot.nom}</h3>
+            <h3 style={styles.modalTitle}>{t('gestion_stock')} - {selectedEntrepot.nom}</h3>
 
             <form onSubmit={handleUpdateStock} style={styles.stockForm}>
               <div style={styles.stockFormGrid}>
@@ -321,10 +320,10 @@ export default function Entrepots() {
                   required
                   disabled={formLoading}
                 >
-                  <option value="">-- Choisir un produit --</option>
+                  <option value="">-- {t('choisir_produit') || 'Choisir un produit'} --</option>
                   {produits.map(p => (
                     <option key={p.id} value={p.id}>
-                      {p.nom} (Prix: {p.prix} DT)
+                      {p.nom} ({t('prix')}: {p.prix} DT)
                     </option>
                   ))}
                 </select>
@@ -332,7 +331,7 @@ export default function Entrepots() {
                   style={styles.input}
                   type="number"
                   name="quantite"
-                  placeholder="Quantité"
+                  placeholder={t('quantite')}
                   value={stockForm.quantite}
                   onChange={handleStockChange}
                   required
@@ -340,26 +339,26 @@ export default function Entrepots() {
                   disabled={formLoading}
                 />
                 <Button type="submit" variant="success" loading={formLoading}>
-                  + Ajouter
+                  + {t('ajouter') || 'Ajouter'}
                 </Button>
               </div>
             </form>
 
             <hr style={styles.modalHr} />
 
-            <h4>Stock actuel</h4>
+            <h4>{t('stock_actuel') || 'Stock actuel'}</h4>
             {loadingStock ? (
-              <LoadingSpinner size="md" text="Chargement du stock..." />
+              <LoadingSpinner size="md" text={t('chargement')} />
             ) : stockList.length === 0 ? (
-              <EmptyState icon="📭" title="Aucun produit" description="Cet entrepôt est vide." />
+              <EmptyState icon="📭" title={t('aucune_donnee')} description={t('stock_vide') || 'Cet entrepôt est vide.'} />
             ) : (
               <table style={styles.modalTable}>
                 <thead>
                   <tr>
-                    <th>Produit</th>
-                    <th>Quantité</th>
-                    <th>Prix</th>
-                    <th>Action</th>
+                    <th>{t('produits')}</th>
+                    <th>{t('quantite')}</th>
+                    <th>{t('prix')}</th>
+                    <th>{t('actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -376,7 +375,7 @@ export default function Entrepots() {
                           size="sm"
                           onClick={() => handleDeleteStock(item.produit_id)}
                         >
-                          Supprimer
+                          {t('supprimer')}
                         </Button>
                       </td>
                     </tr>
@@ -387,7 +386,7 @@ export default function Entrepots() {
 
             <div style={styles.modalActions}>
               <Button variant="secondary" onClick={() => setShowStockModal(false)}>
-                Fermer
+                {t('fermer') || 'Fermer'}
               </Button>
             </div>
           </div>
@@ -451,10 +450,6 @@ const styles = {
     boxSizing: 'border-box',
     outline: 'none',
     transition: 'all 0.2s ease',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
   },
   input: {
     padding: '10px 14px',
@@ -464,10 +459,6 @@ const styles = {
     backgroundColor: '#F8FAFC',
     outline: 'none',
     transition: 'all 0.2s ease',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
   },
   modalOverlay: {
     position: 'fixed',
