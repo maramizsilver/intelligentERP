@@ -38,7 +38,9 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "fix-login": "node scripts/fix-login-emails.js",
-   "fix-corrupted": "node scripts/fix-corrupted-data.js"
+   "fix-corrupted": "node scripts/fix-corrupted-data.js",
+   "decrypt-users": "node scripts/decrypt-all-users.js",
+   "fix-names": "node scripts/fix-user-names.js"
   }
 }
 

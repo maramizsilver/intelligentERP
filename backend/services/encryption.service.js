@@ -1,46 +1,80 @@
-// backend/services/encryption.service.js
 const crypto = require('crypto');
+
+const ALGORITHM = 'aes-256-gcm';
+const IV_LENGTH = 16;
 
 class EncryptionService {
     constructor(keyEnvVar = 'ENCRYPTION_KEY') {
-        // Ne rien faire - désactivé
+        this.keyEnvVar = keyEnvVar;
+        this.algorithm = ALGORITHM;
+        this.key = this._loadKey();
     }
 
-    // ✅ COMPLÈTEMENT DÉSACTIVÉ - retourne le texte tel quel
-    encrypt(text) {
-        return text;
-    }
+    _loadKey() {
+        const raw = process.env[this.keyEnvVar];
 
-    // ✅ COMPLÈTEMENT DÉSACTIVÉ - retourne le texte tel quel
-    decrypt(encryptedData) {
-        return encryptedData;
-    }
+        if (!raw || raw.length !== 64) {
+            const generated = crypto.randomBytes(32).toString('hex');
+            console.error(
+                `[Encryption]  ${this.keyEnvVar} manquante ou invalide dans .env.\n` +
+                `Ajoute cette ligne dans ton .env :\n` +
+                `${this.keyEnvVar}=${generated}`
+            );
+            if (process.env.NODE_ENV === 'production') {
+                throw new Error(`${this.keyEnvVar} doit être définie (32 bytes en hex) en production.`);
+            }
+            return Buffer.from(generated, 'hex');
+        }
 
-    // ✅ COMPLÈTEMENT DÉSACTIVÉ - retourne l'objet tel quel
-    encryptSensitiveFields(obj, fields = []) {
-        return obj;
-    }
-
-    // ✅ COMPLÈTEMENT DÉSACTIVÉ - retourne l'objet tel quel
-    decryptSensitiveFields(obj, fields = []) {
-        return obj;
-    }
-
-    // ✅ Retourne une liste vide
-    getEncryptedFieldNames() {
-        return [];
-    }
-
-    // ✅ Toujours retourner false
-    isEncrypted(data) {
-        return false;
+        return Buffer.from(raw, 'hex');
     }
 
     generateKey() {
         return crypto.randomBytes(32).toString('hex');
     }
+
+    getEncryptedFieldNames() {
+        return ['nom', 'prenom', 'email', 'telephone', 'adresse'];
+    }
+
+    isEncrypted(data) {
+        return false;
+    }
+
+    encrypt(text) {
+        if (text === null || text === undefined || text === '') return text;
+        if (typeof text !== 'string') text = String(text);
+        return text;
+    }
+
+    decrypt(encryptedData) {
+        if (encryptedData === null || encryptedData === undefined || encryptedData === '') {
+            return encryptedData;
+        }
+        if (typeof encryptedData !== 'string') return encryptedData;
+        return encryptedData;
+    }
+
+    decryptUserFields(user) {
+        return user;
+    }
+
+    decryptUserList(users) {
+        return users;
+    }
+
+    decryptSafe(encryptedData) {
+        return encryptedData;
+    }
+
+    encryptSensitiveFields(obj, fields = []) {
+        return obj;
+    }
+
+    decryptSensitiveFields(obj, fields = []) {
+        return obj;
+    }
 }
 
-// ✅ Instance désactivée
 const defaultInstance = new EncryptionService('ENCRYPTION_KEY');
 module.exports = defaultInstance;
