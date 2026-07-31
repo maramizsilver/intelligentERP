@@ -4,7 +4,6 @@ const notificationConfig = require('../config/notification.config');
 
 class NotificationService {
   constructor() {
-    // EMAIL
     this.emailTransporter = null;
     if (notificationConfig.email.auth.user && notificationConfig.email.auth.pass) {
       this.emailTransporter = nodemailer.createTransport({
@@ -21,7 +20,6 @@ class NotificationService {
       console.warn('[Notification] Email non configure');
     }
 
-    // TWILIO - WhatsApp
     this.twilioClient = null;
     const twilioAccountSid = notificationConfig.twilio?.accountSid;
     const twilioAuthToken = notificationConfig.twilio?.authToken;
@@ -39,15 +37,12 @@ class NotificationService {
       console.warn('[Notification] Twilio non configure');
     }
 
-    // CALLMEBOT - WhatsApp (Fallback gratuit)
     this.callmebotApiKey = notificationConfig.callmebot?.apiKey || process.env.CALLMEBOT_API_KEY;
     if (this.callmebotApiKey) {
       console.log('[Notification] CallMeBot configure');
     }
   }
 
-
-  // EMAIL
   async sendEmail({ to, subject, html, text }) {
     if (!this.emailTransporter) {
       console.warn('[Email] Email non configure');
@@ -71,9 +66,7 @@ class NotificationService {
     }
   }
 
-  // WHATSAPP - Twilio + CallMeBot (Fallback)
   async sendWhatsApp({ to, message }) {
-    // 1. Twilio Sandbox
     if (this.twilioClient) {
       try {
         const whatsappNumber = notificationConfig.twilio.whatsappNumber || '+14155238886';
@@ -94,7 +87,6 @@ class NotificationService {
       }
     }
 
-    // 2. CallMeBot (Fallback gratuit)
     if (this.callmebotApiKey) {
       try {
         const url = 'https://api.callmebot.com/whatsapp.php';
@@ -120,7 +112,6 @@ class NotificationService {
     return { success: false, error: 'Aucun service WhatsApp configure' };
   }
 
-  // METHODE UNIVERSELLE
   async send({
     to,
     subject,
@@ -161,7 +152,6 @@ class NotificationService {
     return results;
   }
 
-  // ALERTE DE CONNEXION
   async sendLoginAlert({
     user,
     entreprise,
@@ -170,39 +160,49 @@ class NotificationService {
     ip,
     userEmail,
     userPhone,
+    customData = {}
   }) {
     const date = new Date().toLocaleString('fr-FR');
     const message = `
 Nouvelle connexion detectee
 
-Utilisateur: ${user.nom} ${user.prenom}
+Utilisateur: ${user.nom || user.prenom || 'Utilisateur'} ${user.prenom || ''}
 Entreprise: ${entreprise?.nom || 'N/A'}
 Email: ${user.email}
 Date: ${date}
 
-Appareil: ${device?.device_type || 'Inconnu'}
-OS: ${device?.os || 'Inconnu'}
-Navigateur: ${device?.browser || 'Inconnu'}
-Localisation: ${location?.country || 'Inconnu'}${location?.city ? ` (${location.city})` : ''}
-IP: ${ip || 'Inconnu'}
+Appareil: ${device?.device_type || customData.device_type || 'Inconnu'}
+OS: ${device?.os || customData.os || 'Inconnu'}
+Version OS: ${device?.os_version || customData.os_version || 'N/A'}
+Navigateur: ${device?.browser || customData.browser || 'Inconnu'}
+Version Navigateur: ${device?.browser_version || customData.browser_version || 'N/A'}
+Localisation: ${location?.country || customData.location || 'Inconnu'}${location?.city ? ` (${location.city})` : ''}
+IP: ${ip || customData.ip || 'Inconnu'}
+Resolution ecran: ${device?.screen_resolution || customData.screen_resolution || 'N/A'}
+Langue: ${device?.language || customData.language || 'N/A'}
 
-Si vous ne reconnaissez pas cette connexion, contactez votre administrateur.
+Si vous ne reconnaissez pas cette connexion, connectez-vous et signalez-la depuis vos sessions actives.
     `;
 
     const html = `
       <h2>Nouvelle connexion detectee</h2>
-      <p><strong>Utilisateur:</strong> ${user.nom} ${user.prenom}</p>
+      <p><strong>Utilisateur:</strong> ${user.nom || user.prenom || 'Utilisateur'} ${user.prenom || ''}</p>
       <p><strong>Entreprise:</strong> ${entreprise?.nom || 'N/A'}</p>
       <p><strong>Email:</strong> ${user.email}</p>
       <p><strong>Date:</strong> ${date}</p>
       <hr>
-      <p><strong>Appareil:</strong> ${device?.device_type || 'Inconnu'}</p>
-      <p><strong>OS:</strong> ${device?.os || 'Inconnu'}</p>
-      <p><strong>Navigateur:</strong> ${device?.browser || 'Inconnu'}</p>
-      <p><strong>Localisation:</strong> ${location?.country || 'Inconnu'}${location?.city ? ` (${location.city})` : ''}</p>
-      <p><strong>IP:</strong> ${ip || 'Inconnu'}</p>
+      <p><strong>Appareil:</strong> ${device?.device_type || customData.device_type || 'Inconnu'}</p>
+      <p><strong>OS:</strong> ${device?.os || customData.os || 'Inconnu'}</p>
+      <p><strong>Version OS:</strong> ${device?.os_version || customData.os_version || 'N/A'}</p>
+      <p><strong>Navigateur:</strong> ${device?.browser || customData.browser || 'Inconnu'}</p>
+      <p><strong>Version Navigateur:</strong> ${device?.browser_version || customData.browser_version || 'N/A'}</p>
+      <p><strong>Localisation:</strong> ${location?.country || customData.location || 'Inconnu'}${location?.city ? ` (${location.city})` : ''}</p>
+      <p><strong>IP:</strong> ${ip || customData.ip || 'Inconnu'}</p>
+      <p><strong>Resolution ecran:</strong> ${device?.screen_resolution || customData.screen_resolution || 'N/A'}</p>
+      <p><strong>Langue:</strong> ${device?.language || customData.language || 'N/A'}</p>
       <hr>
-      <p style="color:red;"><strong>Si vous ne reconnaissez pas cette connexion, contactez votre administrateur.</strong></p>
+      <p style="color:red;"><strong>Si vous ne reconnaissez pas cette connexion, connectez-vous et signalez-la depuis vos sessions actives.</strong></p>
+      <p><a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/account/sessions">Gerer mes sessions</a></p>
     `;
 
     const channels = ['email'];

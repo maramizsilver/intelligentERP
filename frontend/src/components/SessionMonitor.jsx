@@ -8,13 +8,16 @@ export default function SessionMonitor({ children }) {
   const [activeSessions, setActiveSessions] = useState(0);
   const [showAlert, setShowAlert] = useState(false);
   const [sessionDetails, setSessionDetails] = useState([]);
+  const [allSessions, setAllSessions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!user || user.is_super_admin) return;
 
     const checkSessions = async () => {
       try {
-        const res = await API.get('/auth/sessions/active');
+        const res = await API.get('/auth/sessions/active-detailed');
         const sessions = res.data.sessions?.filter(s => s.is_active) || [];
         const count = sessions.length;
         
@@ -24,6 +27,7 @@ export default function SessionMonitor({ children }) {
           setTimeout(() => setShowAlert(false), 5000);
         }
         setActiveSessions(count);
+        setAllSessions(sessions);
       } catch (err) {
         console.error('Erreur verification sessions:', err);
       }
@@ -37,12 +41,88 @@ export default function SessionMonitor({ children }) {
 
   const handleRevokeOtherSessions = async () => {
     try {
+      setLoading(true);
       await API.post('/auth/sessions/revoke-others');
       setShowAlert(false);
       setActiveSessions(1);
+      const res = await API.get('/auth/sessions/active-detailed');
+      setAllSessions(res.data.sessions?.filter(s => s.is_active) || []);
     } catch (err) {
+      setError('Erreur lors de la revocation');
       console.error('Erreur revocation sessions:', err);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleReportSession = async (sessionId, lockAccount = false) => {
+    const confirmMessage = lockAccount 
+      ? 'Voulez-vous signaler cette session et verrouiller votre compte ?'
+      : 'Voulez-vous signaler cette session comme suspecte ?';
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await API.post(`/auth/sessions/${sessionId}/report`, {
+        reason: 'Connexion suspecte - non reconnue par l\'utilisateur',
+        lock_account: lockAccount
+      });
+      
+      if (lockAccount) {
+        logout();
+        window.location.href = '/login?locked=true';
+        return;
+      }
+      
+      const res = await API.get('/auth/sessions/active-detailed');
+      setAllSessions(res.data.sessions?.filter(s => s.is_active) || []);
+    } catch (err) {
+      setError('Erreur lors du signalement');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLockAccount = async () => {
+    if (!window.confirm('Voulez-vous verrouiller votre compte ? Toutes vos sessions seront deconnectees.')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await API.post('/auth/account/lock', {
+        reason: 'Verrouillage volontaire par l\'utilisateur'
+      });
+      logout();
+      window.location.href = '/login?locked=true';
+    } catch (err) {
+      setError('Erreur lors du verrouillage');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getDeviceIcon = (deviceType) => {
+    switch (deviceType) {
+      case 'mobile': return 'M';
+      case 'tablet': return 'T';
+      default: return 'D';
+    }
+  };
+
+  const formatDate = (date) => {
+    return new Date(date).toLocaleString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   return (
@@ -50,7 +130,7 @@ export default function SessionMonitor({ children }) {
       {showAlert && (
         <div style={styles.alert}>
           <div style={styles.alertContent}>
-            <span style={styles.alertIcon}>🔐</span>
+            <span style={styles.alertIcon}>S</span>
             <div style={styles.alertMessage}>
               <strong>{activeSessions} sessions actives detectees</strong>
               <span style={styles.alertDetail}>
@@ -74,6 +154,7 @@ export default function SessionMonitor({ children }) {
                 variant="danger" 
                 size="sm" 
                 onClick={handleRevokeOtherSessions}
+                disabled={loading}
               >
                 Deconnecter les autres
               </Button>
@@ -88,6 +169,14 @@ export default function SessionMonitor({ children }) {
           </div>
         </div>
       )}
+
+      {error && (
+        <div style={styles.errorContainer}>
+          <span style={styles.errorText}>{error}</span>
+          <button onClick={() => setError('')} style={styles.closeError}>X</button>
+        </div>
+      )}
+
       {children}
     </>
   );
@@ -150,4 +239,31 @@ const styles = {
     gap: '6px',
     flexShrink: 0,
   },
+  errorContainer: {
+    position: 'fixed',
+    bottom: '24px',
+    right: '24px',
+    zIndex: 9999,
+    backgroundColor: '#FEF2F2',
+    border: '1px solid #FECACA',
+    borderRadius: '12px',
+    padding: '16px 20px',
+    maxWidth: '400px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+  },
+  errorText: {
+    color: '#991B1B',
+    fontSize: '14px',
+  },
+  closeError: {
+    background: 'none',
+    border: 'none',
+    fontSize: '18px',
+    cursor: 'pointer',
+    color: '#991B1B',
+    padding: '0 0 0 12px',
+  }
 };

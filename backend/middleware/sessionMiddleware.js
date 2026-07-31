@@ -2,7 +2,6 @@ const SessionService = require('../services/session.service');
 
 module.exports = async (req, res, next) => {
     try {
-        // Ne pas vérifier pour les routes publiques
         if (req.path.includes('/auth/login') || 
             req.path.includes('/auth/register') || 
             req.path.includes('/auth/mfa')) {
@@ -14,10 +13,19 @@ module.exports = async (req, res, next) => {
             return next();
         }
 
-        // EXCLURE LE SUPERADMIN DE LA VERIFICATION DES SESSIONS
         if (user.is_super_admin) {
             console.log('[SESSION] SuperAdmin - Pas de verification de session');
             return next();
+        }
+
+        const accountLock = await SessionService.isAccountLocked(user.id);
+        if (accountLock.locked) {
+            return res.status(423).json({
+                message: 'Compte verrouille - contactez le support',
+                code: 'ACCOUNT_LOCKED',
+                reason: accountLock.reason,
+                expires_at: accountLock.expires_at
+            });
         }
 
         const token = req.headers.authorization?.split(' ')[1];
@@ -25,7 +33,6 @@ module.exports = async (req, res, next) => {
             return next();
         }
 
-        // Verifier si la session existe et est active (dans la MASTER)
         const hasSession = await SessionService.hasActiveSession(user.id, token);
         
         if (!hasSession) {
@@ -36,7 +43,6 @@ module.exports = async (req, res, next) => {
             });
         }
 
-        // Mettre à jour la derniere activite
         await SessionService.updateSessionActivity(user.id, token);
 
         next();
