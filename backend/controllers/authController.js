@@ -165,9 +165,12 @@ exports.login = async (req, res) => {
     const cleanEmail = email.trim().toLowerCase();
 
     try {
+        console.log('[LOGIN] Tentative de connexion pour:', cleanEmail);
+        
         const user = await findUserByEmail(cleanEmail);
 
         if (!user) {
+            console.log('[LOGIN] Utilisateur non trouve');
             await db.promisePoolMaster.query(
                 `INSERT INTO audit_connexions 
                  (utilisateur_id, email, ip, user_agent, status, created_at) 
@@ -177,7 +180,10 @@ exports.login = async (req, res) => {
             return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
         }
 
+        console.log('[LOGIN] Utilisateur trouve ID:', user.id);
+
         if (user.is_super_admin) {
+            console.log('[LOGIN] SuperAdmin - Verification mot de passe');
             const isMatch = await bcrypt.compare(password, user.password);
             if (!isMatch) {
                 await db.promisePoolMaster.query(
@@ -227,7 +233,7 @@ exports.login = async (req, res) => {
         }
 
         if (!user.entreprise_id || !user.db_name) {
-            console.error('Configuration utilisateur incomplete:', {
+            console.error('[LOGIN] Configuration utilisateur incomplete:', {
                 user_id: user.id,
                 email: user.email,
                 entreprise_id: user.entreprise_id,
@@ -239,6 +245,7 @@ exports.login = async (req, res) => {
         }
 
         if (user.locked_until && new Date(user.locked_until) > new Date()) {
+            console.log('[LOGIN] Compte bloque jusqu\'a:', user.locked_until);
             return res.status(403).json({
                 message: 'Compte bloque. Reessayez plus tard.',
                 locked_until: user.locked_until,
@@ -246,10 +253,26 @@ exports.login = async (req, res) => {
             });
         }
 
+        // ============================================
+        // VERIFICATION DU VERROUILLAGE DE COMPTE
+        // ============================================
+        console.log('[LOGIN] Verification du verrouillage de compte pour user:', user.id);
+        const accountLock = await SessionService.isAccountLocked(user.id);
+        if (accountLock.locked) {
+            console.log('[LOGIN] ERREUR: Compte verrouille pour user:', user.id);
+            return res.status(423).json({
+                message: 'Compte verrouille pour des raisons de securite. Contactez le support.',
+                code: 'ACCOUNT_LOCKED',
+                reason: accountLock.reason,
+                expires_at: accountLock.expires_at
+            });
+        }
+
         const clientPool = db.getClientPool(user.entreprise_id, user.db_name);
         const tenantUser = await findTenantUserByEmail(clientPool, cleanEmail);
 
         if (!tenantUser) {
+            console.log('[LOGIN] Utilisateur tenant non trouve');
             await db.promisePoolMaster.query(
                 `INSERT INTO audit_connexions 
                  (utilisateur_id, email, ip, user_agent, status, created_at) 
@@ -259,9 +282,12 @@ exports.login = async (req, res) => {
             return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
         }
 
+        console.log('[LOGIN] Utilisateur tenant trouve ID:', tenantUser.id);
+
         const isMatch = await bcrypt.compare(password, tenantUser.password);
         
         if (!isMatch) {
+            console.log('[LOGIN] Mot de passe incorrect');
             const attempts = (tenantUser.login_attempts || 0) + 1;
             let lockedUntil = null;
             let remainingAttempts = 5 - attempts;
@@ -269,6 +295,7 @@ exports.login = async (req, res) => {
             if (attempts >= 5) {
                 lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
                 remainingAttempts = 0;
+                console.log('[LOGIN] Compte bloque apres 5 tentatives');
             }
             
             await clientPool.promise().query(
@@ -291,6 +318,8 @@ exports.login = async (req, res) => {
             });
         }
 
+        console.log('[LOGIN] Mot de passe correct');
+
         await clientPool.promise().query(
             'UPDATE users SET login_attempts = 0, locked_until = NULL, last_login = NOW() WHERE id = ?',
             [tenantUser.id]
@@ -309,6 +338,7 @@ exports.login = async (req, res) => {
         }
 
         if (mfaEnabled) {
+            console.log('[LOGIN] MFA active pour l\'utilisateur');
             const [lockRows] = await clientPool.promise().query(
                 'SELECT mfa_locked_until FROM users WHERE id = ?',
                 [tenantUser.id]
@@ -351,6 +381,7 @@ exports.login = async (req, res) => {
         }
 
         if (user.entreprise_statut !== 'actif') {
+            console.log('[LOGIN] Entreprise non active:', user.entreprise_statut);
             return res.status(403).json({
                 message: user.entreprise_statut === 'en_attente'
                     ? 'Votre entreprise est en attente de validation'
@@ -398,15 +429,19 @@ exports.login = async (req, res) => {
             { expiresIn: '24h' }
         );
 
+        console.log('[LOGIN] Token JWT genere');
+
         try {
             const clientPoolSession = db.getClientPool(user.entreprise_id, user.db_name);
+            console.log('[LOGIN] Enregistrement de la connexion...');
             const result = await SessionService.recordConnection(
-            clientPoolSession,
-            { id: user.id },
-            token,
-            req,
-            req.body.device_info || {}  
+                clientPoolSession,
+                { id: user.id },
+                token,
+                req,
+                req.body.device_info || {}  
             );
+            console.log('[LOGIN] Connexion enregistree - Session ID:', result.sessionId);
             if (result.previousSessionCount > 0) {
                 console.log('[SESSION] ' + user.email + ' - ' + result.previousSessionCount + ' ancienne(s) session(s) deconnectee(s)');
             }
@@ -442,6 +477,7 @@ exports.login = async (req, res) => {
             mfa_enabled: mfaEnabled
         };
 
+        console.log('[LOGIN] Connexion reussie pour:', cleanEmail);
         res.json({
             message: 'Connexion reussie',
             messageEssai,
@@ -450,7 +486,7 @@ exports.login = async (req, res) => {
         });
 
     } catch (err) {
-        console.error('Erreur login:', err);
+        console.error('[LOGIN] Erreur:', err);
         res.status(500).json({ message: 'Erreur serveur' });
     }
 };
@@ -841,7 +877,6 @@ exports.revokeOtherSessions = async (req, res) => {
         res.status(500).json({ message: 'Erreur serveur' });
     }
 };
-// Ajouter après la fonction revokeOtherSessions existante
 
 exports.reportUnknownSession = async (req, res) => {
     try {
