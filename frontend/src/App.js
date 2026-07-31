@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider } from './context/LanguageContext';
 import Layout from './components/layout/Layout';
 import PrivateRoute from './components/PrivateRoute';
+import SessionMonitor from './components/SessionMonitor';
 
 // Pages
 import Login from './pages/auth/Login';
@@ -78,6 +79,7 @@ function AppRoutes() {
   const { user } = useAuth();
 
   return (
+    <SessionMonitor>
     <Routes>
       <Route path="/" element={<Login />} />
       <Route path="/register" element={<Register />} />
@@ -252,6 +254,7 @@ function AppRoutes() {
 
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
+    </SessionMonitor>
   );
 }
 
