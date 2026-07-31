@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 
+const authController = require('../controllers/authController');
+
 const {
   registerEntreprise,
   login,
@@ -38,6 +40,7 @@ const {
 } = require('../middleware/rateLimit.middleware');
 const { csrfProtection } = require('../middleware/security.middleware');
 
+// Routes d'authentification
 router.post('/register-entreprise', registerLimiter, csrfProtection, registerEntreprise);
 router.post('/login', loginLimiter, csrfProtection, login);
 
@@ -89,6 +92,7 @@ router.delete('/users/:id',
   deleteUser
 );
 
+// Routes MFA
 router.get('/mfa/status',
   authMiddleware,
   tenantMiddleware,
@@ -142,6 +146,44 @@ router.post('/mfa/dismiss-banner',
   authMiddleware,
   tenantMiddleware,
   dismissMFABanner
+);
+
+
+
+// Récupérer toutes les sessions actives avec détails
+router.get('/sessions/active-detailed',
+  authMiddleware,
+  authController.getActiveSessionsDetailed
+);
+
+// Déconnecter toutes les autres sessions
+router.post('/sessions/revoke-others',
+  authMiddleware,
+  authController.revokeOtherSessionsExtended
+);
+
+// Signaler une session suspecte
+router.post('/sessions/:sessionId/report',
+  authMiddleware,
+  authController.reportUnknownSession
+);
+
+// Verrouiller volontairement son compte
+router.post('/account/lock',
+  authMiddleware,
+  authController.lockMyAccount
+);
+
+// Déverrouiller un compte (Super Admin uniquement)
+router.post('/account/unlock/:userId',
+  authMiddleware,
+  authController.unlockAccount
+);
+
+// Route existante pour les sessions actives (gardée pour compatibilité)
+router.get('/sessions/active',
+  authMiddleware,
+  authController.getActiveSessions
 );
 
 module.exports = router;

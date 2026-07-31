@@ -1,8 +1,8 @@
-// frontend/src/pages/auth/Login.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import API from '../../utils/api';
+import { collectDeviceInfo } from '../../utils/deviceFingerprint';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -18,7 +18,14 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const res = await API.post('/auth/login', { email, password });
+      const deviceInfo = collectDeviceInfo();
+      console.log('Device Info:', deviceInfo);
+
+      const res = await API.post('/auth/login', {
+        email,
+        password,
+        device_info: deviceInfo
+      });
       const { user, token } = res.data;
       login(user, token);
 
@@ -28,7 +35,11 @@ export default function Login() {
       else if (user.essai_expire) redirectPath = '/essai-expire';
       navigate(redirectPath);
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur de connexion');
+      if (err.response?.status === 423 || err.response?.data?.code === 'ACCOUNT_LOCKED') {
+        setError(err.response?.data?.message || 'Compte verrouille pour raisons de securite.');
+      } else {
+        setError(err.response?.data?.message || 'Erreur de connexion');
+      }
     } finally {
       setLoading(false);
     }

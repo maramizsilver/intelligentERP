@@ -37,14 +37,38 @@ class EncryptionService {
         return ['nom', 'prenom', 'email', 'telephone', 'adresse'];
     }
 
+    // Une valeur chiffrée par ce service a toujours la forme "ivHex:tagHex:cipherHex"
     isEncrypted(data) {
-        return false;
+        if (!data || typeof data !== 'string') return false;
+        const parts = data.split(':');
+        if (parts.length !== 3) return false;
+        const [ivHex, tagHex] = parts;
+        return (
+            ivHex.length === IV_LENGTH * 2 &&
+            tagHex.length === 32 &&
+            /^[0-9a-f]+$/i.test(ivHex) &&
+            /^[0-9a-f]+$/i.test(tagHex)
+        );
     }
 
     encrypt(text) {
         if (text === null || text === undefined || text === '') return text;
         if (typeof text !== 'string') text = String(text);
-        return text;
+
+        // Evite de re-chiffrer une valeur déjà chiffrée (double chiffrement = perte de données)
+        if (this.isEncrypted(text)) return text;
+
+        try {
+            const iv = crypto.randomBytes(IV_LENGTH);
+            const cipher = crypto.createCipheriv(this.algorithm, this.key, iv);
+            let encrypted = cipher.update(text, 'utf8', 'hex');
+            encrypted += cipher.final('hex');
+            const authTag = cipher.getAuthTag().toString('hex');
+            return iv.toString('hex') + ':' + authTag + ':' + encrypted;
+        } catch (err) {
+            console.error('[Encryption] Erreur chiffrement:', err.message);
+            throw err;
+        }
     }
 
     decrypt(encryptedData) {
@@ -52,27 +76,64 @@ class EncryptionService {
             return encryptedData;
         }
         if (typeof encryptedData !== 'string') return encryptedData;
-        return encryptedData;
+
+        // Si ce n'est pas dans notre format chiffré, on renvoie tel quel
+        // (ex: anciennes données en clair pas encore migrées)
+        if (!this.isEncrypted(encryptedData)) return encryptedData;
+
+        try {
+            const [ivHex, authTagHex, cipherHex] = encryptedData.split(':');
+            const iv = Buffer.from(ivHex, 'hex');
+            const decipher = crypto.createDecipheriv(this.algorithm, this.key, iv);
+            decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
+            let decrypted = decipher.update(cipherHex, 'hex', 'utf8');
+            decrypted += decipher.final('utf8');
+            return decrypted;
+        } catch (err) {
+            console.error('[Encryption] Erreur dechiffrement:', err.message);
+            // On ne casse pas l'affichage : on renvoie la valeur brute plutôt qu'une exception
+            return encryptedData;
+        }
     }
 
     decryptUserFields(user) {
-        return user;
+        if (!user) return user;
+        return this.decryptSensitiveFields(user, this.getEncryptedFieldNames());
     }
 
     decryptUserList(users) {
-        return users;
+        if (!Array.isArray(users)) return users;
+        return users.map(u => this.decryptUserFields(u));
     }
 
     decryptSafe(encryptedData) {
-        return encryptedData;
+        try {
+            return this.decrypt(encryptedData);
+        } catch (err) {
+            return encryptedData;
+        }
     }
 
     encryptSensitiveFields(obj, fields = []) {
-        return obj;
+        if (!obj || typeof obj !== 'object') return obj;
+        const result = { ...obj };
+        fields.forEach(field => {
+            if (result[field] !== undefined && result[field] !== null && result[field] !== '') {
+                result[field] = this.encrypt(result[field]);
+            }
+        });
+        return result;
     }
 
     decryptSensitiveFields(obj, fields = []) {
-        return obj;
+        if (!obj || typeof obj !== 'object') return obj;
+        const result = { ...obj };
+        fields.forEach(field => {
+            if (result[field] !== undefined && result[field] !== null) {
+                result[field] = this.decrypt(result[field]);
+            }
+        });
+        return result;
     }
 }
 

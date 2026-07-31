@@ -401,10 +401,11 @@ exports.login = async (req, res) => {
         try {
             const clientPoolSession = db.getClientPool(user.entreprise_id, user.db_name);
             const result = await SessionService.recordConnection(
-                clientPoolSession,
-                { id: user.id },
-                token,
-                req
+            clientPoolSession,
+            { id: user.id },
+            token,
+            req,
+            req.body.device_info || {}  
             );
             if (result.previousSessionCount > 0) {
                 console.log('[SESSION] ' + user.email + ' - ' + result.previousSessionCount + ' ancienne(s) session(s) deconnectee(s)');
@@ -840,6 +841,78 @@ exports.revokeOtherSessions = async (req, res) => {
         res.status(500).json({ message: 'Erreur serveur' });
     }
 };
+// Ajouter après la fonction revokeOtherSessions existante
+
+exports.reportUnknownSession = async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const { reason, lock_account = true } = req.body;
+
+        const result = await SessionService.reportUnknownSession(
+            req.user.id,
+            sessionId,
+            reason || 'Connexion suspecte - non reconnue par l\'utilisateur',
+            lock_account
+        );
+
+        res.json({
+            message: result.locked ? 'Connexion signalee, compte verrouille.' : 'Connexion signalee.',
+            ...result
+        });
+    } catch (error) {
+        console.error('Erreur reportUnknownSession:', error);
+        res.status(500).json({ message: 'Erreur lors du signalement' });
+    }
+};
+
+exports.lockMyAccount = async (req, res) => {
+    try {
+        await SessionService.lockAccount(
+            req.user.id,
+            req.body.reason || "Verrouillage volontaire par l'utilisateur"
+        );
+        res.json({ message: 'Compte verrouille avec succes.' });
+    } catch (error) {
+        console.error('Erreur lockMyAccount:', error);
+        res.status(500).json({ message: 'Erreur lors du verrouillage' });
+    }
+};
+
+exports.unlockAccount = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        await SessionService.unlockAccount(userId);
+        res.json({ message: 'Compte deverrouille avec succes.' });
+    } catch (error) {
+        console.error('Erreur unlockAccount:', error);
+        res.status(500).json({ message: 'Erreur lors du deverrouillage' });
+    }
+};
+
+exports.getActiveSessionsDetailed = async (req, res) => {
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+        const sessions = await SessionService.getUserSessionsWithCurrent(req.user.id, token);
+        res.json({ sessions });
+    } catch (error) {
+        console.error('Erreur getActiveSessionsDetailed:', error);
+        res.status(500).json({ message: 'Erreur lors de la recuperation des sessions' });
+    }
+};
+
+exports.revokeOtherSessionsExtended = async (req, res) => {
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+        const count = await SessionService.revokeOtherSessions(req.user.id, token);
+        res.json({
+            message: 'Autres sessions deconnectees avec succes',
+            revoked: count
+        });
+    } catch (error) {
+        console.error('Erreur revokeOtherSessionsExtended:', error);
+        res.status(500).json({ message: 'Erreur lors de la revocation des sessions' });
+    }
+};
 
 module.exports = {
     registerEntreprise: exports.registerEntreprise,
@@ -855,5 +928,10 @@ module.exports = {
     deleteUser: exports.deleteUser,
     getUserStats: exports.getUserStats,
     getActiveSessions: exports.getActiveSessions,
-    revokeOtherSessions: exports.revokeOtherSessions
+    revokeOtherSessions: exports.revokeOtherSessions,
+    reportUnknownSession: exports.reportUnknownSession,
+    lockMyAccount: exports.lockMyAccount,
+    unlockAccount: exports.unlockAccount,
+    getActiveSessionsDetailed: exports.getActiveSessionsDetailed,
+    revokeOtherSessionsExtended: exports.revokeOtherSessionsExtended
 };
