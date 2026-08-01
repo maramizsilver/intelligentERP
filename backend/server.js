@@ -87,7 +87,9 @@ const protectedRoutes = [
     { path: '/api/finance', route: './routes/financeRoutes' },
     { path: '/api/calculateur', route: './routes/calculateurRoutes' },
     { path: '/api/admin/taux-reference', route: './routes/tauxReferenceAdminRoutes' },
-    { path: '/api/audit', route: './routes/auditRoutes' }
+    { path: '/api/audit', route: './routes/auditRoutes' },
+    { path: '/api/documents-intelligents', route: './routes/documentIntelligenceRoutes' },
+
 ];
 
 protectedRoutes.forEach(({ path, route }) => {

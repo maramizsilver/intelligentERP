@@ -1,4 +1,3 @@
-// backend/services/session.service.js
 const crypto = require('crypto');
 const db = require('../config/db');
 const NotificationService = require('./notification.service');
@@ -275,9 +274,8 @@ class SessionService {
 
     static async recordConnection(clientPool, user, token, req, clientInfo = {}) {
         try {
-            console.log('[SESSION] ====================================');
             console.log('[SESSION] recordConnection - Debut');
-            console.log('[SESSION] ====================================');
+         
             
             const deviceInfo = this.extractDeviceInfo(req, clientInfo);
             deviceInfo.ip_address = req.ip || req.connection.remoteAddress || '0.0.0.0';

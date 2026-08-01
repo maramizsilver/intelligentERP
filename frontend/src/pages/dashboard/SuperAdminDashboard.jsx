@@ -17,6 +17,11 @@ export default function SuperAdminDashboard() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [busyId, setBusyId] = useState(null);
+  
+  // État pour le déverrouillage
+  const [unlockUserId, setUnlockUserId] = useState('');
+  const [unlockLoading, setUnlockLoading] = useState(false);
+  const [unlockMessage, setUnlockMessage] = useState('');
 
   useEffect(() => { load(); }, []);
 
@@ -92,6 +97,30 @@ export default function SuperAdminDashboard() {
       setTimeout(() => setError(''), 3000);
     } finally {
       setBusyId(null);
+    }
+  };
+
+  // Fonction de déverrouillage
+  const handleUnlockAccount = async () => {
+    if (!unlockUserId) {
+      setUnlockMessage('❌ Veuillez entrer un ID utilisateur');
+      return;
+    }
+
+    if (!window.confirm(`Voulez-vous déverrouiller le compte utilisateur ${unlockUserId} ?`)) {
+      return;
+    }
+
+    setUnlockLoading(true);
+    setUnlockMessage('');
+    try {
+      await API.post(`/auth/account/unlock/${unlockUserId}`);
+      setUnlockMessage(`✅ Compte ${unlockUserId} déverrouillé avec succès`);
+      setUnlockUserId('');
+    } catch (err) {
+      setUnlockMessage(`❌ Erreur: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setUnlockLoading(false);
     }
   };
 
@@ -212,7 +241,55 @@ export default function SuperAdminDashboard() {
           <span style={styles.statNumber}>{compteurs.suspendu || 0}</span>
           <span style={styles.statLabel}>Suspendues</span>
         </div>
+        <div style={{ ...styles.statCard, borderLeft: '4px solid #8B5CF6' }}>
+          <span style={styles.statNumber}>{entreprises.length}</span>
+          <span style={styles.statLabel}>Total entreprises</span>
+        </div>
       </div>
+
+      {/* SECTION DE DÉVERROUILLAGE - AJOUTÉE */}
+      <Card title="🔓 Déverrouiller un compte" variant="primary">
+        <div style={styles.unlockContainer}>
+          <div style={styles.unlockRow}>
+            <div style={styles.unlockInputGroup}>
+              <label style={styles.unlockLabel}>ID Utilisateur :</label>
+              <input
+                type="number"
+                value={unlockUserId}
+                onChange={(e) => setUnlockUserId(e.target.value)}
+                placeholder="Entrez l'ID de l'utilisateur"
+                style={styles.unlockInput}
+                disabled={unlockLoading}
+              />
+            </div>
+            <button
+              onClick={handleUnlockAccount}
+              disabled={unlockLoading || !unlockUserId}
+              style={{
+                ...styles.unlockButton,
+                opacity: (unlockLoading || !unlockUserId) ? 0.6 : 1,
+                cursor: (unlockLoading || !unlockUserId) ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {unlockLoading ? 'Déverrouillage...' : '🔓 Déverrouiller'}
+            </button>
+          </div>
+          {unlockMessage && (
+            <div style={{
+              ...styles.unlockMessage,
+              backgroundColor: unlockMessage.includes('✅') ? '#D1FAE5' : '#FEE2E2',
+              color: unlockMessage.includes('✅') ? '#065F46' : '#991B1B',
+            }}>
+              {unlockMessage}
+            </div>
+          )}
+          <div style={styles.unlockHelp}>
+            <small style={styles.unlockHelpText}>
+              💡 Astuce : Pour connaître l'ID d'un utilisateur, allez dans "Sessions" ou vérifiez dans la base de données.
+            </small>
+          </div>
+        </div>
+      </Card>
 
       <Card title="Liste des entreprises" variant="primary">
         <Table
@@ -305,5 +382,64 @@ const styles = {
     color: '#64748B',
     fontSize: '13px',
     marginTop: '4px',
+  },
+  // Styles pour le déverrouillage
+  unlockContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+  unlockRow: {
+    display: 'flex',
+    gap: '12px',
+    alignItems: 'flex-end',
+    flexWrap: 'wrap',
+  },
+  unlockInputGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    flex: 1,
+    minWidth: '200px',
+  },
+  unlockLabel: {
+    fontSize: '13px',
+    fontWeight: 500,
+    color: '#334155',
+  },
+  unlockInput: {
+    padding: '8px 12px',
+    borderRadius: '6px',
+    border: '1px solid #E2E8F0',
+    fontSize: '14px',
+    outline: 'none',
+    transition: 'all 0.2s ease',
+    width: '100%',
+    boxSizing: 'border-box',
+  },
+  unlockButton: {
+    padding: '8px 20px',
+    backgroundColor: '#0EA5E9',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    fontSize: '14px',
+    fontWeight: 500,
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    whiteSpace: 'nowrap',
+    height: '38px',
+  },
+  unlockMessage: {
+    padding: '10px 14px',
+    borderRadius: '6px',
+    fontSize: '14px',
+  },
+  unlockHelp: {
+    padding: '8px 0',
+  },
+  unlockHelpText: {
+    color: '#94A3B8',
+    fontSize: '12px',
   },
 };

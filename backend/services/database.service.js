@@ -82,7 +82,16 @@ const INITIAL_SCHEMA = [
     mfa_locked_until TIMESTAMP NULL DEFAULT NULL,
     mfa_temp_secret VARCHAR(255) DEFAULT NULL,
     mfa_banner_dismissed BOOLEAN DEFAULT FALSE,
-    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE SET NULL
+    telephone VARCHAR(20) DEFAULT NULL,
+    matricule VARCHAR(50) DEFAULT NULL,
+    fonction VARCHAR(100) DEFAULT NULL,
+    service VARCHAR(100) DEFAULT NULL,
+    actif BOOLEAN DEFAULT TRUE,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE SET NULL,
+    INDEX idx_users_telephone (telephone),
+    INDEX idx_users_matricule (matricule),
+    INDEX idx_users_email (email)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS sequences (
@@ -94,36 +103,95 @@ const INITIAL_SCHEMA = [
     INDEX idx_entreprise (entreprise_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-`CREATE TABLE IF NOT EXISTS clients (
+  `CREATE TABLE IF NOT EXISTS clients (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nom VARCHAR(500) NOT NULL,
+    prenom VARCHAR(100) DEFAULT NULL,
+    raison_sociale VARCHAR(255) DEFAULT NULL,
     email VARCHAR(500) DEFAULT NULL,
     telephone VARCHAR(500) DEFAULT NULL,
-    adresse TEXT DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+    adresse TEXT DEFAULT NULL,
+    ville VARCHAR(100) DEFAULT NULL,
+    code_postal VARCHAR(20) DEFAULT NULL,
+    pays VARCHAR(100) DEFAULT 'Tunisie',
+    matricule_fiscal VARCHAR(50) DEFAULT NULL,
+    numero_cin VARCHAR(20) DEFAULT NULL,
+    type_client ENUM('particulier','entreprise','association') DEFAULT 'particulier',
+    notes TEXT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_clients_email (email),
+    INDEX idx_clients_telephone (telephone),
+    INDEX idx_clients_matricule_fiscal (matricule_fiscal),
+    INDEX idx_clients_numero_cin (numero_cin),
+    INDEX idx_clients_nom_prenom (nom, prenom)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-`CREATE TABLE IF NOT EXISTS fournisseurs (
+  `CREATE TABLE IF NOT EXISTS fournisseurs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nom VARCHAR(500) NOT NULL,
+    raison_sociale VARCHAR(255) DEFAULT NULL,
     email VARCHAR(500) DEFAULT NULL,
     telephone VARCHAR(500) DEFAULT NULL,
-    adresse TEXT DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+    adresse TEXT DEFAULT NULL,
+    ville VARCHAR(100) DEFAULT NULL,
+    code_postal VARCHAR(20) DEFAULT NULL,
+    pays VARCHAR(100) DEFAULT 'Tunisie',
+    matricule_fiscal VARCHAR(50) DEFAULT NULL,
+    numero_tva VARCHAR(50) DEFAULT NULL,
+    rib VARCHAR(50) DEFAULT NULL,
+    notes TEXT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_fournisseurs_email (email),
+    INDEX idx_fournisseurs_telephone (telephone),
+    INDEX idx_fournisseurs_matricule_fiscal (matricule_fiscal)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
   `CREATE TABLE IF NOT EXISTS produits (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nom VARCHAR(255) NOT NULL,
     description TEXT DEFAULT NULL,
+    reference VARCHAR(100) DEFAULT NULL,
+    code_barre VARCHAR(50) DEFAULT NULL,
     prix DECIMAL(12,2) NOT NULL DEFAULT 0,
-    quantite_stock INT NOT NULL DEFAULT 0
+    prix_achat DECIMAL(12,3) DEFAULT NULL,
+    prix_vente DECIMAL(12,3) DEFAULT NULL,
+    prix_unitaire_ht DECIMAL(12,3) DEFAULT NULL,
+    tva DECIMAL(5,2) DEFAULT 0.00,
+    unite VARCHAR(20) DEFAULT 'unité',
+    categorie VARCHAR(100) DEFAULT NULL,
+    fournisseur_id INT DEFAULT NULL,
+    quantite_stock INT NOT NULL DEFAULT 0,
+    seuil_alerte INT DEFAULT 5,
+    actif BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_produits_reference (reference),
+    INDEX idx_produits_code_barre (code_barre),
+    INDEX idx_produits_categorie (categorie),
+    INDEX idx_produits_fournisseur_id (fournisseur_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS commandes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     client_id INT NOT NULL,
+    numero_commande VARCHAR(50) DEFAULT NULL,
+    reference VARCHAR(100) DEFAULT NULL,
     date_commande DATETIME DEFAULT CURRENT_TIMESTAMP,
     total DECIMAL(12,2) DEFAULT 0,
+    montant_ht DECIMAL(12,2) DEFAULT 0.00,
+    montant_tva DECIMAL(12,2) DEFAULT 0.00,
+    total_ttc DECIMAL(12,2) DEFAULT 0.00,
+    remise DECIMAL(5,2) DEFAULT 0.00,
+    notes TEXT DEFAULT NULL,
     statut ENUM('en_attente', 'confirmee', 'livree', 'annulee') DEFAULT 'en_attente',
-    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+    created_by INT DEFAULT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+    INDEX idx_commandes_numero (numero_commande),
+    INDEX idx_commandes_reference (reference),
+    INDEX idx_commandes_statut (statut)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS commande_produits (
@@ -165,14 +233,24 @@ const INITIAL_SCHEMA = [
     id INT AUTO_INCREMENT PRIMARY KEY,
     client_id INT NOT NULL,
     numero_devis VARCHAR(50) NOT NULL,
+    reference VARCHAR(100) DEFAULT NULL,
     date_devis DATETIME DEFAULT CURRENT_TIMESTAMP,
     date_validite DATE NOT NULL,
     total_ht DECIMAL(12,2) DEFAULT 0,
+    montant_tva DECIMAL(12,2) DEFAULT 0.00,
     total_ttc DECIMAL(12,2) DEFAULT 0,
     remise DECIMAL(5,2) DEFAULT 0,
+    tva DECIMAL(5,2) DEFAULT 0.00,
     statut ENUM('brouillon', 'envoye', 'accepte', 'refuse', 'expire') DEFAULT 'brouillon',
     notes TEXT DEFAULT NULL,
-    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+    conditions_paiement VARCHAR(255) DEFAULT NULL,
+    created_by INT DEFAULT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+    INDEX idx_devis_numero (numero_devis),
+    INDEX idx_devis_reference (reference),
+    INDEX idx_devis_date_devis (date_devis),
+    INDEX idx_devis_statut (statut)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS devis_produits (
@@ -261,6 +339,7 @@ const INITIAL_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS documents (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nom VARCHAR(255) NOT NULL,
+    description TEXT DEFAULT NULL,
     type_document ENUM('facture', 'contrat', 'bon_commande', 'devis', 'identite', 'autre') DEFAULT 'autre',
     reference_type VARCHAR(50) DEFAULT NULL,
     reference_id INT DEFAULT NULL,
@@ -268,8 +347,15 @@ const INITIAL_SCHEMA = [
     nom_original VARCHAR(255) NOT NULL,
     mime_type VARCHAR(100) NOT NULL,
     taille_octets INT NOT NULL,
+    tags VARCHAR(255) DEFAULT NULL,
+    version INT DEFAULT 1,
+    est_genere BOOLEAN DEFAULT FALSE,
     uploaded_by INT DEFAULT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_documents_type (type_document),
+    INDEX idx_documents_reference (reference_type, reference_id),
+    INDEX idx_documents_created_at (created_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS archives (
@@ -410,6 +496,76 @@ const INITIAL_SCHEMA = [
     INDEX idx_utilisateur (utilisateur_id),
     INDEX idx_operation (operation),
     INDEX idx_table (table_name)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  // ============================================================
+  // NOUVELLES TABLES POUR LE MODULE GED INTELLIGENT
+  // ============================================================
+
+  `CREATE TABLE IF NOT EXISTS entreprises (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nom VARCHAR(255) NOT NULL,
+    raison_sociale VARCHAR(255) DEFAULT NULL,
+    adresse TEXT DEFAULT NULL,
+    ville VARCHAR(100) DEFAULT NULL,
+    code_postal VARCHAR(20) DEFAULT NULL,
+    pays VARCHAR(100) DEFAULT 'Tunisie',
+    telephone VARCHAR(20) DEFAULT NULL,
+    email VARCHAR(255) DEFAULT NULL,
+    site_web VARCHAR(255) DEFAULT NULL,
+    matricule_fiscal VARCHAR(50) DEFAULT NULL,
+    registre_commerce VARCHAR(50) DEFAULT NULL,
+    capital_social DECIMAL(12,2) DEFAULT NULL,
+    numero_tva VARCHAR(50) DEFAULT NULL,
+    logo VARCHAR(255) DEFAULT NULL,
+    actif BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS documents_generes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    document_id INT NOT NULL,
+    type_document VARCHAR(50) NOT NULL,
+    modele_utilise VARCHAR(255) NOT NULL,
+    donnees_utilisees JSON DEFAULT NULL,
+    tags_manquants VARCHAR(500) DEFAULT NULL,
+    est_financier BOOLEAN DEFAULT FALSE,
+    langue_utilisee VARCHAR(10) DEFAULT 'fr',
+    devise_utilisee VARCHAR(10) DEFAULT 'TND',
+    genere_par INT DEFAULT NULL,
+    genere_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_documents_generes_type (type_document),
+    INDEX idx_documents_generes_genere_le (genere_le)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS ocr_analyses (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    document_id INT DEFAULT NULL,
+    nom_fichier VARCHAR(255) NOT NULL,
+    langue_utilisee VARCHAR(10) DEFAULT 'fr',
+    confiance_ocr DECIMAL(5,2) DEFAULT NULL,
+    texte_extrait LONGTEXT DEFAULT NULL,
+    champs_detectes JSON DEFAULT NULL,
+    analyse_par INT DEFAULT NULL,
+    analyse_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_ocr_analyses_analyse_le (analyse_le)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS templates (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nom VARCHAR(255) NOT NULL,
+    type_document VARCHAR(50) NOT NULL,
+    description TEXT DEFAULT NULL,
+    chemin_fichier VARCHAR(255) NOT NULL,
+    est_commun BOOLEAN DEFAULT FALSE,
+    est_actif BOOLEAN DEFAULT TRUE,
+    tags_disponibles JSON DEFAULT NULL,
+    created_by INT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_templates_type (type_document),
+    INDEX idx_templates_est_commun (est_commun)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
 ];
 
