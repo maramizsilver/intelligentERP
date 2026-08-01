@@ -4,6 +4,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import LanguageSwitcher from './common/LanguageSwitcher';
+import AccountLockButton from './AccountLockButton';
+import GlobalSearchBar from '../components/common/GlobalSearchBar';
 
 export default function Header() {
   const { user, logout, hasPermission } = useAuth();
@@ -112,15 +114,18 @@ export default function Header() {
       internalRoutes.push({ path: '/produits', label: t('produits') });
       internalRoutes.push({ path: '/mouvements-stock', label: t('mouvements_stock') });
       internalRoutes.push({ path: '/alertes-stock', label: t('alerte_rupture') });
-      internalRoutes.push({ path: '/entrepots', label: 'Entrepôts' });
+      internalRoutes.push({ path: '/entrepots', label: 'Entrepots' });
       internalRoutes.push({ path: '/inventaires', label: t('inventaire') });
     }
 
     if (hasPermission('Utilisateurs', 'consultation')) {
       internalRoutes.push({ path: '/utilisateurs', label: t('utilisateurs') });
     }
+
     if (hasPermission('Documents', 'consultation')) {
       internalRoutes.push({ path: '/documents', label: t('documents') });
+      internalRoutes.push({ path: '/documents/generation', label: 'Generer un document' });
+      internalRoutes.push({ path: '/documents/numerisation', label: 'Numeriser (OCR)' });
       internalRoutes.push({ path: '/archives', label: t('archives') });
     }
 
@@ -188,6 +193,10 @@ export default function Header() {
           ERP
         </span>
 
+        {!isMobile && !user.is_super_admin && !user.is_external && (
+          <GlobalSearchBar isMobile={false} />
+        )}
+
         <nav
           style={{
             display: 'flex',
@@ -243,6 +252,7 @@ export default function Header() {
             {renderNavButtons().slice(2).map((btn, idx) => (
               <React.Fragment key={idx}>{btn}</React.Fragment>
             ))}
+            <GlobalSearchBar isMobile={true} />
           </div>
         )}
       </div>
@@ -290,6 +300,8 @@ export default function Header() {
             )}
           </>
         )}
+
+        <AccountLockButton />
 
         <button
           style={{

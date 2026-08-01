@@ -7,7 +7,9 @@ import Layout from './components/layout/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import SessionMonitor from './components/SessionMonitor';
 
-// Pages
+import GenerationDocuments from './pages/documents/GenerationDocuments';
+import NumerisationOCR from './pages/documents/NumerisationOCR';
+
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import RequestReset from './pages/auth/RequestReset';
@@ -224,6 +226,14 @@ function AppRoutes() {
         <PrivateRoute><Layout><Documents /></Layout></PrivateRoute>
       } />
 
+      <Route path="/documents/generation" element={
+        <PrivateRoute><Layout><GenerationDocuments /></Layout></PrivateRoute>
+      } />
+
+      <Route path="/documents/numerisation" element={
+        <PrivateRoute><Layout><NumerisationOCR /></Layout></PrivateRoute>
+      } />
+
       <Route path="/archives" element={
         <PrivateRoute><Layout><Archives /></Layout></PrivateRoute>
       } />
@@ -255,6 +265,7 @@ function AppRoutes() {
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
     </SessionMonitor>
+    
   );
 }
 
