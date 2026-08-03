@@ -622,7 +622,7 @@ exports.getUsersEntreprise = async (req, res) => {
 };
 
 exports.createUserByAdmin = async (req, res) => {
-    const { nom, prenom, email, password, role_id } = req.body;
+    const { nom, prenom, email, password, role_id, telephone, matricule, fonction, service } = req.body;
     
     const errors = validateRegisterInput({ nom, prenom, email, password });
     if (!role_id) errors.push('Le role est requis');
@@ -647,16 +647,20 @@ exports.createUserByAdmin = async (req, res) => {
 
         const [masterResult] = await db.promisePoolMaster.query(
             `INSERT INTO users 
-             (entreprise_id, role_id, nom, prenom, email, password, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-            [req.user.entreprise_id, role_id, nom.trim(), prenom.trim(), cleanEmail, hashedPassword]
+             (entreprise_id, role_id, nom, prenom, telephone, matricule, fonction, service, email, password, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+            [req.user.entreprise_id, role_id, nom.trim(), prenom.trim(), 
+             telephone || null, matricule || null, fonction || null, service || null,
+             cleanEmail, hashedPassword]
         );
 
         await clientPool.promise().query(
             `INSERT INTO users 
-             (id, role_id, nom, prenom, email, password, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [masterResult.insertId, role_id, nom.trim(), prenom.trim(), cleanEmail, hashedPassword, req.user.id]
+             (id, role_id, nom, prenom, telephone, matricule, fonction, service, email, password, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [masterResult.insertId, role_id, nom.trim(), prenom.trim(),
+             telephone || null, matricule || null, fonction || null, service || null,
+             cleanEmail, hashedPassword, req.user.id]
         );
 
         console.log('[AUDIT] Admin id=' + req.user.id + ' a cree le compte ' + cleanEmail + ' (role_id=' + role_id + ')');

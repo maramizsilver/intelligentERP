@@ -1,7 +1,6 @@
 const AuditService = require('../services/audit.service');
 const encryptionService = require('../services/encryption.service');
 
-// Seuls les champs réellement présents dans la table `clients`
 const SENSITIVE_FIELDS = encryptionService
   .getEncryptedFieldNames()
   .filter(f => ['email', 'telephone', 'adresse'].includes(f));
@@ -41,7 +40,11 @@ exports.getClientById = (req, res) => {
 
 exports.createClient = (req, res) => {
     const db = req.db;
-    const { nom, email, telephone, adresse } = req.body;
+    const { 
+        nom, prenom, raison_sociale, email, telephone, adresse,
+        ville, code_postal, pays, matricule_fiscal, numero_cin,
+        type_client, notes 
+    } = req.body;
 
     if (!nom || nom.trim().length < 2) {
         return res.status(400).json({ message: 'Le nom du client est requis' });
@@ -52,8 +55,17 @@ exports.createClient = (req, res) => {
         SENSITIVE_FIELDS
     );
 
-    const sql = 'INSERT INTO clients (nom, email, telephone, adresse) VALUES (?, ?, ?, ?)';
-    db.query(sql, [nom.trim(), encryptedData.email, encryptedData.telephone, encryptedData.adresse], (err, result) => {
+    const sql = `INSERT INTO clients 
+        (nom, prenom, raison_sociale, email, telephone, adresse,
+         ville, code_postal, pays, matricule_fiscal, numero_cin, type_client, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+    db.query(sql, [
+        nom.trim(), prenom || null, raison_sociale || null, 
+        encryptedData.email, encryptedData.telephone, encryptedData.adresse,
+        ville || null, code_postal || null, pays || 'Tunisie',
+        matricule_fiscal || null, numero_cin || null, type_client || 'particulier', notes || null
+    ], (err, result) => {
         if (err) {
             console.error(err);
             return res.status(500).json({ message: 'Erreur serveur' });
@@ -65,7 +77,7 @@ exports.createClient = (req, res) => {
             operation: 'CREATE',
             table_name: 'clients',
             record_id: result.insertId,
-            nouvelles_valeurs: { nom, email, telephone, adresse },
+            nouvelles_valeurs: { nom, prenom, raison_sociale, email, telephone, adresse, ville, code_postal, pays, matricule_fiscal, numero_cin, type_client, notes },
             ip: req.ip || req.connection.remoteAddress,
             user_agent: req.headers['user-agent']
         }).catch(err => console.error('Erreur audit operation:', err));
@@ -79,7 +91,11 @@ exports.createClient = (req, res) => {
 
 exports.updateClient = (req, res) => {
     const db = req.db;
-    const { nom, email, telephone, adresse } = req.body;
+    const { 
+        nom, prenom, raison_sociale, email, telephone, adresse,
+        ville, code_postal, pays, matricule_fiscal, numero_cin,
+        type_client, notes 
+    } = req.body;
 
     if (!nom || nom.trim().length < 2) {
         return res.status(400).json({ message: 'Le nom du client est requis' });
@@ -96,8 +112,19 @@ exports.updateClient = (req, res) => {
             SENSITIVE_FIELDS
         );
 
-        const sql = 'UPDATE clients SET nom = ?, email = ?, telephone = ?, adresse = ? WHERE id = ?';
-        db.query(sql, [nom.trim(), encryptedData.email, encryptedData.telephone, encryptedData.adresse, req.params.id], (err, result) => {
+        const sql = `UPDATE clients SET 
+            nom = ?, prenom = ?, raison_sociale = ?, email = ?, telephone = ?, adresse = ?,
+            ville = ?, code_postal = ?, pays = ?, matricule_fiscal = ?, numero_cin = ?,
+            type_client = ?, notes = ?
+            WHERE id = ?`;
+
+        db.query(sql, [
+            nom.trim(), prenom || null, raison_sociale || null,
+            encryptedData.email, encryptedData.telephone, encryptedData.adresse,
+            ville || null, code_postal || null, pays || 'Tunisie',
+            matricule_fiscal || null, numero_cin || null, type_client || 'particulier', notes || null,
+            req.params.id
+        ], (err, result) => {
             if (err) {
                 console.error(err);
                 return res.status(500).json({ message: 'Erreur serveur' });
@@ -113,7 +140,7 @@ exports.updateClient = (req, res) => {
                 table_name: 'clients',
                 record_id: req.params.id,
                 anciennes_valeurs: oldData[0] || null,
-                nouvelles_valeurs: { nom, email, telephone, adresse },
+                nouvelles_valeurs: { nom, prenom, raison_sociale, email, telephone, adresse, ville, code_postal, pays, matricule_fiscal, numero_cin, type_client, notes },
                 ip: req.ip || req.connection.remoteAddress,
                 user_agent: req.headers['user-agent']
             }).catch(err => console.error('Erreur audit operation:', err));

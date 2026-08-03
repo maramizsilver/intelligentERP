@@ -22,7 +22,11 @@ export default function Clients() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({ nom: '', email: '', telephone: '', adresse: '' });
+  const [form, setForm] = useState({ 
+    nom: '', prenom: '', raison_sociale: '', email: '', telephone: '',
+    adresse: '', ville: '', code_postal: '', pays: 'Tunisie',
+    matricule_fiscal: '', numero_cin: '', type_client: 'particulier', notes: ''
+  });
   const [formLoading, setFormLoading] = useState(false);
 
   const peutCreer = hasPermission('Ventes', 'creation');
@@ -61,7 +65,11 @@ export default function Clients() {
         setSuccess(t('client_cree'));
       }
       setIsModalOpen(false);
-      setForm({ nom: '', email: '', telephone: '', adresse: '' });
+      setForm({ 
+        nom: '', prenom: '', raison_sociale: '', email: '', telephone: '',
+        adresse: '', ville: '', code_postal: '', pays: 'Tunisie',
+        matricule_fiscal: '', numero_cin: '', type_client: 'particulier', notes: ''
+      });
       setEditingId(null);
       loadClients();
     } catch (err) {
@@ -73,10 +81,11 @@ export default function Clients() {
 
   const handleEdit = (client) => {
     setForm({
-      nom: client.nom,
-      email: client.email || '',
-      telephone: client.telephone || '',
-      adresse: client.adresse || '',
+      nom: client.nom || '', prenom: client.prenom || '', raison_sociale: client.raison_sociale || '',
+      email: client.email || '', telephone: client.telephone || '', adresse: client.adresse || '',
+      ville: client.ville || '', code_postal: client.code_postal || '', pays: client.pays || 'Tunisie',
+      matricule_fiscal: client.matricule_fiscal || '', numero_cin: client.numero_cin || '',
+      type_client: client.type_client || 'particulier', notes: client.notes || ''
     });
     setEditingId(client.id);
     setIsModalOpen(true);
@@ -95,6 +104,7 @@ export default function Clients() {
 
   const columns = [
     { key: 'nom', label: t('nom') },
+    { key: 'prenom', label: t('prenom') || 'Prénom' },
     { key: 'email', label: t('email') },
     { key: 'telephone', label: t('telephone') },
     { key: 'adresse', label: t('adresse') },
@@ -124,7 +134,11 @@ export default function Clients() {
               variant="primary"
               icon="+"
               onClick={() => {
-                setForm({ nom: '', email: '', telephone: '', adresse: '' });
+                setForm({ 
+                  nom: '', prenom: '', raison_sociale: '', email: '', telephone: '',
+                  adresse: '', ville: '', code_postal: '', pays: 'Tunisie',
+                  matricule_fiscal: '', numero_cin: '', type_client: 'particulier', notes: ''
+                });
                 setEditingId(null);
                 setIsModalOpen(true);
               }}
@@ -156,7 +170,7 @@ export default function Clients() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingId ? t('modifier_client') : t('nouveau_client')}
-        size="md"
+        size="lg"
         actions={[
           {
             label: editingId ? t('modifier') : t('creer'),
@@ -169,9 +183,27 @@ export default function Clients() {
         <form onSubmit={handleSubmit}>
           <div style={styles.formGrid}>
             <Input label={t('nom') + ' *'} name="nom" value={form.nom} onChange={handleChange} required disabled={formLoading} />
+            <Input label={t('prenom') || 'Prénom'} name="prenom" value={form.prenom} onChange={handleChange} disabled={formLoading} />
+            <Input label="Raison sociale" name="raison_sociale" value={form.raison_sociale} onChange={handleChange} disabled={formLoading} />
             <Input label={t('email')} name="email" type="email" value={form.email} onChange={handleChange} disabled={formLoading} />
             <Input label={t('telephone')} name="telephone" value={form.telephone} onChange={handleChange} disabled={formLoading} />
             <Input label={t('adresse')} name="adresse" value={form.adresse} onChange={handleChange} disabled={formLoading} />
+            <Input label="Ville" name="ville" value={form.ville} onChange={handleChange} disabled={formLoading} />
+            <Input label="Code postal" name="code_postal" value={form.code_postal} onChange={handleChange} disabled={formLoading} />
+            <Input label="Pays" name="pays" value={form.pays} onChange={handleChange} disabled={formLoading} />
+            <Input label="Matricule fiscal" name="matricule_fiscal" value={form.matricule_fiscal} onChange={handleChange} disabled={formLoading} />
+            <Input label="Numéro CIN" name="numero_cin" value={form.numero_cin} onChange={handleChange} disabled={formLoading} />
+            <div>
+              <label style={styles.label}>Type client</label>
+              <select name="type_client" value={form.type_client} onChange={handleChange} style={styles.select} disabled={formLoading}>
+                <option value="particulier">Particulier</option>
+                <option value="entreprise">Entreprise</option>
+                <option value="association">Association</option>
+              </select>
+            </div>
+          </div>
+          <div style={styles.fullWidth}>
+            <Input label="Notes" name="notes" value={form.notes} onChange={handleChange} disabled={formLoading} />
           </div>
         </form>
       </Modal>
@@ -214,4 +246,16 @@ const styles = {
   },
   successText: { color: '#065F46', fontSize: '13px', fontWeight: 500 },
   formGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' },
+  fullWidth: { marginTop: '16px' },
+  label: { display: 'block', fontSize: '13px', fontWeight: 500, color: '#1E293B', marginBottom: '4px' },
+  select: {
+    width: '100%',
+    padding: '10px 12px',
+    borderRadius: '8px',
+    border: '2px solid #E2E8F0',
+    fontSize: '14px',
+    backgroundColor: '#F8FAFC',
+    outline: 'none',
+    transition: 'all 0.2s ease',
+  },
 };

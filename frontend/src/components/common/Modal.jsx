@@ -1,5 +1,6 @@
 // frontend/src/components/common/Modal.jsx
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { colors, borderRadius, shadows } from '../../styles/theme';
 import Button from './Button';
 
@@ -24,7 +25,11 @@ export default function Modal({
     return sizes[size] || sizes.md;
   };
 
-  return (
+  // Rendu via portail directement dans document.body : le modal sort ainsi
+  // complètement de la hiérarchie DOM du Layout (et de tout wrapper avec
+  // `transform`), garantissant que son position:fixed + z-index se comportent
+  // toujours par rapport au viewport, au-dessus du Header.
+  return createPortal(
     <div
       style={{
         position: 'fixed',
@@ -127,6 +132,7 @@ export default function Modal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
