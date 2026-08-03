@@ -1,3 +1,4 @@
+// backend/services/autofill.service.js
 
 const ENTITES = {
     client: {
@@ -109,7 +110,24 @@ const ENTITES = {
             total_ttc: 'commande_total_ttc',
             remise: 'commande_remise',
             statut: 'commande_statut',
-            notes: 'commande_notes'
+            notes: 'commande_notes',
+            devis_id: 'devis_id'
+        }
+    },
+    facture: {
+        table: 'factures',
+        colonnesRecherche: ['id', 'numero_facture'],
+        mappingTags: {
+            id: 'facture_id',
+            numero_facture: 'facture_numero',
+            date_facture: 'facture_date',
+            total_ht: 'facture_total_ht',
+            montant_tva: 'facture_montant_tva',
+            total_ttc: 'facture_total_ttc',
+            statut: 'facture_statut',
+            notes: 'facture_notes',
+            devis_id: 'devis_id',
+            commande_id: 'commande_id'
         }
     },
     user: {
@@ -177,4 +195,160 @@ function autoRemplir(db, typeEntite, identifiant) {
     });
 }
 
-module.exports = { autoRemplir, ENTITES };
+function resoudreDocumentComplet(db, typeDocument, id, entrepriseId) {
+    return new Promise((resolve, reject) => {
+        const requetes = {
+            devis: `
+                SELECT d.*, 'devis' AS source,
+                       c.id AS c_id, c.nom AS c_nom, c.prenom AS c_prenom,
+                       c.email AS c_email, c.telephone AS c_telephone,
+                       c.adresse AS c_adresse, c.ville AS c_ville,
+                       c.matricule_fiscal AS c_matricule_fiscal,
+                       c.numero_cin AS c_cin,
+                       e.nom AS e_nom, e.adresse AS e_adresse,
+                       e.telephone AS e_telephone, e.email AS e_email,
+                       e.matricule_fiscal AS e_matricule_fiscal
+                FROM devis d
+                JOIN clients c ON c.id = d.client_id
+                LEFT JOIN entreprises e ON e.id = d.entreprise_id
+                WHERE d.id = ? AND d.entreprise_id = ?
+            `,
+            commande: `
+                SELECT co.*, 'commande' AS source,
+                       c.id AS c_id, c.nom AS c_nom, c.prenom AS c_prenom,
+                       c.email AS c_email, c.telephone AS c_telephone,
+                       c.adresse AS c_adresse, c.ville AS c_ville,
+                       c.matricule_fiscal AS c_matricule_fiscal,
+                       c.numero_cin AS c_cin,
+                       dv.id AS dv_id, dv.numero_devis AS dv_numero,
+                       dv.date_devis AS dv_date, dv.total_ht AS dv_total_ht,
+                       dv.total_ttc AS dv_total_ttc, dv.montant_tva AS dv_montant_tva,
+                       dv.remise AS dv_remise, dv.conditions_paiement AS dv_conditions_paiement,
+                       e.nom AS e_nom, e.adresse AS e_adresse,
+                       e.telephone AS e_telephone, e.email AS e_email,
+                       e.matricule_fiscal AS e_matricule_fiscal
+                FROM commandes co
+                JOIN clients c ON c.id = co.client_id
+                LEFT JOIN devis dv ON dv.id = co.devis_id
+                LEFT JOIN entreprises e ON e.id = co.entreprise_id
+                WHERE co.id = ? AND co.entreprise_id = ?
+            `,
+            facture: `
+                SELECT f.*, 'facture' AS source,
+                       c.id AS c_id, c.nom AS c_nom, c.prenom AS c_prenom,
+                       c.email AS c_email, c.telephone AS c_telephone,
+                       c.adresse AS c_adresse, c.ville AS c_ville,
+                       c.matricule_fiscal AS c_matricule_fiscal,
+                       c.numero_cin AS c_cin,
+                       dv.id AS dv_id, dv.numero_devis AS dv_numero,
+                       dv.date_devis AS dv_date, dv.total_ht AS dv_total_ht,
+                       dv.total_ttc AS dv_total_ttc,
+                       co.id AS co_id, co.numero_commande AS co_numero,
+                       co.total AS co_total, co.statut AS co_statut,
+                       e.nom AS e_nom, e.adresse AS e_adresse,
+                       e.telephone AS e_telephone, e.email AS e_email,
+                       e.matricule_fiscal AS e_matricule_fiscal
+                FROM factures f
+                JOIN clients c ON c.id = f.client_id
+                LEFT JOIN devis dv ON dv.id = f.devis_id
+                LEFT JOIN commandes co ON co.id = f.commande_id
+                LEFT JOIN entreprises e ON e.id = f.entreprise_id
+                WHERE f.id = ? AND f.entreprise_id = ?
+            `
+        };
+
+        const sql = requetes[typeDocument];
+        if (!sql) return reject(new Error(`Type de document inconnu : ${typeDocument}`));
+
+        db.query(sql, [id, entrepriseId], (err, rows) => {
+            if (err) return reject(err);
+            if (rows.length === 0) return resolve({ trouve: false, tags: {} });
+
+            const r = rows[0];
+            
+            let tags = {
+                client_id: r.c_id,
+                client_nom: r.c_nom,
+                client_prenom: r.c_prenom,
+                client_email: r.c_email,
+                client_telephone: r.c_telephone,
+                client_adresse: r.c_adresse,
+                client_ville: r.c_ville,
+                client_matricule_fiscal: r.c_matricule_fiscal,
+                client_cin: r.c_cin,
+                entreprise_nom: r.e_nom,
+                entreprise_adresse: r.e_adresse,
+                entreprise_telephone: r.e_telephone,
+                entreprise_email: r.e_email,
+                entreprise_matricule_fiscal: r.e_matricule_fiscal
+            };
+
+            if (typeDocument === 'devis' || r.dv_id) {
+                const idDevis = typeDocument === 'devis' ? r.id : r.dv_id;
+                tags = {
+                    ...tags,
+                    devis_id: idDevis,
+                    devis_numero: typeDocument === 'devis' ? r.numero_devis : r.dv_numero,
+                    devis_date: typeDocument === 'devis' ? r.date_devis : r.dv_date,
+                    devis_total_ht: typeDocument === 'devis' ? r.total_ht : r.dv_total_ht,
+                    devis_montant_tva: typeDocument === 'devis' ? r.montant_tva : r.dv_montant_tva,
+                    devis_total_ttc: typeDocument === 'devis' ? r.total_ttc : r.dv_total_ttc,
+                    devis_remise: typeDocument === 'devis' ? r.remise : r.dv_remise,
+                    devis_conditions_paiement: typeDocument === 'devis' ? r.conditions_paiement : r.dv_conditions_paiement,
+                    devis_statut: typeDocument === 'devis' ? r.statut : null
+                };
+            }
+
+            if (typeDocument === 'commande' || r.co_id) {
+                tags = {
+                    ...tags,
+                    commande_id: typeDocument === 'commande' ? r.id : r.co_id,
+                    commande_numero: typeDocument === 'commande' ? r.numero_commande : r.co_numero,
+                    commande_total: typeDocument === 'commande' ? r.total : r.co_total,
+                    commande_total_ht: typeDocument === 'commande' ? r.montant_ht : null,
+                    commande_total_ttc: typeDocument === 'commande' ? r.total_ttc : null,
+                    commande_statut: typeDocument === 'commande' ? r.statut : r.co_statut,
+                    commande_date: typeDocument === 'commande' ? r.date_commande : null
+                };
+            }
+
+            if (typeDocument === 'facture') {
+                tags = {
+                    ...tags,
+                    facture_id: r.id,
+                    facture_numero: r.numero_facture,
+                    facture_date: r.date_facture,
+                    facture_total_ht: r.total_ht,
+                    facture_montant_tva: r.montant_tva,
+                    facture_total_ttc: r.total_ttc,
+                    facture_statut: r.statut,
+                    facture_notes: r.notes
+                };
+            }
+
+            if (tags.devis_id) {
+                const sqlProduits = `
+                    SELECT dp.*, p.nom as produit_nom, p.reference as produit_reference
+                    FROM devis_produits dp
+                    JOIN produits p ON dp.produit_id = p.id
+                    WHERE dp.devis_id = ?
+                `;
+                
+                db.query(sqlProduits, [tags.devis_id], (err2, rows2) => {
+                    if (!err2 && rows2 && rows2.length > 0) {
+                        const produitsList = rows2.map(p => 
+                            `${p.quantite}x ${p.produit_nom} - ${p.prix_unitaire} TND (${p.total_ligne} TND)`
+                        ).join('\n');
+                        tags.devis_produits = produitsList;
+                        tags.devis_produits_liste = rows2;
+                    }
+                    resolve({ trouve: true, tags });
+                });
+            } else {
+                resolve({ trouve: true, tags });
+            }
+        });
+    });
+}
+
+module.exports = { autoRemplir, ENTITES, resoudreDocumentComplet };

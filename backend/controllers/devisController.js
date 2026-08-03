@@ -1,4 +1,4 @@
-
+// backend/controllers/devisController.js
 const SequenceService = require('../services/sequence.service');
 
 exports.getAllDevis = (req, res) => {
@@ -50,6 +50,7 @@ exports.getDevisById = (req, res) => {
 exports.createDevis = async (req, res) => {
     const db = req.db;
     const { client_id, lignes, date_validite, remise, notes } = req.body;
+    const entrepriseId = req.user.entreprise_id;
 
     if (!client_id) return res.status(400).json({ message: 'Le client est requis' });
     if (!Array.isArray(lignes) || lignes.length === 0) {
@@ -62,8 +63,7 @@ exports.createDevis = async (req, res) => {
         if (clients.length === 0) return res.status(400).json({ message: 'Client invalide pour votre entreprise' });
 
         try {
-            // 🆕 Utiliser SequenceService au lieu de genererNumeroDevis()
-            const numero_devis = await SequenceService.genererNumeroDevis(db, req.user.entreprise_id);
+            const numero_devis = await SequenceService.genererNumeroDevis(db, entrepriseId);
 
             let total_ht = 0;
             const produitsIds = lignes.map(l => l.produit_id);
@@ -89,12 +89,11 @@ exports.createDevis = async (req, res) => {
                 const remiseTotale = Number(remise) || 0;
                 const total_ttc = total_ht * (1 - remiseTotale / 100);
 
-                // PLUS de entreprise_id dans l'insertion !
                 const sqlDevis = `
-                    INSERT INTO devis (client_id, numero_devis, date_validite, total_ht, total_ttc, remise, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO devis (client_id, numero_devis, date_validite, total_ht, total_ttc, remise, notes, entreprise_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 `;
-                db.query(sqlDevis, [client_id, numero_devis, date_validite, total_ht, total_ttc, remiseTotale, notes || null], (err2, result) => {
+                db.query(sqlDevis, [client_id, numero_devis, date_validite, total_ht, total_ttc, remiseTotale, notes || null, entrepriseId], (err2, result) => {
                     if (err2) { console.error(err2); return res.status(500).json({ message: 'Erreur serveur' }); }
 
                     const devisId = result.insertId;
@@ -134,11 +133,12 @@ exports.updateDevisStatut = (req, res) => {
 };
 
 // ============================================================
-// TRANSFORMER UN DEVIS EN COMMANDE
+// TRANSFORMER UN DEVIS EN COMMANDE (CORRIGÉ - SAUVEGARDE devis_id)
 // ============================================================
 exports.devisToCommande = (req, res) => {
     const db = req.db;
     const { id } = req.params;
+    const entrepriseId = req.user.entreprise_id;
 
     const sqlDevis = `
         SELECT d.*, dp.produit_id, dp.quantite, dp.prix_unitaire AS ligne_prix_unitaire
@@ -159,8 +159,8 @@ exports.devisToCommande = (req, res) => {
             prix_unitaire: r.ligne_prix_unitaire
         }));
 
-        const sqlInsertCommande = 'INSERT INTO commandes (client_id, total) VALUES (?, ?)';
-        db.query(sqlInsertCommande, [devis.client_id, devis.total_ttc], (err2, result) => {
+        const sqlInsertCommande = 'INSERT INTO commandes (client_id, devis_id, total, entreprise_id) VALUES (?, ?, ?, ?)';
+        db.query(sqlInsertCommande, [devis.client_id, id, devis.total_ttc, entrepriseId], (err2, result) => {
             if (err2) { console.error(err2); return res.status(500).json({ message: 'Erreur serveur' }); }
 
             const commandeId = result.insertId;

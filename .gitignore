@@ -61,4 +61,4 @@ desktop.ini
 /frontend/.env.production.local
 
 /backend/scripts
- backend/backups
+/backend/backups

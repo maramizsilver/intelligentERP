@@ -13,9 +13,12 @@ class SequenceService {
         return this._genererNumero(db, 'dernier_numero_transaction', 'TR', entrepriseId);
     }
 
+    static async genererNumeroFacture(db, entrepriseId) {
+        return this._genererNumero(db, 'dernier_numero_facture', 'FAC', entrepriseId);
+    }
+
     static async _genererNumero(db, champ, prefix, entrepriseId) {
         try {
-            // Initialiser la séquence si elle n'existe pas
             const [rows] = await db.promise().query(
                 'SELECT id FROM sequences WHERE entreprise_id = ? LIMIT 1',
                 [entrepriseId]
@@ -24,19 +27,17 @@ class SequenceService {
             if (rows.length === 0) {
                 await db.promise().query(
                     `INSERT INTO sequences 
-                     (entreprise_id, dernier_numero_bc, dernier_numero_devis, dernier_numero_transaction) 
-                     VALUES (?, 0, 0, 0)`,
+                     (entreprise_id, dernier_numero_bc, dernier_numero_devis, dernier_numero_transaction, dernier_numero_facture) 
+                     VALUES (?, 0, 0, 0, 0)`,
                     [entrepriseId]
                 );
             }
 
-            // Incrémenter le compteur
             await db.promise().query(
                 `UPDATE sequences SET ${champ} = ${champ} + 1 WHERE entreprise_id = ?`,
                 [entrepriseId]
             );
 
-            // Récupérer la nouvelle valeur
             const [result] = await db.promise().query(
                 `SELECT ${champ} FROM sequences WHERE entreprise_id = ?`,
                 [entrepriseId]
@@ -44,7 +45,6 @@ class SequenceService {
             
             let numero = result[0]?.[champ] || 1;
 
-            // Vérifier les doublons et sauter si nécessaire
             let numeroFormate;
             let exists = true;
             let attempts = 0;
@@ -57,7 +57,6 @@ class SequenceService {
                 numeroFormate = String(numero).padStart(longueur, '0');
                 const transactionNumber = `${prefix}-${annee}${mois}-${numeroFormate}`;
 
-                // Vérifier si ce numéro existe déjà
                 const [check] = await db.promise().query(
                     'SELECT id FROM paiements WHERE numero_transaction = ?',
                     [transactionNumber]
@@ -66,7 +65,6 @@ class SequenceService {
                 if (check.length === 0) {
                     exists = false;
                 } else {
-                    // Incrémenter et réessayer
                     numero++;
                     await db.promise().query(
                         `UPDATE sequences SET ${champ} = ${champ} + 1 WHERE entreprise_id = ?`,

@@ -100,6 +100,7 @@ const INITIAL_SCHEMA = [
     dernier_numero_bc INT NOT NULL DEFAULT 0,
     dernier_numero_devis INT NOT NULL DEFAULT 0,
     dernier_numero_transaction INT NOT NULL DEFAULT 0,
+    dernier_numero_facture INT NOT NULL DEFAULT 0,
     INDEX idx_entreprise (entreprise_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
@@ -173,62 +174,6 @@ const INITIAL_SCHEMA = [
     INDEX idx_produits_fournisseur_id (fournisseur_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  `CREATE TABLE IF NOT EXISTS commandes (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    client_id INT NOT NULL,
-    numero_commande VARCHAR(50) DEFAULT NULL,
-    reference VARCHAR(100) DEFAULT NULL,
-    date_commande DATETIME DEFAULT CURRENT_TIMESTAMP,
-    total DECIMAL(12,2) DEFAULT 0,
-    montant_ht DECIMAL(12,2) DEFAULT 0.00,
-    montant_tva DECIMAL(12,2) DEFAULT 0.00,
-    total_ttc DECIMAL(12,2) DEFAULT 0.00,
-    remise DECIMAL(5,2) DEFAULT 0.00,
-    notes TEXT DEFAULT NULL,
-    statut ENUM('en_attente', 'confirmee', 'livree', 'annulee') DEFAULT 'en_attente',
-    created_by INT DEFAULT NULL,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
-    INDEX idx_commandes_numero (numero_commande),
-    INDEX idx_commandes_reference (reference),
-    INDEX idx_commandes_statut (statut)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-
-  `CREATE TABLE IF NOT EXISTS commande_produits (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    commande_id INT NOT NULL,
-    produit_id INT NOT NULL,
-    quantite INT NOT NULL DEFAULT 1,
-    prix_unitaire DECIMAL(12,2) NOT NULL,
-    FOREIGN KEY (commande_id) REFERENCES commandes(id) ON DELETE CASCADE,
-    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-
-  `CREATE TABLE IF NOT EXISTS achats (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    fournisseur_id INT NOT NULL,
-    numero_bc VARCHAR(50) NOT NULL,
-    date_commande DATETIME DEFAULT CURRENT_TIMESTAMP,
-    date_livraison_prevue DATE DEFAULT NULL,
-    total_ht DECIMAL(12,2) DEFAULT 0,
-    total_ttc DECIMAL(12,2) DEFAULT 0,
-    statut ENUM('brouillon', 'envoye', 'recu_partiel', 'recu_total', 'annule') DEFAULT 'brouillon',
-    notes TEXT DEFAULT NULL,
-    FOREIGN KEY (fournisseur_id) REFERENCES fournisseurs(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-
-  `CREATE TABLE IF NOT EXISTS achat_produits (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    achat_id INT NOT NULL,
-    produit_id INT NOT NULL,
-    quantite INT NOT NULL DEFAULT 1,
-    prix_unitaire DECIMAL(12,2) NOT NULL,
-    total_ligne DECIMAL(12,2) NOT NULL,
-    quantite_recue INT DEFAULT 0,
-    FOREIGN KEY (achat_id) REFERENCES achats(id) ON DELETE CASCADE,
-    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-
   `CREATE TABLE IF NOT EXISTS devis (
     id INT AUTO_INCREMENT PRIMARY KEY,
     client_id INT NOT NULL,
@@ -245,12 +190,14 @@ const INITIAL_SCHEMA = [
     notes TEXT DEFAULT NULL,
     conditions_paiement VARCHAR(255) DEFAULT NULL,
     created_by INT DEFAULT NULL,
+    entreprise_id INT NOT NULL DEFAULT 1,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
     INDEX idx_devis_numero (numero_devis),
     INDEX idx_devis_reference (reference),
     INDEX idx_devis_date_devis (date_devis),
-    INDEX idx_devis_statut (statut)
+    INDEX idx_devis_statut (statut),
+    INDEX idx_devis_entreprise (entreprise_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS devis_produits (
@@ -262,6 +209,94 @@ const INITIAL_SCHEMA = [
     remise_ligne DECIMAL(5,2) DEFAULT 0,
     total_ligne DECIMAL(12,2) NOT NULL,
     FOREIGN KEY (devis_id) REFERENCES devis(id) ON DELETE CASCADE,
+    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS commandes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    client_id INT NOT NULL,
+    devis_id INT NULL,
+    numero_commande VARCHAR(50) DEFAULT NULL,
+    reference VARCHAR(100) DEFAULT NULL,
+    date_commande DATETIME DEFAULT CURRENT_TIMESTAMP,
+    total DECIMAL(12,2) DEFAULT 0,
+    montant_ht DECIMAL(12,2) DEFAULT 0.00,
+    montant_tva DECIMAL(12,2) DEFAULT 0.00,
+    total_ttc DECIMAL(12,2) DEFAULT 0.00,
+    remise DECIMAL(5,2) DEFAULT 0.00,
+    notes TEXT DEFAULT NULL,
+    statut ENUM('en_attente', 'confirmee', 'livree', 'annulee') DEFAULT 'en_attente',
+    created_by INT DEFAULT NULL,
+    entreprise_id INT NOT NULL DEFAULT 1,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+    FOREIGN KEY (devis_id) REFERENCES devis(id) ON DELETE SET NULL,
+    INDEX idx_commandes_numero (numero_commande),
+    INDEX idx_commandes_reference (reference),
+    INDEX idx_commandes_statut (statut),
+    INDEX idx_commandes_entreprise (entreprise_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS commande_produits (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    commande_id INT NOT NULL,
+    produit_id INT NOT NULL,
+    quantite INT NOT NULL DEFAULT 1,
+    prix_unitaire DECIMAL(12,2) NOT NULL,
+    FOREIGN KEY (commande_id) REFERENCES commandes(id) ON DELETE CASCADE,
+    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS factures (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    numero_facture VARCHAR(50) NOT NULL,
+    client_id INT NOT NULL,
+    devis_id INT NULL,
+    commande_id INT NULL,
+    date_facture DATETIME DEFAULT CURRENT_TIMESTAMP,
+    total_ht DECIMAL(12,2) DEFAULT 0.00,
+    montant_tva DECIMAL(12,2) DEFAULT 0.00,
+    total_ttc DECIMAL(12,2) DEFAULT 0.00,
+    statut ENUM('brouillon','emise','payee','annulee') DEFAULT 'brouillon',
+    notes TEXT NULL,
+    created_by INT NULL,
+    entreprise_id INT NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY numero_facture_unique (numero_facture),
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+    FOREIGN KEY (devis_id) REFERENCES devis(id) ON DELETE SET NULL,
+    FOREIGN KEY (commande_id) REFERENCES commandes(id) ON DELETE SET NULL,
+    INDEX idx_factures_entreprise (entreprise_id),
+    INDEX idx_factures_client (client_id),
+    INDEX idx_factures_devis (devis_id),
+    INDEX idx_factures_commande (commande_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS achats (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    fournisseur_id INT NOT NULL,
+    numero_bc VARCHAR(50) NOT NULL,
+    date_commande DATETIME DEFAULT CURRENT_TIMESTAMP,
+    date_livraison_prevue DATE DEFAULT NULL,
+    total_ht DECIMAL(12,2) DEFAULT 0,
+    total_ttc DECIMAL(12,2) DEFAULT 0,
+    statut ENUM('brouillon', 'envoye', 'recu_partiel', 'recu_total', 'annule') DEFAULT 'brouillon',
+    notes TEXT DEFAULT NULL,
+    entreprise_id INT NOT NULL DEFAULT 1,
+    FOREIGN KEY (fournisseur_id) REFERENCES fournisseurs(id) ON DELETE CASCADE,
+    INDEX idx_achats_entreprise (entreprise_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS achat_produits (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    achat_id INT NOT NULL,
+    produit_id INT NOT NULL,
+    quantite INT NOT NULL DEFAULT 1,
+    prix_unitaire DECIMAL(12,2) NOT NULL,
+    total_ligne DECIMAL(12,2) NOT NULL,
+    quantite_recue INT DEFAULT 0,
+    FOREIGN KEY (achat_id) REFERENCES achats(id) ON DELETE CASCADE,
     FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
@@ -449,7 +484,6 @@ const INITIAL_SCHEMA = [
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  // AJOUT DES TABLES D'AUDIT
   `CREATE TABLE IF NOT EXISTS audit_logs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     entreprise_id INT DEFAULT NULL,
@@ -497,10 +531,6 @@ const INITIAL_SCHEMA = [
     INDEX idx_operation (operation),
     INDEX idx_table (table_name)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-
-  // ============================================================
-  // NOUVELLES TABLES POUR LE MODULE GED INTELLIGENT
-  // ============================================================
 
   `CREATE TABLE IF NOT EXISTS entreprises (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -590,8 +620,89 @@ async function createTenantDatabase(entrepriseId, dbName) {
   }
 }
 
+async function migrerBaseExistante(dbName) {
+  const admin = await getAdminConnection();
+  try {
+    await admin.changeUser({ database: dbName });
+    
+    const migrations = [
+      `ALTER TABLE commandes 
+       ADD COLUMN IF NOT EXISTS devis_id INT NULL AFTER client_id,
+       ADD CONSTRAINT IF NOT EXISTS commandes_devis_fk 
+       FOREIGN KEY (devis_id) REFERENCES devis(id) ON DELETE SET NULL`,
+      
+      `ALTER TABLE devis 
+       ADD COLUMN IF NOT EXISTS entreprise_id INT NOT NULL DEFAULT 1`,
+      
+      `ALTER TABLE commandes 
+       ADD COLUMN IF NOT EXISTS entreprise_id INT NOT NULL DEFAULT 1`,
+      
+      `ALTER TABLE achats 
+       ADD COLUMN IF NOT EXISTS entreprise_id INT NOT NULL DEFAULT 1`,
+      
+      `ALTER TABLE sequences 
+       ADD COLUMN IF NOT EXISTS dernier_numero_facture INT NOT NULL DEFAULT 0`,
+      
+      `CREATE TABLE IF NOT EXISTS factures (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        numero_facture VARCHAR(50) NOT NULL,
+        client_id INT NOT NULL,
+        devis_id INT NULL,
+        commande_id INT NULL,
+        date_facture DATETIME DEFAULT CURRENT_TIMESTAMP,
+        total_ht DECIMAL(12,2) DEFAULT 0.00,
+        montant_tva DECIMAL(12,2) DEFAULT 0.00,
+        total_ttc DECIMAL(12,2) DEFAULT 0.00,
+        statut ENUM('brouillon','emise','payee','annulee') DEFAULT 'brouillon',
+        notes TEXT NULL,
+        created_by INT NULL,
+        entreprise_id INT NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY numero_facture_unique (numero_facture),
+        FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+        FOREIGN KEY (devis_id) REFERENCES devis(id) ON DELETE SET NULL,
+        FOREIGN KEY (commande_id) REFERENCES commandes(id) ON DELETE SET NULL,
+        INDEX idx_factures_entreprise (entreprise_id),
+        INDEX idx_factures_client (client_id),
+        INDEX idx_factures_devis (devis_id),
+        INDEX idx_factures_commande (commande_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+    ];
+
+    for (const sql of migrations) {
+      try {
+        await admin.query(sql);
+      } catch (err) {
+        console.warn(`[MIGRATION] ${dbName}: ${err.message}`);
+      }
+    }
+    
+    console.log(`[MIGRATION] Base ${dbName} migree avec succes`);
+  } finally {
+    await admin.end();
+  }
+}
+
+async function migrerToutesLesBasesExistantes() {
+  const admin = await getAdminConnection();
+  try {
+    const [rows] = await admin.query(
+      "SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE 'entreprise_%'"
+    );
+    for (const row of rows) {
+      await migrerBaseExistante(row.schema_name);
+    }
+    console.log(`[MIGRATION] ${rows.length} bases migrees`);
+  } finally {
+    await admin.end();
+  }
+}
+
 module.exports = {
   generateDbName,
   sanitizeForDbName,
-  createTenantDatabase
+  createTenantDatabase,
+  migrerBaseExistante,
+  migrerToutesLesBasesExistantes
 };
