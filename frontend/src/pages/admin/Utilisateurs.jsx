@@ -1,4 +1,3 @@
-// src/pages/admin/Utilisateurs.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -11,7 +10,8 @@ import Badge from '../../components/common/Badge';
 import Input from '../../components/common/Input';
 import Modal from '../../components/common/Modal';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import EmptyState from '../../components/common/EmptyState';  
+import EmptyState from '../../components/common/EmptyState';
+
 const ACTIONS = [
   { key: 'consultation', label: ' Voir' },
   { key: 'creation', label: ' Créer' },
@@ -23,7 +23,7 @@ const ACTIONS = [
 
 const MODULE_ICONS = {
   Ventes: 'Ventes',
-  Achats: 'Ahcats',
+  Achats: 'Achats',
   Stock: 'Stock',
   Finance: 'Finance',
   Utilisateurs: 'user',
@@ -37,7 +37,6 @@ export default function Utilisateurs() {
   const [ongletPrincipal, setOngletPrincipal] = useState('roles');
   const [loading, setLoading] = useState(false);
 
-  // Rôles
   const [roles, setRoles] = useState([]);
   const [selectedRoleId, setSelectedRoleId] = useState(null);
   const [permissions, setPermissions] = useState([]);
@@ -45,12 +44,14 @@ export default function Utilisateurs() {
   const [nouveauRoleNom, setNouveauRoleNom] = useState('');
   const [afficherFormRole, setAfficherFormRole] = useState(false);
 
-  // Utilisateurs
   const [users, setUsers] = useState([]);
   const [clients, setClients] = useState([]);
   const [afficherFormUser, setAfficherFormUser] = useState(false);
   const [ongletCreation, setOngletCreation] = useState('interne');
-  const [formUser, setFormUser] = useState({ nom: '', prenom: '', email: '', password: '', role_id: '', client_id: '' });
+  const [formUser, setFormUser] = useState({ 
+    nom: '', prenom: '', email: '', password: '', role_id: '', client_id: '',
+    telephone: '', matricule: '', fonction: '', service: ''
+  });
 
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -157,16 +158,29 @@ export default function Utilisateurs() {
           setFormLoading(false);
           return;
         }
-        await API.post('/auth/users', { nom: formUser.nom, prenom: formUser.prenom, email: formUser.email, password: formUser.password, role_id: formUser.role_id });
+        await API.post('/auth/users', { 
+          nom: formUser.nom, prenom: formUser.prenom, email: formUser.email, 
+          password: formUser.password, role_id: formUser.role_id,
+          telephone: formUser.telephone, matricule: formUser.matricule,
+          fonction: formUser.fonction, service: formUser.service
+        });
       } else {
         if (!formUser.client_id) {
           flashError('Veuillez choisir un client');
           setFormLoading(false);
           return;
         }
-        await API.post('/auth/users/externes', { nom: formUser.nom, prenom: formUser.prenom, email: formUser.email, password: formUser.password, client_id: formUser.client_id });
+        await API.post('/auth/users/externes', { 
+          nom: formUser.nom, prenom: formUser.prenom, email: formUser.email, 
+          password: formUser.password, client_id: formUser.client_id,
+          telephone: formUser.telephone, matricule: formUser.matricule,
+          fonction: formUser.fonction, service: formUser.service
+        });
       }
-      setFormUser({ nom: '', prenom: '', email: '', password: '', role_id: '', client_id: '' });
+      setFormUser({ 
+        nom: '', prenom: '', email: '', password: '', role_id: '', client_id: '',
+        telephone: '', matricule: '', fonction: '', service: ''
+      });
       setAfficherFormUser(false);
       flashMessage(' Compte créé avec succès');
       loadUsers();
@@ -277,7 +291,7 @@ export default function Utilisateurs() {
             )}
 
             {roles.length === 0 ? (
-              <EmptyState  title="Aucun rôle" description="Créez votre premier rôle personnalisé." />
+              <EmptyState title="Aucun rôle" description="Créez votre premier rôle personnalisé." />
             ) : (
               <ul style={styles.roleList}>
                 {roles.map(r => (
@@ -311,7 +325,6 @@ export default function Utilisateurs() {
           >
             {!selectedRoleId ? (
               <EmptyState
-                
                 title="Sélectionnez un rôle"
                 description="Cliquez sur un rôle à gauche pour configurer ses permissions."
               />
@@ -414,6 +427,35 @@ export default function Utilisateurs() {
                   onChange={handleFormUserChange}
                   required
                   minLength={8}
+                  disabled={formLoading}
+                />
+
+                <Input
+                  name="telephone"
+                  placeholder="Téléphone"
+                  value={formUser.telephone}
+                  onChange={handleFormUserChange}
+                  disabled={formLoading}
+                />
+                <Input
+                  name="matricule"
+                  placeholder="Matricule"
+                  value={formUser.matricule}
+                  onChange={handleFormUserChange}
+                  disabled={formLoading}
+                />
+                <Input
+                  name="fonction"
+                  placeholder="Fonction"
+                  value={formUser.fonction}
+                  onChange={handleFormUserChange}
+                  disabled={formLoading}
+                />
+                <Input
+                  name="service"
+                  placeholder="Service"
+                  value={formUser.service}
+                  onChange={handleFormUserChange}
                   disabled={formLoading}
                 />
 
@@ -537,9 +579,6 @@ const styles = {
     color: '#475569',
     fontWeight: 600,
     transition: 'all 0.2s ease',
-    ':hover': {
-      backgroundColor: 'rgba(255,255,255,0.5)',
-    },
   },
   segmentActive: {
     backgroundColor: '#FFFFFF',
@@ -575,10 +614,6 @@ const styles = {
     boxSizing: 'border-box',
     outline: 'none',
     transition: 'all 0.2s ease',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
   },
   select: {
     padding: '10px 12px',
@@ -590,10 +625,6 @@ const styles = {
     outline: 'none',
     transition: 'all 0.2s ease',
     backgroundColor: '#F8FAFC',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
   },
   selectInline: {
     padding: '4px 8px',
@@ -622,9 +653,6 @@ const styles = {
     fontSize: '14px',
     border: '1px solid transparent',
     transition: 'all 0.2s ease',
-    ':hover': {
-      backgroundColor: '#F1F5F9',
-    },
   },
   roleItemActive: {
     backgroundColor: '#EFF6FF',
@@ -648,9 +676,6 @@ const styles = {
     borderRadius: '10px',
     padding: '12px 16px',
     transition: 'all 0.2s ease',
-    ':hover': {
-      backgroundColor: '#F8FAFC',
-    },
   },
   moduleTitle: {
     fontWeight: 600,
@@ -679,9 +704,6 @@ const styles = {
     userSelect: 'none',
     border: '1px solid transparent',
     transition: 'all 0.2s ease',
-    ':hover': {
-      backgroundColor: '#E2E8F0',
-    },
   },
   actionPillActive: {
     backgroundColor: '#DCFCE7',
@@ -705,9 +727,6 @@ const styles = {
     color: '#475569',
     fontWeight: 500,
     transition: 'all 0.2s ease',
-    ':hover': {
-      backgroundColor: '#F1F5F9',
-    },
   },
   tabBtnActive: {
     backgroundColor: '#0EA5E9',

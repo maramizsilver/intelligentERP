@@ -1,5 +1,5 @@
 // frontend/src/components/layout/Layout.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import Sidebar from './Sidebar';
@@ -10,6 +10,18 @@ import { colors, spacing, transitions, glassmorphism } from '../../styles/theme'
 export default function Layout({ children }) {
   const { user } = useAuth();
   const { dir } = useLanguage();
+
+  // L'animation fadeInUp utilise `transform`. Avec `animation-fill-mode: forwards`,
+  // cette propriété `transform` reste appliquée EN PERMANENCE sur ce wrapper une fois
+  // l'animation terminée (même translateY(0) scale(1) est un transform valide).
+  // Or tout ancêtre avec un `transform` devient le "containing block" de ses
+  // descendants en position:fixed (modals, dropdowns, tooltips...), qui se
+  // retrouvent alors piégés SOUS le Header (sticky, zIndex:1000) quel que soit
+  // leur propre z-index.
+  // Solution : on retire `animation`/`transform` du style dès que l'animation
+  // se termine (onAnimationEnd), pour que ce wrapper redevienne un simple <div>
+  // sans containing block particulier.
+  const [animationDone, setAnimationDone] = useState(false);
 
   if (user?.is_external) {
     return (
@@ -69,9 +81,12 @@ export default function Layout({ children }) {
           }}
         >
           <div
-            style={{
-              animation: 'fadeInUp 0.4s ease forwards',
-            }}
+            onAnimationEnd={() => setAnimationDone(true)}
+            style={
+              animationDone
+                ? undefined
+                : { animation: 'fadeInUp 0.4s ease forwards' }
+            }
           >
             {children}
           </div>

@@ -1,4 +1,3 @@
-// frontend/src/pages/stock/Produits.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -18,13 +17,19 @@ export default function Produits() {
   const navigate = useNavigate();
 
   const [produits, setProduits] = useState([]);
+  const [fournisseurs, setFournisseurs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({ nom: '', description: '', prix: '', quantite_stock: '' });
+  const [form, setForm] = useState({ 
+    nom: '', reference: '', code_barre: '', description: '', prix: '',
+    prix_achat: '', prix_vente: '', prix_unitaire_ht: '', tva: '0',
+    unite: 'unité', categorie: '', fournisseur_id: '', seuil_alerte: '5',
+    actif: true, quantite_stock: ''
+  });
   const [formLoading, setFormLoading] = useState(false);
 
   const peutCreer = hasPermission('Stock', 'creation');
@@ -43,11 +48,24 @@ export default function Produits() {
     }
   };
 
+  const loadFournisseurs = async () => {
+    try {
+      const res = await API.get('/fournisseurs');
+      setFournisseurs(res.data.fournisseurs || []);
+    } catch (err) {
+      console.error('Erreur chargement fournisseurs:', err);
+    }
+  };
+
   useEffect(() => {
     loadData();
+    loadFournisseurs();
   }, []);
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    setForm({ ...form, [e.target.name]: value });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -63,7 +81,12 @@ export default function Produits() {
         setSuccess(t('produit_cree') || 'Produit créé avec succès');
       }
       setIsModalOpen(false);
-      setForm({ nom: '', description: '', prix: '', quantite_stock: '' });
+      setForm({ 
+        nom: '', reference: '', code_barre: '', description: '', prix: '',
+        prix_achat: '', prix_vente: '', prix_unitaire_ht: '', tva: '0',
+        unite: 'unité', categorie: '', fournisseur_id: '', seuil_alerte: '5',
+        actif: true, quantite_stock: ''
+      });
       setEditingId(null);
       loadData();
     } catch (err) {
@@ -75,10 +98,14 @@ export default function Produits() {
 
   const handleEdit = (produit) => {
     setForm({
-      nom: produit.nom,
-      description: produit.description || '',
-      prix: produit.prix,
-      quantite_stock: produit.quantite_stock,
+      nom: produit.nom || '', reference: produit.reference || '',
+      code_barre: produit.code_barre || '', description: produit.description || '',
+      prix: produit.prix || '', prix_achat: produit.prix_achat || '',
+      prix_vente: produit.prix_vente || '', prix_unitaire_ht: produit.prix_unitaire_ht || '',
+      tva: produit.tva || '0', unite: produit.unite || 'unité',
+      categorie: produit.categorie || '', fournisseur_id: produit.fournisseur_id || '',
+      seuil_alerte: produit.seuil_alerte || '5', actif: produit.actif !== undefined ? !!produit.actif : true,
+      quantite_stock: produit.quantite_stock || ''
     });
     setEditingId(produit.id);
     setIsModalOpen(true);
@@ -104,6 +131,7 @@ export default function Produits() {
 
   const columns = [
     { key: 'nom', label: t('nom') },
+    { key: 'reference', label: 'Référence' },
     { key: 'description', label: t('description') },
     {
       key: 'prix',
@@ -144,7 +172,12 @@ export default function Produits() {
               variant="primary"
               icon="+"
               onClick={() => {
-                setForm({ nom: '', description: '', prix: '', quantite_stock: '' });
+                setForm({ 
+                  nom: '', reference: '', code_barre: '', description: '', prix: '',
+                  prix_achat: '', prix_vente: '', prix_unitaire_ht: '', tva: '0',
+                  unite: 'unité', categorie: '', fournisseur_id: '', seuil_alerte: '5',
+                  actif: true, quantite_stock: ''
+                });
                 setEditingId(null);
                 setIsModalOpen(true);
               }}
@@ -176,7 +209,7 @@ export default function Produits() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingId ? t('modifier_produit') || 'Modifier le produit' : t('nouveau_produit') || 'Nouveau produit'}
-        size="md"
+        size="lg"
         actions={[
           {
             label: editingId ? t('modifier') : t('creer'),
@@ -189,8 +222,42 @@ export default function Produits() {
         <form onSubmit={handleSubmit}>
           <div style={styles.formGrid}>
             <Input label={t('nom') + ' *'} name="nom" value={form.nom} onChange={handleChange} required disabled={formLoading} />
+            <Input label="Référence" name="reference" value={form.reference} onChange={handleChange} disabled={formLoading} />
+            <Input label="Code barre" name="code_barre" value={form.code_barre} onChange={handleChange} disabled={formLoading} />
             <Input label={t('description')} name="description" value={form.description} onChange={handleChange} disabled={formLoading} />
-            <Input label={t('prix') + ' (DT) *'} name="prix" type="number" step="0.01" min="0" value={form.prix} onChange={handleChange} required disabled={formLoading} />
+            <Input label={t('prix') + ' (DT) *'} name="prix" type="number" step="0.001" min="0" value={form.prix} onChange={handleChange} required disabled={formLoading} />
+            <Input label="Prix d'achat (DT)" name="prix_achat" type="number" step="0.001" min="0" value={form.prix_achat} onChange={handleChange} disabled={formLoading} />
+            <Input label="Prix de vente (DT)" name="prix_vente" type="number" step="0.001" min="0" value={form.prix_vente} onChange={handleChange} disabled={formLoading} />
+            <Input label="Prix unitaire HT (DT)" name="prix_unitaire_ht" type="number" step="0.001" min="0" value={form.prix_unitaire_ht} onChange={handleChange} disabled={formLoading} />
+            <Input label="TVA (%)" name="tva" type="number" step="0.01" min="0" value={form.tva} onChange={handleChange} disabled={formLoading} />
+            <div>
+              <label style={styles.label}>Unité</label>
+              <select name="unite" value={form.unite} onChange={handleChange} style={styles.select} disabled={formLoading}>
+                <option value="unité">Unité</option>
+                <option value="kg">Kg</option>
+                <option value="litre">Litre</option>
+                <option value="carton">Carton</option>
+                <option value="palette">Palette</option>
+                <option value="m">Mètre</option>
+                <option value="m²">Mètre carré</option>
+              </select>
+            </div>
+            <Input label="Catégorie" name="categorie" value={form.categorie} onChange={handleChange} disabled={formLoading} />
+            <div>
+              <label style={styles.label}>Fournisseur</label>
+              <select name="fournisseur_id" value={form.fournisseur_id} onChange={handleChange} style={styles.select} disabled={formLoading}>
+                <option value="">-- Aucun --</option>
+                {fournisseurs.map(f => <option key={f.id} value={f.id}>{f.nom}</option>)}
+              </select>
+            </div>
+            <Input label="Seuil d'alerte" name="seuil_alerte" type="number" min="0" value={form.seuil_alerte} onChange={handleChange} disabled={formLoading} />
+            <div>
+              <label style={styles.label}>Actif</label>
+              <div style={styles.checkboxContainer}>
+                <input type="checkbox" name="actif" checked={form.actif} onChange={handleChange} disabled={formLoading} />
+                <span style={styles.checkboxLabel}>Oui</span>
+              </div>
+            </div>
             <Input label={t('quantite_stock') || 'Quantité en stock'} name="quantite_stock" type="number" min="0" value={form.quantite_stock} onChange={handleChange} disabled={formLoading} />
           </div>
         </form>
@@ -234,4 +301,25 @@ const styles = {
   },
   successText: { color: '#065F46', fontSize: '13px', fontWeight: 500 },
   formGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' },
+  label: { display: 'block', fontSize: '13px', fontWeight: 500, color: '#1E293B', marginBottom: '4px' },
+  select: {
+    width: '100%',
+    padding: '10px 12px',
+    borderRadius: '8px',
+    border: '2px solid #E2E8F0',
+    fontSize: '14px',
+    backgroundColor: '#F8FAFC',
+    outline: 'none',
+    transition: 'all 0.2s ease',
+  },
+  checkboxContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 0',
+  },
+  checkboxLabel: {
+    fontSize: '14px',
+    color: '#1E293B',
+  },
 };

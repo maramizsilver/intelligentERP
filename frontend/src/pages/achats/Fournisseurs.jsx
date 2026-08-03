@@ -1,4 +1,3 @@
-// frontend/src/pages/achats/Fournisseurs.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -23,7 +22,11 @@ export default function Fournisseurs() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({ nom: '', email: '', telephone: '', adresse: '' });
+  const [form, setForm] = useState({ 
+    nom: '', raison_sociale: '', email: '', telephone: '', adresse: '',
+    ville: '', code_postal: '', pays: 'Tunisie', matricule_fiscal: '',
+    numero_tva: '', rib: '', notes: ''
+  });
   const [formLoading, setFormLoading] = useState(false);
 
   const peutCreer = hasPermission('Achats', 'creation');
@@ -62,7 +65,11 @@ export default function Fournisseurs() {
         setSuccess(t('fournisseur_cree') || 'Fournisseur créé avec succès');
       }
       setIsModalOpen(false);
-      setForm({ nom: '', email: '', telephone: '', adresse: '' });
+      setForm({ 
+        nom: '', raison_sociale: '', email: '', telephone: '', adresse: '',
+        ville: '', code_postal: '', pays: 'Tunisie', matricule_fiscal: '',
+        numero_tva: '', rib: '', notes: ''
+      });
       setEditingId(null);
       loadData();
     } catch (err) {
@@ -74,10 +81,13 @@ export default function Fournisseurs() {
 
   const handleEdit = (fournisseur) => {
     setForm({
-      nom: fournisseur.nom,
-      email: fournisseur.email || '',
-      telephone: fournisseur.telephone || '',
-      adresse: fournisseur.adresse || '',
+      nom: fournisseur.nom || '', raison_sociale: fournisseur.raison_sociale || '',
+      email: fournisseur.email || '', telephone: fournisseur.telephone || '',
+      adresse: fournisseur.adresse || '', ville: fournisseur.ville || '',
+      code_postal: fournisseur.code_postal || '', pays: fournisseur.pays || 'Tunisie',
+      matricule_fiscal: fournisseur.matricule_fiscal || '',
+      numero_tva: fournisseur.numero_tva || '', rib: fournisseur.rib || '',
+      notes: fournisseur.notes || ''
     });
     setEditingId(fournisseur.id);
     setIsModalOpen(true);
@@ -125,7 +135,11 @@ export default function Fournisseurs() {
               variant="primary"
               icon="+"
               onClick={() => {
-                setForm({ nom: '', email: '', telephone: '', adresse: '' });
+                setForm({ 
+                  nom: '', raison_sociale: '', email: '', telephone: '', adresse: '',
+                  ville: '', code_postal: '', pays: 'Tunisie', matricule_fiscal: '',
+                  numero_tva: '', rib: '', notes: ''
+                });
                 setEditingId(null);
                 setIsModalOpen(true);
               }}
@@ -157,7 +171,7 @@ export default function Fournisseurs() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingId ? t('modifier_fournisseur') || 'Modifier le fournisseur' : t('nouveau_fournisseur') || 'Nouveau fournisseur'}
-        size="md"
+        size="lg"
         actions={[
           {
             label: editingId ? t('modifier') : t('creer'),
@@ -170,9 +184,19 @@ export default function Fournisseurs() {
         <form onSubmit={handleSubmit}>
           <div style={styles.formGrid}>
             <Input label={t('nom') + ' *'} name="nom" value={form.nom} onChange={handleChange} required disabled={formLoading} />
+            <Input label="Raison sociale" name="raison_sociale" value={form.raison_sociale} onChange={handleChange} disabled={formLoading} />
             <Input label={t('email')} name="email" type="email" value={form.email} onChange={handleChange} disabled={formLoading} />
             <Input label={t('telephone')} name="telephone" value={form.telephone} onChange={handleChange} disabled={formLoading} />
             <Input label={t('adresse')} name="adresse" value={form.adresse} onChange={handleChange} disabled={formLoading} />
+            <Input label="Ville" name="ville" value={form.ville} onChange={handleChange} disabled={formLoading} />
+            <Input label="Code postal" name="code_postal" value={form.code_postal} onChange={handleChange} disabled={formLoading} />
+            <Input label="Pays" name="pays" value={form.pays} onChange={handleChange} disabled={formLoading} />
+            <Input label="Matricule fiscal" name="matricule_fiscal" value={form.matricule_fiscal} onChange={handleChange} disabled={formLoading} />
+            <Input label="Numéro TVA" name="numero_tva" value={form.numero_tva} onChange={handleChange} disabled={formLoading} />
+            <Input label="RIB" name="rib" value={form.rib} onChange={handleChange} disabled={formLoading} />
+          </div>
+          <div style={styles.fullWidth}>
+            <Input label="Notes" name="notes" value={form.notes} onChange={handleChange} disabled={formLoading} />
           </div>
         </form>
       </Modal>
@@ -215,4 +239,5 @@ const styles = {
   },
   successText: { color: '#065F46', fontSize: '13px', fontWeight: 500 },
   formGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' },
+  fullWidth: { marginTop: '16px' },
 };

@@ -19,7 +19,11 @@ exports.getProduitById = (req, res) => {
 
 exports.createProduit = (req, res) => {
   const db = req.db;
-  const { nom, description, prix, quantite_stock } = req.body;
+  const { 
+    nom, reference, code_barre, description, prix, prix_achat, prix_vente,
+    prix_unitaire_ht, tva, unite, categorie, fournisseur_id, seuil_alerte,
+    actif, quantite_stock
+  } = req.body;
 
   if (!nom || nom.trim().length < 2) {
     return res.status(400).json({ message: 'Le nom du produit est requis' });
@@ -32,9 +36,21 @@ exports.createProduit = (req, res) => {
     return res.status(400).json({ message: 'La quantité en stock doit être un nombre positif' });
   }
 
-  const sql = 'INSERT INTO produits (nom, description, prix, quantite_stock) VALUES (?, ?, ?, ?)';
-  db.query(sql, [nom.trim(), description || null, Number(prix), stock], (err, result) => {
-    if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
+  const sql = `INSERT INTO produits 
+    (nom, reference, code_barre, description, prix, prix_achat, prix_vente,
+     prix_unitaire_ht, tva, unite, categorie, fournisseur_id, seuil_alerte, actif, quantite_stock)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+  db.query(sql, [
+    nom.trim(), reference || null, code_barre || null, description || null, Number(prix),
+    prix_achat || null, prix_vente || null, prix_unitaire_ht || null,
+    tva || 0, unite || 'unité', categorie || null, fournisseur_id || null,
+    seuil_alerte || 5, actif !== undefined ? (actif ? 1 : 0) : 1, stock
+  ], (err, result) => {
+    if (err) { 
+      console.error(err); 
+      return res.status(500).json({ message: 'Erreur serveur' }); 
+    }
     
     AuditService.logOperation(db, {
       utilisateur_id: req.user.id,
@@ -42,7 +58,7 @@ exports.createProduit = (req, res) => {
       operation: 'CREATE',
       table_name: 'produits',
       record_id: result.insertId,
-      nouvelles_valeurs: { nom, description, prix, quantite_stock },
+      nouvelles_valeurs: { nom, reference, code_barre, description, prix, prix_achat, prix_vente, prix_unitaire_ht, tva, unite, categorie, fournisseur_id, seuil_alerte, actif, quantite_stock },
       ip: req.ip || req.connection.remoteAddress,
       user_agent: req.headers['user-agent']
     }).catch(err => console.error('Erreur audit operation:', err));
@@ -53,7 +69,11 @@ exports.createProduit = (req, res) => {
 
 exports.updateProduit = (req, res) => {
   const db = req.db;
-  const { nom, description, prix, quantite_stock } = req.body;
+  const { 
+    nom, reference, code_barre, description, prix, prix_achat, prix_vente,
+    prix_unitaire_ht, tva, unite, categorie, fournisseur_id, seuil_alerte,
+    actif, quantite_stock
+  } = req.body;
 
   if (!nom || nom.trim().length < 2) {
     return res.status(400).json({ message: 'Le nom du produit est requis' });
@@ -67,11 +87,29 @@ exports.updateProduit = (req, res) => {
   }
 
   db.query('SELECT * FROM produits WHERE id = ?', [req.params.id], (errSelect, oldData) => {
-    if (errSelect) { console.error(errSelect); return res.status(500).json({ message: 'Erreur serveur' }); }
+    if (errSelect) { 
+      console.error(errSelect); 
+      return res.status(500).json({ message: 'Erreur serveur' }); 
+    }
     
-    const sql = 'UPDATE produits SET nom = ?, description = ?, prix = ?, quantite_stock = ? WHERE id = ?';
-    db.query(sql, [nom.trim(), description || null, Number(prix), stock, req.params.id], (err, result) => {
-      if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
+    const sql = `UPDATE produits SET 
+      nom = ?, reference = ?, code_barre = ?, description = ?, prix = ?,
+      prix_achat = ?, prix_vente = ?, prix_unitaire_ht = ?, tva = ?,
+      unite = ?, categorie = ?, fournisseur_id = ?, seuil_alerte = ?,
+      actif = ?, quantite_stock = ?
+      WHERE id = ?`;
+
+    db.query(sql, [
+      nom.trim(), reference || null, code_barre || null, description || null, Number(prix),
+      prix_achat || null, prix_vente || null, prix_unitaire_ht || null,
+      tva || 0, unite || 'unité', categorie || null, fournisseur_id || null,
+      seuil_alerte || 5, actif !== undefined ? (actif ? 1 : 0) : 1, stock,
+      req.params.id
+    ], (err, result) => {
+      if (err) { 
+        console.error(err); 
+        return res.status(500).json({ message: 'Erreur serveur' }); 
+      }
       if (result.affectedRows === 0) return res.status(404).json({ message: 'Produit introuvable' });
       
       AuditService.logOperation(db, {
@@ -81,7 +119,7 @@ exports.updateProduit = (req, res) => {
         table_name: 'produits',
         record_id: req.params.id,
         anciennes_valeurs: oldData[0] || null,
-        nouvelles_valeurs: { nom, description, prix, quantite_stock },
+        nouvelles_valeurs: { nom, reference, code_barre, description, prix, prix_achat, prix_vente, prix_unitaire_ht, tva, unite, categorie, fournisseur_id, seuil_alerte, actif, quantite_stock },
         ip: req.ip || req.connection.remoteAddress,
         user_agent: req.headers['user-agent']
       }).catch(err => console.error('Erreur audit operation:', err));
@@ -95,10 +133,16 @@ exports.deleteProduit = (req, res) => {
   const db = req.db;
   
   db.query('SELECT * FROM produits WHERE id = ?', [req.params.id], (errSelect, oldData) => {
-    if (errSelect) { console.error(errSelect); return res.status(500).json({ message: 'Erreur serveur' }); }
+    if (errSelect) { 
+      console.error(errSelect); 
+      return res.status(500).json({ message: 'Erreur serveur' }); 
+    }
     
     db.query('DELETE FROM produits WHERE id = ?', [req.params.id], (err, result) => {
-      if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
+      if (err) { 
+        console.error(err); 
+        return res.status(500).json({ message: 'Erreur serveur' }); 
+      }
       if (result.affectedRows === 0) return res.status(404).json({ message: 'Produit introuvable' });
       
       AuditService.logOperation(db, {
