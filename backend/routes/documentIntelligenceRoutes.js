@@ -71,5 +71,7 @@ router.post('/valider-date', validerDateHandler);
 
 // --- Montants en toutes lettres ---
 router.post('/montant-en-lettres', montantEnLettresHandler);
+router.get('/resoudre/:type/:id', resoudreDocument);
+
 
 module.exports = router;

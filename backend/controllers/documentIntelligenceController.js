@@ -18,12 +18,13 @@ const fs = require('fs');
 
 const { remplirModeleDocx, extraireTagsModele, listerModelesDisponibles } = require('../services/documentTemplate.service');
 const { numeriserEtAnalyser } = require('../services/ocr.service');
-const { autoRemplir } = require('../services/autofill.service');
+const { autoRemplir, resoudreDocumentComplet } = require('../services/autofill.service');
 const { rechercheGlobale } = require('../services/globalSearch.service');
 const { verifierTexte, appliquerCorrections } = require('../services/spellcheck.service');
 const { validerDate } = require('../utils/dateValidator.util');
 const { montantEnLettres, genererMentionsMontants } = require('../services/numberToWords.service');
 const { controlerFormulaireDocument } = require('../utils/formCoherence.util');
+const SequenceService = require('../services/sequence.service');
 
 // ============================================================
 // GÉNÉRATION / REMPLISSAGE DE DOCUMENTS WORD
@@ -54,18 +55,64 @@ exports.tagsDuModele = (req, res) => {
 };
 
 // POST /api/documents-intelligents/generer
-// Body: { typeDocument, nomModele, donnees, champsObligatoires, estDocumentFinancier, langueMontants, deviseMontants }
+// Body: { typeDocument, nomModele, donnees, champsObligatoires, estDocumentFinancier, langueMontants, deviseMontants, referenceType, referenceId }
 exports.genererDocument = (req, res) => {
     const {
         typeDocument, nomModele, donnees = {},
         champsObligatoires = [], estDocumentFinancier = false,
-        langueMontants = 'fr', deviseMontants = 'TND'
+        langueMontants = 'fr', deviseMontants = 'TND',
+        referenceType, referenceId
     } = req.body;
 
     if (!typeDocument || !nomModele) {
         return res.status(400).json({ message: 'typeDocument et nomModele sont requis' });
     }
 
+    try {
+        const db = req.db;
+        let donneesCompletes = { ...donnees };
+
+        // 1. Récupération des relations si referenceType et referenceId sont fournis
+        if (referenceType && referenceId) {
+            resoudreDocumentComplet(db, referenceType, referenceId, req.user.entreprise_id)
+                .then((resolu) => {
+                    if (!resolu.trouve) {
+                        return res.status(404).json({ message: `Référence introuvable (${referenceType} #${referenceId})` });
+                    }
+                    
+                    // Fusionner les données (les données manuelles sont prioritaires)
+                    donneesCompletes = { ...resolu.tags, ...donnees };
+
+                    // Si on génère une facture et qu'elle n'a pas encore de numéro
+                    if (typeDocument === 'facture' && !donneesCompletes.facture_numero) {
+                        return SequenceService.genererNumeroFacture(db, req.user.entreprise_id)
+                            .then((numeroFacture) => {
+                                donneesCompletes.facture_numero = numeroFacture;
+                                genererDocumentFinal(res, db, typeDocument, nomModele, donneesCompletes, champsObligatoires, estDocumentFinancier, langueMontants, deviseMontants, req);
+                            })
+                            .catch((err) => {
+                                console.error('Erreur génération numéro facture:', err);
+                                genererDocumentFinal(res, db, typeDocument, nomModele, donneesCompletes, champsObligatoires, estDocumentFinancier, langueMontants, deviseMontants, req);
+                            });
+                    }
+
+                    genererDocumentFinal(res, db, typeDocument, nomModele, donneesCompletes, champsObligatoires, estDocumentFinancier, langueMontants, deviseMontants, req);
+                })
+                .catch((err) => {
+                    console.error('Erreur resoudreDocumentComplet:', err);
+                    genererDocumentFinal(res, db, typeDocument, nomModele, donneesCompletes, champsObligatoires, estDocumentFinancier, langueMontants, deviseMontants, req);
+                });
+        } else {
+            genererDocumentFinal(res, db, typeDocument, nomModele, donneesCompletes, champsObligatoires, estDocumentFinancier, langueMontants, deviseMontants, req);
+        }
+    } catch (err) {
+        console.error('Erreur genererDocument:', err);
+        res.status(500).json({ message: err.message || 'Erreur lors de la génération du document' });
+    }
+};
+
+// Fonction interne pour générer le document
+function genererDocumentFinal(res, db, typeDocument, nomModele, donnees, champsObligatoires, estDocumentFinancier, langueMontants, deviseMontants, req) {
     // 1. Contrôle automatique du formulaire (complétude + cohérence)
     const controle = controlerFormulaireDocument({ donnees, champsObligatoires, estDocumentFinancier });
     if (!controle.valide) {
@@ -104,17 +151,16 @@ exports.genererDocument = (req, res) => {
         });
 
         // 5. Traçabilité : on enregistre le document généré dans la table "documents"
-        //    existante, comme n'importe quel document uploadé, pour que le module
-        //    reste homogène avec le reste de la GED (téléchargement, suppression...).
-        const db = req.db;
         db.query(
-            `INSERT INTO documents (nom, type_document, reference_type, reference_id, chemin_fichier, nom_original, mime_type, taille_octets, uploaded_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO documents (nom, type_document, reference_type, reference_id, chemin_fichier, nom_original, mime_type, taille_octets, uploaded_by, description, tags, est_genere)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 nomFichierSortie, typeDocument, req.body.referenceType || null, req.body.referenceId || null,
                 cheminFichier, nomFichierSortie,
                 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                fs.statSync(cheminFichier).size, req.user.id
+                fs.statSync(cheminFichier).size, req.user.id,
+                `Document généré depuis ${req.body.referenceType || 'manuel'}`,
+                tagsManquants.join(','), 1
             ],
             (err, result) => {
                 if (err) {
@@ -124,15 +170,16 @@ exports.genererDocument = (req, res) => {
                 res.status(201).json({
                     message: 'Document généré avec succès',
                     documentId: result.insertId,
-                    tagsManquants
+                    tagsManquants,
+                    donneesUtilisees: donneesCompletes
                 });
             }
         );
     } catch (err) {
-        console.error('Erreur genererDocument:', err);
+        console.error('Erreur genererDocumentFinal:', err);
         res.status(500).json({ message: err.message || 'Erreur lors de la génération du document' });
     }
-};
+}
 
 // ============================================================
 // NUMÉRISATION INTELLIGENTE (OCR)
@@ -150,9 +197,6 @@ exports.numeriser = async (req, res) => {
         console.error('Erreur numeriser:', err);
         res.status(500).json({ message: "Erreur lors de l'analyse OCR" });
     } finally {
-        // Fichier temporaire uploadé pour l'OCR : on le supprime après analyse
-        // (le résultat structuré est ce qui doit être conservé, pas le scan brut,
-        // sauf si l'utilisateur choisit explicitement de l'archiver via /documents).
         fs.unlink(req.file.path, () => {});
     }
 };
@@ -172,6 +216,18 @@ exports.autoRemplirChamp = async (req, res) => {
     }
 };
 
+// GET /api/documents-intelligents/resoudre/:type/:id
+exports.resoudreDocument = async (req, res) => {
+    try {
+        const { type, id } = req.params;
+        const resultat = await resoudreDocumentComplet(req.db, type, parseInt(id), req.user.entreprise_id);
+        res.json(resultat);
+    } catch (err) {
+        console.error('Erreur resoudreDocument:', err);
+        res.status(400).json({ message: err.message });
+    }
+};
+
 // ============================================================
 // RECHERCHE GLOBALE
 // ============================================================
@@ -181,11 +237,9 @@ exports.rechercheGlobaleHandler = async (req, res) => {
     try {
         const { q, modules } = req.query;
 
-        // Filtrage par permissions réelles de l'utilisateur (délègue à la logique
-        // déjà en place dans permissionMiddleware / req.user.permissions).
         const aAcces = (nomModule) => {
             if (req.user.is_super_admin) return true;
-            if (!req.user.permissions) return true; // repli permissif si non chargé ; à durcir selon l'implémentation RBAC existante
+            if (!req.user.permissions) return true;
             const perm = req.user.permissions[nomModule];
             return !!(perm && perm.consultation);
         };
