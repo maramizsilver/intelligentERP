@@ -1,3 +1,4 @@
+// backend/routes/documentIntelligenceRoutes.js
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -10,7 +11,8 @@ const {
     rechercheGlobaleHandler,
     verifierOrthographe,
     validerDateHandler,
-    montantEnLettresHandler
+    montantEnLettresHandler,
+    resoudreDocument
 } = require('../controllers/documentIntelligenceController');
 
 const authMiddleware = require('../middleware/authMiddleware');
@@ -18,8 +20,7 @@ const checkPermission = require('../middleware/permissionMiddleware');
 const checkEssaiActif = require('../middleware/checkEssaiActif');
 const tenantMiddleware = require('../middleware/tenant.middleware');
 
-// Stockage temporaire des scans à analyser par OCR (isolé par entreprise,
-// même logique que documentRoutes.js).
+// Stockage temporaire des scans à analyser par OCR
 const storageOcr = multer.diskStorage({
     destination: (req, file, cb) => {
         const dir = path.join(__dirname, '..', 'uploads', 'ocr_temp', String(req.user.entreprise_id));
@@ -33,7 +34,7 @@ const storageOcr = multer.diskStorage({
 
 const uploadOcr = multer({
     storage: storageOcr,
-    limits: { fileSize: 15 * 1024 * 1024 }, // 15 Mo max pour un scan
+    limits: { fileSize: 15 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const typesAutorises = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'application/pdf'];
         if (!typesAutorises.includes(file.mimetype)) {
@@ -56,11 +57,9 @@ router.post('/generer', checkPermission('Documents', 'creation'), genererDocumen
 router.post('/ocr', checkPermission('Documents', 'creation'), uploadOcr.single('fichier'), numeriser);
 
 // --- Saisie intelligente (auto-remplissage) ---
-// La vérification fine des droits par entité est faite dans autofill.service via req.db
-// (la lecture est déjà cantonnée à la base tenant de l'utilisateur connecté).
 router.get('/autofill/:typeEntite/:identifiant', autoRemplirChamp);
 
-// --- Recherche globale (transversale à tous les modules) ---
+// --- Recherche globale ---
 router.get('/recherche', rechercheGlobaleHandler);
 
 // --- Dictionnaire intelligent ---
@@ -71,7 +70,8 @@ router.post('/valider-date', validerDateHandler);
 
 // --- Montants en toutes lettres ---
 router.post('/montant-en-lettres', montantEnLettresHandler);
-router.get('/resoudre/:type/:id', resoudreDocument);
 
+// --- Résolution de document complet (relations) ---
+router.get('/resoudre/:type/:id', resoudreDocument);
 
 module.exports = router;
