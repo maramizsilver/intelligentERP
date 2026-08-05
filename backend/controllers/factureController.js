@@ -1,9 +1,7 @@
 // backend/controllers/factureController.js
 const SequenceService = require('../services/sequence.service');
 
-// ============================================================
 // LISTER TOUTES LES FACTURES
-// ============================================================
 exports.getAllFactures = (req, res) => {
     const db = req.db;
     const sql = `
@@ -19,9 +17,7 @@ exports.getAllFactures = (req, res) => {
     });
 };
 
-// ============================================================
 // GET FACTURE PAR ID
-// ============================================================
 exports.getFactureById = (req, res) => {
     const db = req.db;
     const sql = `
@@ -43,9 +39,7 @@ exports.getFactureById = (req, res) => {
     });
 };
 
-// ============================================================
 // CREER UNE FACTURE DEPUIS UN DEVIS
-// ============================================================
 exports.createFactureFromDevis = async (req, res) => {
     const db = req.db;
     const { devis_id } = req.body;
@@ -102,9 +96,7 @@ exports.createFactureFromDevis = async (req, res) => {
     });
 };
 
-// ============================================================
 // CREER UNE FACTURE DEPUIS UNE COMMANDE
-// ============================================================
 exports.createFactureFromCommande = async (req, res) => {
     const db = req.db;
     const { commande_id } = req.body;
@@ -160,9 +152,7 @@ exports.createFactureFromCommande = async (req, res) => {
     });
 };
 
-// ============================================================
 // METTRE À JOUR LE STATUT D'UNE FACTURE
-// ============================================================
 exports.updateFactureStatut = (req, res) => {
     const db = req.db;
     const { statut } = req.body;
@@ -180,9 +170,7 @@ exports.updateFactureStatut = (req, res) => {
     });
 };
 
-// ============================================================
 // SUPPRIMER UNE FACTURE
-// ============================================================
 exports.deleteFacture = (req, res) => {
     const db = req.db;
     const sql = 'DELETE FROM factures WHERE id = ? AND entreprise_id = ?';

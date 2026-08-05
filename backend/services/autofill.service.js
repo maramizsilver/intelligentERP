@@ -1,5 +1,3 @@
-// backend/services/autofill.service.js
-
 const ENTITES = {
     client: {
         table: 'clients',

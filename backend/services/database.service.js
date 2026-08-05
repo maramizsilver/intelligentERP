@@ -596,6 +596,15 @@ const INITIAL_SCHEMA = [
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_templates_type (type_document),
     INDEX idx_templates_est_commun (est_commun)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS chatbot_messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    role ENUM('user','assistant') NOT NULL,
+    contenu MEDIUMTEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_chatbot_messages_user (user_id, created_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
 ];
 
@@ -667,6 +676,15 @@ async function migrerBaseExistante(dbName) {
         INDEX idx_factures_client (client_id),
         INDEX idx_factures_devis (devis_id),
         INDEX idx_factures_commande (commande_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+      `CREATE TABLE IF NOT EXISTS chatbot_messages (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        role ENUM('user','assistant') NOT NULL,
+        contenu MEDIUMTEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_chatbot_messages_user (user_id, created_at)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
     ];
 

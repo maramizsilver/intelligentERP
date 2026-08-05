@@ -5,6 +5,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import Sidebar from './Sidebar';
 import Header from '../Header';
 import EssaiBanner from '../EssaiBanner';
+import ChatbotWidget from '../chatbot/ChatbotWidget';
 import { colors, spacing, transitions, glassmorphism } from '../../styles/theme';
 
 export default function Layout({ children }) {
@@ -92,6 +93,7 @@ export default function Layout({ children }) {
           </div>
         </main>
       </div>
+      <ChatbotWidget />
     </div>
   );
 }

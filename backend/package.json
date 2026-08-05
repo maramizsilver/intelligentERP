@@ -23,6 +23,7 @@
     "multer": "^2.2.0",
     "mysql2": "^3.22.5",
     "node-cron": "^4.6.0",
+    "openai": "^7.4.0",
     "pdfkit": "^0.19.1",
     "pizzip": "^3.2.0",
     "qrcode": "^1.5.4",
@@ -41,6 +42,7 @@
     "fix-login": "node scripts/fix-login-emails.js",
     "fix-corrupted": "node scripts/fix-corrupted-data.js",
     "decrypt-users": "node scripts/decrypt-all-users.js",
-    "fix-names": "node scripts/fix-user-names.js"
+    "fix-names": "node scripts/fix-user-names.js",
+    "migrate-chatbot": "node scripts/migrate-chatbot-tables.js"
   }
 }
