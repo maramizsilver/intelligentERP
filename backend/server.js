@@ -89,7 +89,8 @@ const protectedRoutes = [
     { path: '/api/admin/taux-reference', route: './routes/tauxReferenceAdminRoutes' },
     { path: '/api/audit', route: './routes/auditRoutes' },
     { path: '/api/documents-intelligents', route: './routes/documentIntelligenceRoutes' },
-        { path: '/api/factures', route: './routes/factureRoutes' },
+    { path: '/api/factures', route: './routes/factureRoutes' },
+    { path: '/api/clients-tenant', route: './routes/clientTenantRoutes' },
     { path: '/api/chatbot', route: './routes/chatbotRoutes' }
 
 ];

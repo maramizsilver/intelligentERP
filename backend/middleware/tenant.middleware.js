@@ -26,7 +26,7 @@ module.exports = function tenantMiddleware(req, res, next) {
     return next();
   }
 
-  const entrepriseId = req.user.entreprise_id;
+  const entrepriseId = req.user.entreprise_id || req.user.company_id;
   if (!entrepriseId) {
     return res.status(400).json({ message: 'Aucune entreprise associée à ce compte' });
   }
@@ -80,4 +80,23 @@ module.exports = function tenantMiddleware(req, res, next) {
 
 module.exports.invalidateCache = function invalidateCache(entrepriseId) {
   dbNameCache.delete(entrepriseId);
+};
+// NOUVEAU - Vérifier l'isolation tenant
+module.exports.ensureTenantIsolation = function ensureTenantIsolation(req, res, next) {
+  const companyId = req.user?.company_id || req.user?.entreprise_id;
+  const dbName = req.tenant?.dbName || req.user?.db_name;
+
+  if (!companyId) {
+    return res.status(401).json({ 
+      message: 'Non authentifié : company_id manquant' 
+    });
+  }
+
+  if (!dbName) {
+    return res.status(500).json({ 
+      message: 'Erreur de configuration : db_name manquant' 
+    });
+  }
+
+  next();
 };
