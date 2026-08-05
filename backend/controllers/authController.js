@@ -952,11 +952,86 @@ exports.revokeOtherSessionsExtended = async (req, res) => {
         res.status(500).json({ message: 'Erreur lors de la revocation des sessions' });
     }
 };
+// NOUVEAU - Login avec company_id 
+exports.loginWithCompany = async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ message: 'Email et mot de passe requis' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    try {
+        const [users] = await db.promisePoolMaster.query(
+            `SELECT u.*, e.db_name, e.nom as entreprise_nom, e.statut as entreprise_statut
+             FROM users u
+             LEFT JOIN entreprises e ON u.entreprise_id = e.id
+             WHERE u.email = ? AND u.actif = 1`,
+            [cleanEmail]
+        );
+
+        if (users.length === 0) {
+            return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
+        }
+
+        const user = users[0];
+
+        if (user.entreprise_statut !== 'actif') {
+            return res.status(403).json({ 
+                message: 'Votre entreprise est inactive. Contactez l administrateur.' 
+            });
+        }
+
+        if (!user.db_name) {
+            return res.status(500).json({ 
+                message: 'Erreur de configuration : base de donnees non associee' 
+            });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
+        }
+
+        // company_id dans le JWT
+        const token = jwt.sign(
+            {
+                id: user.id,
+                email: user.email,
+                company_id: user.entreprise_id,
+                entreprise_id: user.entreprise_id,
+                db_name: user.db_name,
+                role_id: user.role_id || 1,
+                is_super_admin: user.is_super_admin || false
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        res.json({
+            token,
+            user: {
+                id: user.id,
+                email: user.email,
+                nom: user.nom,
+                prenom: user.prenom,
+                entreprise_nom: user.entreprise_nom,
+                role_id: user.role_id || 1,
+                is_super_admin: user.is_super_admin || false
+            }
+        });
+
+    } catch (error) {
+        console.error('Erreur loginWithCompany:', error);
+        res.status(500).json({ message: 'Erreur lors de la connexion' });
+    }
+};
 
 module.exports = {
     registerEntreprise: exports.registerEntreprise,
     login: exports.login,
-    logout: exports.logout,
+    loginWithCompany: exports.loginWithCompany,  
     getMe: exports.getMe,
     getMesPermissions: exports.getMesPermissions,
     updateMe: exports.updateMe,

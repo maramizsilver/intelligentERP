@@ -121,11 +121,13 @@ const INITIAL_SCHEMA = [
     notes TEXT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
     INDEX idx_clients_email (email),
     INDEX idx_clients_telephone (telephone),
     INDEX idx_clients_matricule_fiscal (matricule_fiscal),
     INDEX idx_clients_numero_cin (numero_cin),
-    INDEX idx_clients_nom_prenom (nom, prenom)
+    INDEX idx_clients_nom_prenom (nom, prenom),
+    INDEX idx_clients_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS fournisseurs (
@@ -144,9 +146,11 @@ const INITIAL_SCHEMA = [
     notes TEXT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
     INDEX idx_fournisseurs_email (email),
     INDEX idx_fournisseurs_telephone (telephone),
-    INDEX idx_fournisseurs_matricule_fiscal (matricule_fiscal)
+    INDEX idx_fournisseurs_matricule_fiscal (matricule_fiscal),
+    INDEX idx_fournisseurs_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS produits (
@@ -160,7 +164,7 @@ const INITIAL_SCHEMA = [
     prix_vente DECIMAL(12,3) DEFAULT NULL,
     prix_unitaire_ht DECIMAL(12,3) DEFAULT NULL,
     tva DECIMAL(5,2) DEFAULT 0.00,
-    unite VARCHAR(20) DEFAULT 'unité',
+    unite VARCHAR(20) DEFAULT 'unite',
     categorie VARCHAR(100) DEFAULT NULL,
     fournisseur_id INT DEFAULT NULL,
     quantite_stock INT NOT NULL DEFAULT 0,
@@ -168,10 +172,12 @@ const INITIAL_SCHEMA = [
     actif BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
     INDEX idx_produits_reference (reference),
     INDEX idx_produits_code_barre (code_barre),
     INDEX idx_produits_categorie (categorie),
-    INDEX idx_produits_fournisseur_id (fournisseur_id)
+    INDEX idx_produits_fournisseur_id (fournisseur_id),
+    INDEX idx_produits_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS devis (
@@ -192,12 +198,14 @@ const INITIAL_SCHEMA = [
     created_by INT DEFAULT NULL,
     entreprise_id INT NOT NULL DEFAULT 1,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
     FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
     INDEX idx_devis_numero (numero_devis),
     INDEX idx_devis_reference (reference),
     INDEX idx_devis_date_devis (date_devis),
     INDEX idx_devis_statut (statut),
-    INDEX idx_devis_entreprise (entreprise_id)
+    INDEX idx_devis_entreprise (entreprise_id),
+    INDEX idx_devis_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS devis_produits (
@@ -208,8 +216,10 @@ const INITIAL_SCHEMA = [
     prix_unitaire DECIMAL(12,2) NOT NULL,
     remise_ligne DECIMAL(5,2) DEFAULT 0,
     total_ligne DECIMAL(12,2) NOT NULL,
+    company_id INT DEFAULT 1,
     FOREIGN KEY (devis_id) REFERENCES devis(id) ON DELETE CASCADE,
-    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE
+    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE,
+    INDEX idx_devis_produits_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS commandes (
@@ -229,12 +239,14 @@ const INITIAL_SCHEMA = [
     created_by INT DEFAULT NULL,
     entreprise_id INT NOT NULL DEFAULT 1,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
     FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
     FOREIGN KEY (devis_id) REFERENCES devis(id) ON DELETE SET NULL,
     INDEX idx_commandes_numero (numero_commande),
     INDEX idx_commandes_reference (reference),
     INDEX idx_commandes_statut (statut),
-    INDEX idx_commandes_entreprise (entreprise_id)
+    INDEX idx_commandes_entreprise (entreprise_id),
+    INDEX idx_commandes_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS commande_produits (
@@ -243,8 +255,10 @@ const INITIAL_SCHEMA = [
     produit_id INT NOT NULL,
     quantite INT NOT NULL DEFAULT 1,
     prix_unitaire DECIMAL(12,2) NOT NULL,
+    company_id INT DEFAULT 1,
     FOREIGN KEY (commande_id) REFERENCES commandes(id) ON DELETE CASCADE,
-    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE
+    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE,
+    INDEX idx_commande_produits_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS factures (
@@ -263,6 +277,7 @@ const INITIAL_SCHEMA = [
     entreprise_id INT NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
     UNIQUE KEY numero_facture_unique (numero_facture),
     FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
     FOREIGN KEY (devis_id) REFERENCES devis(id) ON DELETE SET NULL,
@@ -270,7 +285,8 @@ const INITIAL_SCHEMA = [
     INDEX idx_factures_entreprise (entreprise_id),
     INDEX idx_factures_client (client_id),
     INDEX idx_factures_devis (devis_id),
-    INDEX idx_factures_commande (commande_id)
+    INDEX idx_factures_commande (commande_id),
+    INDEX idx_factures_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS achats (
@@ -284,8 +300,10 @@ const INITIAL_SCHEMA = [
     statut ENUM('brouillon', 'envoye', 'recu_partiel', 'recu_total', 'annule') DEFAULT 'brouillon',
     notes TEXT DEFAULT NULL,
     entreprise_id INT NOT NULL DEFAULT 1,
+    company_id INT DEFAULT 1,
     FOREIGN KEY (fournisseur_id) REFERENCES fournisseurs(id) ON DELETE CASCADE,
-    INDEX idx_achats_entreprise (entreprise_id)
+    INDEX idx_achats_entreprise (entreprise_id),
+    INDEX idx_achats_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS achat_produits (
@@ -296,8 +314,10 @@ const INITIAL_SCHEMA = [
     prix_unitaire DECIMAL(12,2) NOT NULL,
     total_ligne DECIMAL(12,2) NOT NULL,
     quantite_recue INT DEFAULT 0,
+    company_id INT DEFAULT 1,
     FOREIGN KEY (achat_id) REFERENCES achats(id) ON DELETE CASCADE,
-    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE
+    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE,
+    INDEX idx_achat_produits_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS entrepots (
@@ -305,7 +325,9 @@ const INITIAL_SCHEMA = [
     nom VARCHAR(255) NOT NULL,
     adresse VARCHAR(255) DEFAULT NULL,
     responsable VARCHAR(100) DEFAULT NULL,
-    actif BOOLEAN DEFAULT TRUE
+    actif BOOLEAN DEFAULT TRUE,
+    company_id INT DEFAULT 1,
+    INDEX idx_entrepots_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS stock_entrepot (
@@ -313,9 +335,11 @@ const INITIAL_SCHEMA = [
     entrepot_id INT NOT NULL,
     produit_id INT NOT NULL,
     quantite INT NOT NULL DEFAULT 0,
+    company_id INT DEFAULT 1,
     FOREIGN KEY (entrepot_id) REFERENCES entrepots(id) ON DELETE CASCADE,
     FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE,
-    UNIQUE KEY uniq_entrepot_produit (entrepot_id, produit_id)
+    UNIQUE KEY uniq_entrepot_produit (entrepot_id, produit_id),
+    INDEX idx_stock_entrepot_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS inventaires (
@@ -325,7 +349,9 @@ const INITIAL_SCHEMA = [
     date_cloture DATETIME DEFAULT NULL,
     statut ENUM('brouillon', 'en_cours', 'termine', 'annule') DEFAULT 'brouillon',
     notes TEXT DEFAULT NULL,
-    created_by INT DEFAULT NULL
+    created_by INT DEFAULT NULL,
+    company_id INT DEFAULT 1,
+    INDEX idx_inventaires_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS inventaire_lignes (
@@ -335,8 +361,10 @@ const INITIAL_SCHEMA = [
     quantite_theorique INT NOT NULL DEFAULT 0,
     quantite_comptee INT DEFAULT NULL,
     ecart INT DEFAULT 0,
+    company_id INT DEFAULT 1,
     FOREIGN KEY (inventaire_id) REFERENCES inventaires(id) ON DELETE CASCADE,
-    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE
+    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE,
+    INDEX idx_inventaire_lignes_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS mouvements_stock (
@@ -351,7 +379,9 @@ const INITIAL_SCHEMA = [
     motif TEXT DEFAULT NULL,
     created_by INT DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE
+    company_id INT DEFAULT 1,
+    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE,
+    INDEX idx_mouvements_stock_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS promotions (
@@ -368,7 +398,9 @@ const INITIAL_SCHEMA = [
     actif BOOLEAN DEFAULT TRUE,
     produits_concernes JSON DEFAULT NULL,
     clients_concernes JSON DEFAULT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
+    INDEX idx_promotions_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS documents (
@@ -388,9 +420,11 @@ const INITIAL_SCHEMA = [
     uploaded_by INT DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
     INDEX idx_documents_type (type_document),
     INDEX idx_documents_reference (reference_type, reference_id),
-    INDEX idx_documents_created_at (created_at)
+    INDEX idx_documents_created_at (created_at),
+    INDEX idx_documents_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS archives (
@@ -400,7 +434,9 @@ const INITIAL_SCHEMA = [
     donnees JSON NOT NULL,
     motif TEXT DEFAULT NULL,
     archived_by INT DEFAULT NULL,
-    archived_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    archived_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
+    INDEX idx_archives_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS paiements (
@@ -413,7 +449,9 @@ const INITIAL_SCHEMA = [
     provider_ref VARCHAR(255) DEFAULT NULL,
     statut ENUM('en_attente', 'valide', 'echoue', 'rembourse') DEFAULT 'en_attente',
     created_by INT DEFAULT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
+    INDEX idx_paiements_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS depenses (
@@ -427,7 +465,9 @@ const INITIAL_SCHEMA = [
     justificatif_document_id INT DEFAULT NULL,
     created_by INT DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (fournisseur_id) REFERENCES fournisseurs(id) ON DELETE SET NULL
+    company_id INT DEFAULT 1,
+    FOREIGN KEY (fournisseur_id) REFERENCES fournisseurs(id) ON DELETE SET NULL,
+    INDEX idx_depenses_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS recettes (
@@ -440,7 +480,9 @@ const INITIAL_SCHEMA = [
     mode_paiement ENUM('especes', 'cheque', 'virement', 'carte', 'stripe', 'paypal', 'flouci', 'konnect') DEFAULT NULL,
     created_by INT DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL
+    company_id INT DEFAULT 1,
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL,
+    INDEX idx_recettes_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS logs_calculs (
@@ -454,7 +496,9 @@ const INITIAL_SCHEMA = [
     resultat DECIMAL(12,2) NOT NULL,
     details JSON DEFAULT NULL,
     taux_reference_used JSON DEFAULT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
+    INDEX idx_logs_calculs_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS taux_reference_central (
@@ -471,7 +515,9 @@ const INITIAL_SCHEMA = [
     created_by INT DEFAULT NULL,
     updated_by INT DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
+    INDEX idx_taux_reference_central_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS taux_reference_audit (
@@ -481,7 +527,9 @@ const INITIAL_SCHEMA = [
     anciennes_valeurs JSON DEFAULT NULL,
     nouvelles_valeurs JSON DEFAULT NULL,
     modified_by INT DEFAULT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
+    INDEX idx_taux_reference_audit_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS audit_logs (
@@ -495,10 +543,12 @@ const INITIAL_SCHEMA = [
     user_agent TEXT DEFAULT NULL,
     status VARCHAR(50) DEFAULT 'success',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
     INDEX idx_entreprise (entreprise_id),
     INDEX idx_utilisateur (utilisateur_id),
     INDEX idx_action (action),
-    INDEX idx_created_at (created_at)
+    INDEX idx_created_at (created_at),
+    INDEX idx_audit_logs_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS audit_connexions (
@@ -509,9 +559,11 @@ const INITIAL_SCHEMA = [
     user_agent TEXT DEFAULT NULL,
     status VARCHAR(50) DEFAULT 'success',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
     INDEX idx_utilisateur (utilisateur_id),
     INDEX idx_email (email),
-    INDEX idx_created_at (created_at)
+    INDEX idx_created_at (created_at),
+    INDEX idx_audit_connexions_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS audit_operations (
@@ -526,10 +578,12 @@ const INITIAL_SCHEMA = [
     ip VARCHAR(50) DEFAULT NULL,
     user_agent TEXT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
     INDEX idx_entreprise (entreprise_id),
     INDEX idx_utilisateur (utilisateur_id),
     INDEX idx_operation (operation),
-    INDEX idx_table (table_name)
+    INDEX idx_table (table_name),
+    INDEX idx_audit_operations_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS entreprises (
@@ -550,7 +604,9 @@ const INITIAL_SCHEMA = [
     logo VARCHAR(255) DEFAULT NULL,
     actif BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
+    INDEX idx_entreprises_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS documents_generes (
@@ -565,8 +621,10 @@ const INITIAL_SCHEMA = [
     devise_utilisee VARCHAR(10) DEFAULT 'TND',
     genere_par INT DEFAULT NULL,
     genere_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
     INDEX idx_documents_generes_type (type_document),
-    INDEX idx_documents_generes_genere_le (genere_le)
+    INDEX idx_documents_generes_genere_le (genere_le),
+    INDEX idx_documents_generes_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS ocr_analyses (
@@ -579,7 +637,9 @@ const INITIAL_SCHEMA = [
     champs_detectes JSON DEFAULT NULL,
     analyse_par INT DEFAULT NULL,
     analyse_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_ocr_analyses_analyse_le (analyse_le)
+    company_id INT DEFAULT 1,
+    INDEX idx_ocr_analyses_analyse_le (analyse_le),
+    INDEX idx_ocr_analyses_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS templates (
@@ -594,8 +654,10 @@ const INITIAL_SCHEMA = [
     created_by INT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
     INDEX idx_templates_type (type_document),
-    INDEX idx_templates_est_commun (est_commun)
+    INDEX idx_templates_est_commun (est_commun),
+    INDEX idx_templates_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   `CREATE TABLE IF NOT EXISTS chatbot_messages (
@@ -604,7 +666,9 @@ const INITIAL_SCHEMA = [
     role ENUM('user','assistant') NOT NULL,
     contenu MEDIUMTEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_chatbot_messages_user (user_id, created_at)
+    company_id INT DEFAULT 1,
+    INDEX idx_chatbot_messages_user (user_id, created_at),
+    INDEX idx_chatbot_messages_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
 ];
 
