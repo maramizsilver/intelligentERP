@@ -1,6 +1,5 @@
 /**
  * backend/controllers/documentIntelligenceController.js
- * ---------------------------------------------------------------------------
  * Contrôleur unique exposant, à tous les modules de la plateforme, les
  * fonctionnalités transversales du module de gestion documentaire intelligente :
  *   - génération/remplissage automatique de documents Word (.docx)
@@ -10,7 +9,6 @@
  *   - dictionnaire intelligent (orthographe)
  *   - calendrier intelligent (validation de dates)
  *   - conversion de montants en toutes lettres
- * ---------------------------------------------------------------------------
  */
 
 const path = require('path');
@@ -25,11 +23,7 @@ const { validerDate } = require('../utils/dateValidator.util');
 const { montantEnLettres, genererMentionsMontants } = require('../services/numberToWords.service');
 const { controlerFormulaireDocument } = require('../utils/formCoherence.util');
 const SequenceService = require('../services/sequence.service');
-
-// ============================================================
 // GÉNÉRATION / REMPLISSAGE DE DOCUMENTS WORD
-// ============================================================
-
 // GET /api/documents-intelligents/modeles?type=devis
 exports.listerModeles = (req, res) => {
     try {
@@ -40,7 +34,6 @@ exports.listerModeles = (req, res) => {
         res.status(500).json({ message: 'Erreur serveur' });
     }
 };
-
 // GET /api/documents-intelligents/modeles/:type/:nom/tags
 exports.tagsDuModele = (req, res) => {
     try {
@@ -53,7 +46,6 @@ exports.tagsDuModele = (req, res) => {
         res.status(500).json({ message: 'Erreur serveur' });
     }
 };
-
 // POST /api/documents-intelligents/generer
 // Body: { typeDocument, nomModele, donnees, champsObligatoires, estDocumentFinancier, langueMontants, deviseMontants, referenceType, referenceId }
 exports.genererDocument = (req, res) => {
@@ -111,6 +103,20 @@ exports.genererDocument = (req, res) => {
     }
 };
 
+// Correspondance entre le type de document et les balises réellement
+// présentes dans les modèles Word (voir backend/templates/documents/_communs).
+// Chaque modèle a sa propre convention de nommage : {devis_total_ttc_lettres},
+// {facture_total_ttc_lettres}, {bon_commande_total_ttc_lettres},
+// {contrat_montant_lettres}. Cette table permet de générer le montant en
+// lettres sous le NOM DE BALISE que le modèle attend réellement, plutôt que
+// sous un nom générique que docxtemplater ne reconnaît jamais.
+const CONFIG_MONTANTS_LETTRES = {
+    devis: { champHT: 'devis_total_ht', champTVA: 'devis_montant_tva', champTTC: 'devis_total_ttc', tagLettres: 'devis_total_ttc_lettres' },
+    facture: { champHT: 'facture_total_ht', champTVA: 'facture_montant_tva', champTTC: 'facture_total_ttc', tagLettres: 'facture_total_ttc_lettres' },
+    bon_commande: { champHT: 'bon_commande_total_ht', champTVA: 'bon_commande_montant_tva', champTTC: 'bon_commande_total_ttc', tagLettres: 'bon_commande_total_ttc_lettres' },
+    contrat: { champHT: null, champTVA: null, champTTC: 'contrat_montant', tagLettres: 'contrat_montant_lettres' }
+};
+
 // Fonction interne pour générer le document
 function genererDocumentFinal(res, db, typeDocument, nomModele, donnees, champsObligatoires, estDocumentFinancier, langueMontants, deviseMontants, req) {
     // 1. Contrôle automatique du formulaire (complétude + cohérence)
@@ -120,19 +126,46 @@ function genererDocumentFinal(res, db, typeDocument, nomModele, donnees, champsO
     }
 
     try {
-        // 2. Ajout automatique des montants en toutes lettres si document financier
+        // 2. Ajout automatique des montants en toutes lettres si document financier.
+        //
+        // Les montants peuvent provenir de deux sources différentes :
+        //   a) saisie manuelle dans le formulaire "Montants" (Card 4) -> clés
+        //      génériques donnees.montantHT / montantTVA / montantTTC
+        //   b) auto-remplissage depuis un devis/facture/bon de commande existant
+        //      -> clés déjà préfixées par type, ex. donnees.devis_total_ttc
+        // On priorise la saisie manuelle si présente, sinon on retombe sur le
+        // champ spécifique déjà rempli par l'auto-remplissage.
         let donneesCompletes = { ...donnees };
-        if (estDocumentFinancier && donnees.montantHT !== undefined) {
-            donneesCompletes = {
-                ...donneesCompletes,
-                ...genererMentionsMontants({
-                    montantHT: Number(donnees.montantHT),
-                    montantTVA: Number(donnees.montantTVA || 0),
-                    montantTTC: Number(donnees.montantTTC),
-                    langue: langueMontants,
-                    devise: deviseMontants
-                })
-            };
+        if (estDocumentFinancier) {
+            const config = CONFIG_MONTANTS_LETTRES[typeDocument];
+
+            const montantHT = Number(
+                donnees.montantHT ?? (config && config.champHT ? donneesCompletes[config.champHT] : undefined) ?? 0
+            );
+            const montantTVA = Number(
+                donnees.montantTVA ?? (config && config.champTVA ? donneesCompletes[config.champTVA] : undefined) ?? 0
+            );
+            const montantTTC = Number(
+                donnees.montantTTC ?? (config && config.champTTC ? donneesCompletes[config.champTTC] : undefined) ?? 0
+            );
+
+            const mentions = genererMentionsMontants({
+                montantHT: Number.isNaN(montantHT) ? 0 : montantHT,
+                montantTVA: Number.isNaN(montantTVA) ? 0 : montantTVA,
+                montantTTC: Number.isNaN(montantTTC) ? 0 : montantTTC,
+                langue: langueMontants,
+                devise: deviseMontants
+            });
+
+            donneesCompletes = { ...donneesCompletes, ...mentions };
+
+            // Alias vers la balise réellement utilisée par le modèle Word
+            // (ex: {devis_total_ttc_lettres}), en plus des clés génériques
+            // ci-dessus conservées pour compatibilité avec d'éventuels
+            // modèles personnalisés qui utiliseraient les noms génériques.
+            if (config && config.tagLettres) {
+                donneesCompletes[config.tagLettres] = mentions.montant_ttc_lettres;
+            }
         }
 
         // 3. Résolution du modèle (commun ou propre à l'entreprise)
@@ -181,10 +214,7 @@ function genererDocumentFinal(res, db, typeDocument, nomModele, donnees, champsO
     }
 }
 
-// ============================================================
 // NUMÉRISATION INTELLIGENTE (OCR)
-// ============================================================
-
 // POST /api/documents-intelligents/ocr  (multipart/form-data, champ "fichier")
 exports.numeriser = async (req, res) => {
     if (!req.file) return res.status(400).json({ message: 'Aucun fichier fourni' });
@@ -201,10 +231,7 @@ exports.numeriser = async (req, res) => {
     }
 };
 
-// ============================================================
 // SAISIE INTELLIGENTE (AUTO-REMPLISSAGE)
-// ============================================================
-
 // GET /api/documents-intelligents/autofill/:typeEntite/:identifiant
 exports.autoRemplirChamp = async (req, res) => {
     try {
@@ -228,9 +255,7 @@ exports.resoudreDocument = async (req, res) => {
     }
 };
 
-// ============================================================
 // RECHERCHE GLOBALE
-// ============================================================
 
 // GET /api/documents-intelligents/recherche?q=...&modules=clients,fournisseurs
 exports.rechercheGlobaleHandler = async (req, res) => {
@@ -255,10 +280,7 @@ exports.rechercheGlobaleHandler = async (req, res) => {
     }
 };
 
-// ============================================================
 // DICTIONNAIRE INTELLIGENT (ORTHOGRAPHE)
-// ============================================================
-
 // POST /api/documents-intelligents/orthographe  Body: { texte, langue, appliquer }
 exports.verifierOrthographe = async (req, res) => {
     try {
@@ -274,20 +296,14 @@ exports.verifierOrthographe = async (req, res) => {
     }
 };
 
-// ============================================================
 // CALENDRIER INTELLIGENT
-// ============================================================
-
 // POST /api/documents-intelligents/valider-date  Body: { valeur, autoriserPasse, autoriserFutur, dateMin, dateMax }
 exports.validerDateHandler = (req, res) => {
     const resultat = validerDate(req.body.valeur, req.body);
     res.json(resultat);
 };
 
-// ============================================================
 // MONTANTS EN LETTRES
-// ============================================================
-
 // POST /api/documents-intelligents/montant-en-lettres  Body: { montant, langue, devise }
 exports.montantEnLettresHandler = (req, res) => {
     try {
