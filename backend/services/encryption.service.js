@@ -34,7 +34,7 @@ class EncryptionService {
     }
 
     getEncryptedFieldNames() {
-        return ['nom', 'prenom', 'email', 'telephone', 'adresse'];
+        return ['email', 'telephone', 'adresse', 'description', 'notes'];
     }
 
     // Une valeur chiffrée par ce service a toujours la forme "ivHex:tagHex:cipherHex"

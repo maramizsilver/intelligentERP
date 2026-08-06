@@ -36,11 +36,6 @@ API.interceptors.request.use(async (req) => {
   if (token) {
     req.headers.Authorization = `Bearer ${token}`;
   }
-  
-  const entrepriseId = localStorage.getItem('entrepriseId');
-  if (entrepriseId) {
-    req.headers['X-Enterprise-Id'] = entrepriseId;
-  }
 
   if (req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS') {
     const csrf = await getCsrfToken();
@@ -58,7 +53,6 @@ API.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      localStorage.removeItem('entrepriseId');
       window.location.href = '/';
       return Promise.reject({
         ...error,

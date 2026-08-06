@@ -1,20 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import API from '../../utils/api';
-
-import Card from '../../components/common/Card';
-import Button from '../../components/common/Button';
 import Table from '../../components/common/Table';
-import Badge from '../../components/common/Badge';
+import Button from '../../components/common/Button';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import EmptyState from '../../components/common/EmptyState';
+import { useNavigate } from 'react-router-dom';
 
 export default function ClientCommandes() {
-  const navigate = useNavigate();
-
   const [commandes, setCommandes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadCommandes();
@@ -22,152 +16,66 @@ export default function ClientCommandes() {
 
   const loadCommandes = async () => {
     try {
-      const res = await API.get('/commandes');
+      const res = await API.get('/client/commandes');
       setCommandes(res.data.commandes || []);
     } catch (err) {
-      setError('Impossible de charger vos commandes');
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const annulerCommande = async (id) => {
-    if (!window.confirm('Annuler cette commande ?')) return;
-    try {
-      await API.delete(`/commandes/${id}`);
-      loadCommandes();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Erreur');
-    }
-  };
-
-  const getStatutBadge = (statut) => {
-    const statuts = {
-      en_attente: { label: 'En attente', variant: 'warning' },
-      confirmee: { label: 'Confirmee', variant: 'primary' },
-      livree: { label: 'Livree', variant: 'success' },
-      annulee: { label: 'Annulee', variant: 'danger' }
-    };
-    return statuts[statut] || statuts.en_attente;
-  };
-
-  if (loading) {
-    return <LoadingSpinner size="lg" text="Chargement de vos commandes..." />;
-  }
-
   const columns = [
-    { key: 'id', label: 'N°', width: '60px' },
-    {
-      key: 'date_commande',
-      label: 'Date',
-      render: (row) => new Date(row.date_commande).toLocaleDateString('fr-FR')
-    },
-    {
-      key: 'total',
-      label: 'Total',
-      render: (row) => `${row.total} DT`
-    },
-    {
-      key: 'statut',
-      label: 'Statut',
-      render: (row) => {
-        const statut = getStatutBadge(row.statut);
-        return <Badge variant={statut.variant}>{statut.label}</Badge>;
-      }
-    }
+    { key: 'reference', label: 'Référence' },
+    { key: 'date_commande', label: 'Date', render: (row) => new Date(row.date_commande).toLocaleDateString('fr-FR') },
+    { key: 'total_ttc', label: 'Total (€)' },
+    { key: 'statut', label: 'Statut', render: (row) => (
+      <span style={{
+        padding: '4px 14px',
+        borderRadius: '20px',
+        fontSize: '12px',
+        fontWeight: 500,
+        backgroundColor: row.statut === 'livree' ? '#D1FAE5' : row.statut === 'confirmee' ? '#DBEAFE' : '#FEF3C7',
+        color: row.statut === 'livree' ? '#065F46' : row.statut === 'confirmee' ? '#1E40AF' : '#92400E'
+      }}>
+        {row.statut === 'livree' ? '✅ Livrée' : row.statut === 'confirmee' ? ' Confirmée' : ' En attente'}
+      </span>
+    )}
   ];
 
   const actions = [
-    {
-      label: 'Voir',
-      variant: 'primary',
-      onClick: (row) => navigate(`/client/commande/${row.id}`)
-    },
-    {
-      label: 'Payer',
-      variant: 'success',
-      onClick: (row) => navigate(`/paiement/client?commande_id=${row.id}&montant=${row.total}`),
-      disabled: (row) => row.statut !== 'en_attente'
-    },
-    {
-      label: 'Annuler',
-      variant: 'danger',
-      onClick: (row) => annulerCommande(row.id),
-      disabled: (row) => row.statut !== 'en_attente'
-    }
+    { label: 'Voir détails', variant: 'secondary', onClick: (row) => navigate(`/client/commande/${row.id}`) }
   ];
 
+  if (loading) return <LoadingSpinner size="lg" text="Chargement de vos commandes..." />;
+
   return (
-    <div>
+    <div style={styles.container}>
       <div style={styles.header}>
-        <div>
-          <h1 style={styles.title}>Mes commandes</h1>
-          <p style={styles.subtitle}>Consultez l'historique de vos commandes</p>
-        </div>
-        <Button variant="secondary" onClick={() => navigate('/client/dashboard')}>
-          ← Retour
-        </Button>
+        <h1 style={styles.title}>Mes commandes</h1>
+        <Button variant="primary" onClick={() => navigate('/client/commandes')}>+ Nouvelle commande</Button>
       </div>
-
-      {error && (
-        <div style={styles.errorContainer}>
-          <span>❌</span>
-          <span style={styles.errorText}>{error}</span>
-        </div>
-      )}
-
-      {commandes.length === 0 ? (
-        <EmptyState
-          title="Vous n'avez pas encore de commandes"
-          description="Découvrez nos produits et passez votre première commande."
-          action={
-            <Button variant="primary" onClick={() => navigate('/client/produits')}>
-              Découvrir les produits
-            </Button>
-          }
-        />
-      ) : (
-        <Card title="Liste de mes commandes" variant="primary">
-          <Table columns={columns} data={commandes} actions={actions} />
-        </Card>
-      )}
+      <Table columns={columns} data={commandes} actions={actions} emptyMessage="Aucune commande trouvée" />
     </div>
   );
 }
 
 const styles = {
+  container: {
+    padding: '24px',
+    maxWidth: '1200px',
+    margin: '0 auto',
+  },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '24px',
-    flexWrap: 'wrap',
-    gap: '12px',
+    alignItems: 'center',
+    marginBottom: '20px',
   },
   title: {
     fontSize: '24px',
     fontWeight: 700,
     color: '#0F172A',
     margin: 0,
-  },
-  subtitle: {
-    fontSize: '14px',
-    color: '#64748B',
-    marginTop: '4px',
-  },
-  errorContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    backgroundColor: '#FEF2F2',
-    border: '1px solid #FECACA',
-    borderRadius: '8px',
-    padding: '12px 16px',
-    marginBottom: '16px',
-  },
-  errorText: {
-    color: '#991B1B',
-    fontSize: '13px',
-    fontWeight: 500,
   },
 };

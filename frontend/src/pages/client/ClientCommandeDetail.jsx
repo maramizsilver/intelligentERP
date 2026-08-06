@@ -1,21 +1,15 @@
-// src/pages/client/ClientCommandeDetail.jsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import API from '../../utils/api';
-
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
-import Badge from '../../components/common/Badge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 export default function ClientCommandeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-
   const [commande, setCommande] = useState(null);
-  const [lignes, setLignes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     loadCommande();
@@ -23,105 +17,65 @@ export default function ClientCommandeDetail() {
 
   const loadCommande = async () => {
     try {
-      const res = await API.get(`/commandes/${id}`);
-      setCommande(res.data.commande);
-      setLignes(res.data.commande.lignes || []);
+      const res = await API.get(`/client/commandes/${id}`);
+      setCommande(res.data);
     } catch (err) {
-      setError('Impossible de charger la commande');
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatutBadge = (statut) => {
-    const statuts = {
-      en_attente: { label: 'En attente', variant: 'warning' },
-      confirmee: { label: 'Confirmée', variant: 'primary' },
-      livree: { label: 'Livrée', variant: 'success' },
-      annulee: { label: 'Annulée', variant: 'danger' }
-    };
-    return statuts[statut] || statuts.en_attente;
-  };
-
-  if (loading) {
-    return <LoadingSpinner size="lg" text="Chargement de la commande..." />;
-  }
-
-  if (error || !commande) {
-    return (
-      <div>
-        <div style={styles.header}>
-          <h1 style={styles.title}>❌ Erreur</h1>
-          <p style={styles.subtitle}>{error || 'Commande introuvable'}</p>
-        </div>
-        <Button variant="secondary" onClick={() => navigate('/client/commandes')}>
-          ← Retour
-        </Button>
-      </div>
-    );
-  }
-
-  const statut = getStatutBadge(commande.statut);
+  if (loading) return <LoadingSpinner size="lg" text="Chargement..." />;
+  if (!commande) return <p style={{ padding: '24px' }}>Commande non trouvée</p>;
 
   return (
-    <div>
-      <div style={styles.header}>
-        <div>
-          <h1 style={styles.title}>Commande #{commande.id}</h1>
-          <p style={styles.subtitle}>
-            Détails de votre commande du {new Date(commande.date_commande).toLocaleDateString('fr-FR')}
-          </p>
-        </div>
-        <Button variant="secondary" onClick={() => navigate('/client/commandes')}>
-          ← Retour
-        </Button>
-      </div>
+    <div style={styles.container}>
+      <Button variant="secondary" onClick={() => navigate('/client/commandes')} style={{ marginBottom: '16px' }}>
+        ← Retour
+      </Button>
 
-      <Card title=" Informations générales" variant="primary" style={{ marginBottom: '24px' }}>
+      <Card title={`Commande #${commande.reference || commande.id}`} variant="primary">
         <div style={styles.infoGrid}>
-          <div>
-            <span style={styles.infoLabel}>Date</span>
-            <span style={styles.infoValue}>
-              {new Date(commande.date_commande).toLocaleDateString('fr-FR')}
+          <div><strong>Date :</strong> {new Date(commande.date_commande).toLocaleDateString('fr-FR')}</div>
+          <div><strong>Statut :</strong> 
+            <span style={{
+              marginLeft: '8px',
+              padding: '2px 12px',
+              borderRadius: '12px',
+              fontSize: '12px',
+              fontWeight: 500,
+              backgroundColor: commande.statut === 'livree' ? '#D1FAE5' : '#FEF3C7',
+              color: commande.statut === 'livree' ? '#065F46' : '#92400E'
+            }}>
+              {commande.statut === 'livree' ? ' Livrée' : commande.statut === 'confirmee' ? ' Confirmée' : ' En attente'}
             </span>
           </div>
-          <div>
-            <span style={styles.infoLabel}>Total</span>
-            <span style={styles.infoValue}>{commande.total} DT</span>
-          </div>
-          <div>
-            <span style={styles.infoLabel}>Statut</span>
-            <Badge variant={statut.variant}>{statut.label}</Badge>
-          </div>
+          <div><strong>Total HT :</strong> {commande.montant_ht || commande.total} €</div>
+          <div><strong>TVA :</strong> {commande.montant_tva || 0} €</div>
+          <div><strong>Total TTC :</strong> {commande.total_ttc || commande.total} €</div>
         </div>
-      </Card>
 
-      <Card title=" Produits commandés" variant="primary">
+        <h3 style={styles.sectionTitle}>Produits commandés</h3>
         <table style={styles.table}>
           <thead>
-            <tr>
-              <th>Produit</th>
-              <th>Quantité</th>
-              <th>Prix unitaire</th>
-              <th>Total</th>
+            <tr style={styles.tableHead}>
+              <th style={styles.tableHeader}>Produit</th>
+              <th style={{...styles.tableHeader, textAlign: 'right'}}>Qté</th>
+              <th style={{...styles.tableHeader, textAlign: 'right'}}>Prix unitaire</th>
+              <th style={{...styles.tableHeader, textAlign: 'right'}}>Total</th>
             </tr>
           </thead>
           <tbody>
-            {lignes.map((l, i) => (
-              <tr key={i}>
-                <td>{l.produit_nom || `Produit #${l.produit_id}`}</td>
-                <td>{l.quantite}</td>
-                <td>{l.prix_unitaire} DT</td>
-                <td>{(l.quantite * l.prix_unitaire).toFixed(2)} DT</td>
+            {(commande.produits || commande.lignes || []).map((item, i) => (
+              <tr key={i} style={i % 2 === 0 ? styles.tableRowEven : styles.tableRowOdd}>
+                <td style={styles.tableCell}>{item.produit_nom || `Produit #${item.produit_id}`}</td>
+                <td style={{...styles.tableCell, textAlign: 'right'}}>{item.quantite}</td>
+                <td style={{...styles.tableCell, textAlign: 'right'}}>{item.prix_unitaire} €</td>
+                <td style={{...styles.tableCell, textAlign: 'right'}}>{(item.quantite * item.prix_unitaire).toFixed(2)} €</td>
               </tr>
             ))}
           </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold' }}>Total :</td>
-              <td style={{ fontWeight: 'bold' }}>{commande.total} DT</td>
-            </tr>
-          </tfoot>
         </table>
       </Card>
     </div>
@@ -129,46 +83,52 @@ export default function ClientCommandeDetail() {
 }
 
 const styles = {
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '24px',
-    flexWrap: 'wrap',
-    gap: '12px',
-  },
-  title: {
-    fontSize: '24px',
-    fontWeight: 700,
-    color: '#0F172A',
-    margin: 0,
-  },
-  subtitle: {
-    fontSize: '14px',
-    color: '#64748B',
-    marginTop: '4px',
+  container: {
+    padding: '24px',
+    maxWidth: '800px',
+    margin: '0 auto',
   },
   infoGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-    gap: '16px',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '12px',
+    marginBottom: '20px',
   },
-  infoLabel: {
-    display: 'block',
-    fontSize: '12px',
-    color: '#94A3B8',
-    fontWeight: 500,
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-    marginBottom: '4px',
-  },
-  infoValue: {
+  sectionTitle: {
     fontSize: '16px',
     fontWeight: 600,
     color: '#0F172A',
+    marginTop: '16px',
+    marginBottom: '12px',
   },
   table: {
     width: '100%',
     borderCollapse: 'collapse',
+    borderRadius: '8px',
+    overflow: 'hidden',
+  },
+  tableHead: {
+    backgroundColor: '#F1F5F9',
+  },
+  tableHeader: {
+    padding: '10px 12px',
+    textAlign: 'left',
+    fontSize: '12px',
+    fontWeight: 600,
+    color: '#475569',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  },
+  tableRowEven: {
+    backgroundColor: '#FFFFFF',
+  },
+  tableRowOdd: {
+    backgroundColor: '#F8FAFC',
+  },
+  tableCell: {
+    padding: '10px 12px',
+    fontSize: '14px',
+    color: '#0F172A',
+    borderBottom: '1px solid #E8EDF2',
   },
 };
