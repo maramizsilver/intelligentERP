@@ -5,7 +5,6 @@ import API from '../../utils/api';
 
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
-import Table from '../../components/common/Table';
 import Badge from '../../components/common/Badge';
 import Input from '../../components/common/Input';
 import Modal from '../../components/common/Modal';
@@ -13,25 +12,25 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
 
 const ACTIONS = [
-  { key: 'consultation', label: ' Voir' },
-  { key: 'creation', label: ' Créer' },
-  { key: 'modification', label: ' Modifier' },
-  { key: 'suppression', label: ' Supprimer' },
-  { key: 'validation', label: ' Valider' },
-  { key: 'export', label: ' Exporter' }
+  { key: 'consultation', label: 'Voir' },
+  { key: 'creation', label: 'Creer' },
+  { key: 'modification', label: 'Modifier' },
+  { key: 'suppression', label: 'Supprimer' },
+  { key: 'validation', label: 'Valider' },
+  { key: 'export', label: 'Exporter' }
 ];
 
 const MODULE_ICONS = {
-  Ventes: 'Ventes',
-  Achats: 'Achats',
-  Stock: 'Stock',
-  Finance: 'Finance',
-  Utilisateurs: 'user',
-  Documents: 'Doc'
+  Ventes: '🛒',
+  Achats: '📦',
+  Stock: '📊',
+  Finance: '💰',
+  Utilisateurs: '👤',
+  Documents: '📄'
 };
 
 export default function Utilisateurs() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const navigate = useNavigate();
 
   const [ongletPrincipal, setOngletPrincipal] = useState('roles');
@@ -48,7 +47,7 @@ export default function Utilisateurs() {
   const [clients, setClients] = useState([]);
   const [afficherFormUser, setAfficherFormUser] = useState(false);
   const [ongletCreation, setOngletCreation] = useState('interne');
-  const [formUser, setFormUser] = useState({ 
+  const [formUser, setFormUser] = useState({
     nom: '', prenom: '', email: '', password: '', role_id: '', client_id: '',
     telephone: '', matricule: '', fonction: '', service: ''
   });
@@ -76,18 +75,18 @@ export default function Utilisateurs() {
       const res = await API.get('/roles');
       setRoles(res.data.roles || []);
     } catch (err) {
-      flashError('Impossible de charger les rôles');
+      flashError('Impossible de charger les roles');
     }
   };
 
   const loadUsers = async () => {
-    try {
-      const res = await API.get('/auth/users');
-      setUsers(res.data.users || []);
-    } catch (err) {
-      // silencieux
-    }
-  };
+  try {
+    const res = await API.get('/auth/users/entreprise');
+    setUsers(res.data.users || []);
+  } catch (err) {
+    flashError(err.response?.data?.message || 'Impossible de charger les comptes');
+  }
+};
 
   const selectionnerRole = async (roleId) => {
     setSelectedRoleId(roleId);
@@ -96,7 +95,7 @@ export default function Utilisateurs() {
       const res = await API.get(`/roles/${roleId}/permissions`);
       setPermissions(res.data.permissions || []);
     } catch (err) {
-      flashError('Impossible de charger les permissions de ce rôle');
+      flashError('Impossible de charger les permissions de ce role');
     } finally {
       setPermsLoading(false);
     }
@@ -104,12 +103,20 @@ export default function Utilisateurs() {
 
   const toggleCase = async (moduleRow, actionKey) => {
     const nouvelleValeur = !moduleRow[actionKey];
-    setPermissions(prev => prev.map(m => m.module_id === moduleRow.module_id ? { ...m, [actionKey]: nouvelleValeur } : m));
+    setPermissions(prev => prev.map(m => 
+      m.module_id === moduleRow.module_id ? { ...m, [actionKey]: nouvelleValeur } : m
+    ));
     try {
-      await API.put(`/roles/${selectedRoleId}/permissions`, { module_id: moduleRow.module_id, ...moduleRow, [actionKey]: nouvelleValeur });
+      await API.put(`/roles/${selectedRoleId}/permissions`, {
+        module_id: moduleRow.module_id,
+        ...moduleRow,
+        [actionKey]: nouvelleValeur
+      });
     } catch (err) {
       flashError(err.response?.data?.message || 'Erreur');
-      setPermissions(prev => prev.map(m => m.module_id === moduleRow.module_id ? { ...m, [actionKey]: !nouvelleValeur } : m));
+      setPermissions(prev => prev.map(m => 
+        m.module_id === moduleRow.module_id ? { ...m, [actionKey]: !nouvelleValeur } : m
+      ));
     }
   };
 
@@ -117,7 +124,7 @@ export default function Utilisateurs() {
     e.preventDefault();
     setFormLoading(true);
     if (!nouveauRoleNom.trim()) {
-      flashError('Le nom du rôle est requis');
+      flashError('Le nom du role est requis');
       setFormLoading(false);
       return;
     }
@@ -125,7 +132,7 @@ export default function Utilisateurs() {
       await API.post('/roles', { nom: nouveauRoleNom.trim() });
       setNouveauRoleNom('');
       setAfficherFormRole(false);
-      flashMessage(' Rôle créé');
+      flashMessage('Role cree avec succes');
       loadRoles();
     } catch (err) {
       flashError(err.response?.data?.message || 'Erreur');
@@ -135,34 +142,48 @@ export default function Utilisateurs() {
   };
 
   const supprimerRole = async (roleId) => {
-    if (!window.confirm("Supprimer ce rôle ? Les comptes qui l'utilisent perdront leurs accès.")) return;
+    if (!window.confirm("Supprimer ce role ? Les comptes qui l'utilisent perdront leurs acces.")) return;
     try {
       await API.delete(`/roles/${roleId}`);
-      if (selectedRoleId === roleId) { setSelectedRoleId(null); setPermissions([]); }
-      flashMessage(' Rôle supprimé');
+      if (selectedRoleId === roleId) {
+        setSelectedRoleId(null);
+        setPermissions([]);
+      }
+      flashMessage('Role supprime avec succes');
       loadRoles();
     } catch (err) {
       flashError(err.response?.data?.message || 'Erreur');
     }
   };
 
-  const handleFormUserChange = (e) => setFormUser({ ...formUser, [e.target.name]: e.target.value });
+  const handleFormUserChange = (e) => {
+    setFormUser({ ...formUser, [e.target.name]: e.target.value });
+  };
 
+  // ============================================================
+  // ✅ CORRIGÉ : Routes API correctes
+  // ============================================================
   const creerUtilisateur = async (e) => {
     e.preventDefault();
     setFormLoading(true);
     try {
       if (ongletCreation === 'interne') {
         if (!formUser.role_id) {
-          flashError('Veuillez choisir un rôle');
+          flashError('Veuillez choisir un role');
           setFormLoading(false);
           return;
         }
-        await API.post('/auth/users', { 
-          nom: formUser.nom, prenom: formUser.prenom, email: formUser.email, 
-          password: formUser.password, role_id: formUser.role_id,
-          telephone: formUser.telephone, matricule: formUser.matricule,
-          fonction: formUser.fonction, service: formUser.service
+        // ✅ Route correcte : /auth/users
+        await API.post('/auth/users', {
+          nom: formUser.nom,
+          prenom: formUser.prenom,
+          email: formUser.email,
+          password: formUser.password,
+          role_id: formUser.role_id,
+          telephone: formUser.telephone,
+          matricule: formUser.matricule,
+          fonction: formUser.fonction,
+          service: formUser.service
         });
       } else {
         if (!formUser.client_id) {
@@ -170,19 +191,25 @@ export default function Utilisateurs() {
           setFormLoading(false);
           return;
         }
-        await API.post('/auth/users/externes', { 
-          nom: formUser.nom, prenom: formUser.prenom, email: formUser.email, 
-          password: formUser.password, client_id: formUser.client_id,
-          telephone: formUser.telephone, matricule: formUser.matricule,
-          fonction: formUser.fonction, service: formUser.service
+        // ✅ Route correcte : /auth/users/externes
+        await API.post('/auth/users/externes', {
+          nom: formUser.nom,
+          prenom: formUser.prenom,
+          email: formUser.email,
+          password: formUser.password,
+          client_id: formUser.client_id,
+          telephone: formUser.telephone,
+          matricule: formUser.matricule,
+          fonction: formUser.fonction,
+          service: formUser.service
         });
       }
-      setFormUser({ 
+      setFormUser({
         nom: '', prenom: '', email: '', password: '', role_id: '', client_id: '',
         telephone: '', matricule: '', fonction: '', service: ''
       });
       setAfficherFormUser(false);
-      flashMessage(' Compte créé avec succès');
+      flashMessage('Compte cree avec succes');
       loadUsers();
     } catch (err) {
       const apiErrors = err.response?.data?.errors;
@@ -192,11 +219,30 @@ export default function Utilisateurs() {
     }
   };
 
+  // ============================================================
+  // ✅ CORRIGÉ : Route API correcte
+  // ============================================================
   const changerRoleUtilisateur = async (userId, roleId) => {
     if (!roleId) return;
     try {
+      // ✅ Route correcte : /auth/users/:id/role
       await API.put(`/auth/users/${userId}/role`, { role_id: roleId });
-      flashMessage(' Rôle mis à jour');
+      flashMessage('Role mis a jour');
+      loadUsers();
+    } catch (err) {
+      flashError(err.response?.data?.message || 'Erreur');
+    }
+  };
+
+  // ============================================================
+  // ✅ AJOUTÉ : Supprimer un utilisateur
+  // ============================================================
+  const supprimerUtilisateur = async (userId) => {
+    if (!window.confirm('Supprimer definitivement cet utilisateur ?')) return;
+    try {
+      // ✅ Route correcte : /auth/users/:id
+      await API.delete(`/auth/users/${userId}`);
+      flashMessage('Utilisateur supprime avec succes');
       loadUsers();
     } catch (err) {
       flashError(err.response?.data?.message || 'Erreur');
@@ -205,12 +251,12 @@ export default function Utilisateurs() {
 
   if (!peutVoir) {
     return (
-      <div>
+      <div style={styles.container}>
         <div style={styles.header}>
-          <h1 style={styles.title}> Accès refusé</h1>
+          <h1 style={styles.title}>Acces refuse</h1>
           <p style={styles.subtitle}>Vous n'avez pas la permission de consulter cette page.</p>
         </div>
-        <Button variant="secondary" onClick={() => navigate('/dashboard')} icon="←">
+        <Button variant="secondary" onClick={() => navigate('/dashboard')}>
           Retour
         </Button>
       </div>
@@ -218,26 +264,24 @@ export default function Utilisateurs() {
   }
 
   return (
-    <div>
+    <div style={styles.container}>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}> Utilisateurs & Rôles</h1>
-          <p style={styles.subtitle}>Gérez qui a accès à quoi, module par module</p>
+          <h1 style={styles.title}>Utilisateurs & Roles</h1>
+          <p style={styles.subtitle}>Gerez qui a acces a quoi, module par module</p>
         </div>
-        <Button variant="secondary" onClick={() => navigate('/dashboard')} icon="←">
+        <Button variant="secondary" onClick={() => navigate('/dashboard')}>
           Retour
         </Button>
       </div>
 
       {message && (
         <div style={styles.successContainer}>
-          <span>Done</span>
           <span style={styles.successText}>{message}</span>
         </div>
       )}
       {error && (
         <div style={styles.errorContainer}>
-          <span>❌</span>
           <span style={styles.errorText}>{error}</span>
         </div>
       )}
@@ -247,29 +291,28 @@ export default function Utilisateurs() {
           style={{ ...styles.segment, ...(ongletPrincipal === 'roles' ? styles.segmentActive : {}) }}
           onClick={() => setOngletPrincipal('roles')}
         >
-          Rôles & permissions
+          Roles & permissions
         </button>
         <button
           style={{ ...styles.segment, ...(ongletPrincipal === 'comptes' ? styles.segmentActive : {}) }}
           onClick={() => setOngletPrincipal('comptes')}
         >
-           Comptes utilisateurs ({users.length})
+          Comptes utilisateurs ({users.length})
         </button>
       </div>
 
       {ongletPrincipal === 'roles' ? (
         <div style={styles.twoColumns}>
-          <Card title=" Rôles de l'entreprise" variant="primary">
+          <Card title="Roles de l'entreprise" variant="primary">
             <div style={styles.cardHeaderRow}>
-              <span style={styles.cardSubtitle}>Gérez les rôles personnalisés</span>
+              <span style={styles.cardSubtitle}>Gerez les roles personnalises</span>
               {peutCreer && (
                 <Button
                   size="sm"
                   variant="primary"
                   onClick={() => setAfficherFormRole(v => !v)}
-                  icon={afficherFormRole ? '✕' : '+'}
                 >
-                  {afficherFormRole ? 'Fermer' : 'Nouveau rôle'}
+                  {afficherFormRole ? 'Fermer' : 'Nouveau role'}
                 </Button>
               )}
             </div>
@@ -285,13 +328,13 @@ export default function Utilisateurs() {
                   disabled={formLoading}
                 />
                 <Button type="submit" size="sm" loading={formLoading}>
-                  Créer
+                  Creer
                 </Button>
               </form>
             )}
 
             {roles.length === 0 ? (
-              <EmptyState title="Aucun rôle" description="Créez votre premier rôle personnalisé." />
+              <EmptyState title="Aucun role" description="Creez votre premier role personnalise." />
             ) : (
               <ul style={styles.roleList}>
                 {roles.map(r => (
@@ -302,7 +345,7 @@ export default function Utilisateurs() {
                   >
                     <span style={styles.roleItemLabel}>
                       {r.nom}
-                      {r.est_admin_entreprise && <Badge variant="warning" style={{ marginLeft: '8px' }}> Admin</Badge>}
+                      {r.est_admin_entreprise && <Badge variant="warning" style={{ marginLeft: '8px' }}>Admin</Badge>}
                     </span>
                     {!r.est_admin_entreprise && peutSupprimer && (
                       <Button
@@ -325,8 +368,8 @@ export default function Utilisateurs() {
           >
             {!selectedRoleId ? (
               <EmptyState
-                title="Sélectionnez un rôle"
-                description="Cliquez sur un rôle à gauche pour configurer ses permissions."
+                title="Selectionnez un role"
+                description="Cliquez sur un role a gauche pour configurer ses permissions."
               />
             ) : permsLoading ? (
               <LoadingSpinner size="md" text="Chargement des permissions..." />
@@ -335,7 +378,7 @@ export default function Utilisateurs() {
                 {permissions.map(m => (
                   <div key={m.module_id} style={styles.moduleBlock}>
                     <div style={styles.moduleTitle}>
-                      <span>{MODULE_ICONS[m.module_nom] }</span> {m.module_nom}
+                      <span>{MODULE_ICONS[m.module_nom]}</span> {m.module_nom}
                     </div>
                     <div style={styles.actionsRow}>
                       {ACTIONS.map(a => (
@@ -361,15 +404,14 @@ export default function Utilisateurs() {
           </Card>
         </div>
       ) : (
-        <Card title="👤 Comptes de l'entreprise" variant="primary">
+        <Card title="Comptes de l'entreprise" variant="primary">
           <div style={styles.cardHeaderRow}>
-            <span style={styles.cardSubtitle}>Gérez les comptes utilisateurs</span>
+            <span style={styles.cardSubtitle}>Gerez les comptes utilisateurs</span>
             {peutCreer && (
               <Button
                 size="sm"
                 variant="primary"
                 onClick={() => setAfficherFormUser(v => !v)}
-                icon={afficherFormUser ? '✕' : '+'}
               >
                 {afficherFormUser ? 'Fermer' : 'Nouveau compte'}
               </Button>
@@ -383,13 +425,13 @@ export default function Utilisateurs() {
                   style={{ ...styles.tabBtn, ...(ongletCreation === 'interne' ? styles.tabBtnActive : {}) }}
                   onClick={() => setOngletCreation('interne')}
                 >
-                  👤 Collaborateur interne
+                  Collaborateur interne
                 </button>
                 <button
                   style={{ ...styles.tabBtn, ...(ongletCreation === 'externe' ? styles.tabBtnActive : {}) }}
                   onClick={() => setOngletCreation('externe')}
                 >
-                   Compte externe (client)
+                  Compte externe (client)
                 </button>
               </div>
 
@@ -404,7 +446,7 @@ export default function Utilisateurs() {
                 />
                 <Input
                   name="prenom"
-                  placeholder="Prénom"
+                  placeholder="Prenom"
                   value={formUser.prenom}
                   onChange={handleFormUserChange}
                   required
@@ -432,7 +474,7 @@ export default function Utilisateurs() {
 
                 <Input
                   name="telephone"
-                  placeholder="Téléphone"
+                  placeholder="Telephone"
                   value={formUser.telephone}
                   onChange={handleFormUserChange}
                   disabled={formLoading}
@@ -461,7 +503,7 @@ export default function Utilisateurs() {
 
                 {ongletCreation === 'interne' ? (
                   <select style={styles.select} name="role_id" value={formUser.role_id} onChange={handleFormUserChange} required disabled={formLoading}>
-                    <option value="">-- Choisir un rôle --</option>
+                    <option value="">-- Choisir un role --</option>
                     {roles.filter(r => !r.est_admin_entreprise).map(r => (
                       <option key={r.id} value={r.id}>{r.nom}</option>
                     ))}
@@ -473,15 +515,15 @@ export default function Utilisateurs() {
                   </select>
                 )}
 
-                <Button type="submit" variant="primary" loading={formLoading}>
-                  Créer le compte
+                <Button type="submit" variant="primary" loading={formLoading} style={{ gridColumn: '1 / -1' }}>
+                  Creer le compte
                 </Button>
               </form>
             </div>
           )}
 
           {users.length === 0 ? (
-            <EmptyState icon="📭" title="Aucun compte" description="Créez votre premier compte utilisateur." />
+            <EmptyState title="Aucun compte" description="Creez votre premier compte utilisateur." />
           ) : (
             <table style={styles.table}>
               <thead>
@@ -489,7 +531,8 @@ export default function Utilisateurs() {
                   <th style={styles.th}>Nom</th>
                   <th style={styles.th}>Email</th>
                   <th style={styles.th}>Type</th>
-                  <th style={styles.th}>Rôle</th>
+                  <th style={styles.th}>Role</th>
+                  <th style={styles.th}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -517,6 +560,17 @@ export default function Utilisateurs() {
                         u.role_nom || '—'
                       )}
                     </td>
+                    <td style={styles.td}>
+                      {u.id !== user?.id && (
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={() => supprimerUtilisateur(u.id)}
+                        >
+                          Supprimer
+                        </Button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -529,6 +583,11 @@ export default function Utilisateurs() {
 }
 
 const styles = {
+  container: {
+    padding: '24px',
+    maxWidth: '1200px',
+    margin: '0 auto',
+  },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -537,8 +596,17 @@ const styles = {
     flexWrap: 'wrap',
     gap: '12px',
   },
-  title: { fontSize: '24px', fontWeight: 700, color: '#0F172A', margin: 0 },
-  subtitle: { fontSize: '14px', color: '#64748B', margin: '4px 0 0' },
+  title: {
+    fontSize: '24px',
+    fontWeight: 700,
+    color: '#0F172A',
+    margin: 0,
+  },
+  subtitle: {
+    fontSize: '14px',
+    color: '#64748B',
+    margin: '4px 0 0',
+  },
   errorContainer: {
     display: 'flex',
     alignItems: 'center',
@@ -549,7 +617,11 @@ const styles = {
     padding: '12px 16px',
     marginBottom: '16px',
   },
-  errorText: { color: '#991B1B', fontSize: '13px', fontWeight: 500 },
+  errorText: {
+    color: '#991B1B',
+    fontSize: '13px',
+    fontWeight: 500,
+  },
   successContainer: {
     display: 'flex',
     alignItems: 'center',
@@ -560,7 +632,11 @@ const styles = {
     padding: '12px 16px',
     marginBottom: '16px',
   },
-  successText: { color: '#065F46', fontSize: '13px', fontWeight: 500 },
+  successText: {
+    color: '#065F46',
+    fontSize: '13px',
+    fontWeight: 500,
+  },
   segmentedControl: {
     display: 'inline-flex',
     backgroundColor: '#E2E8F0',
@@ -599,7 +675,10 @@ const styles = {
     flexWrap: 'wrap',
     gap: '8px',
   },
-  cardSubtitle: { fontSize: '13px', color: '#64748B' },
+  cardSubtitle: {
+    fontSize: '13px',
+    color: '#64748B',
+  },
   inlineForm: {
     display: 'flex',
     gap: '8px',
@@ -614,6 +693,7 @@ const styles = {
     boxSizing: 'border-box',
     outline: 'none',
     transition: 'all 0.2s ease',
+    fontFamily: 'inherit',
   },
   select: {
     padding: '10px 12px',
@@ -625,6 +705,7 @@ const styles = {
     outline: 'none',
     transition: 'all 0.2s ease',
     backgroundColor: '#F8FAFC',
+    fontFamily: 'inherit',
   },
   selectInline: {
     padding: '4px 8px',
@@ -633,6 +714,7 @@ const styles = {
     fontSize: '13px',
     backgroundColor: '#F8FAFC',
     outline: 'none',
+    fontFamily: 'inherit',
   },
   roleList: {
     listStyle: 'none',
@@ -665,7 +747,11 @@ const styles = {
     fontWeight: 500,
     color: '#1E293B',
   },
-  mutedText: { color: '#94A3B8', fontSize: '13px', fontStyle: 'italic' },
+  mutedText: {
+    color: '#94A3B8',
+    fontSize: '13px',
+    fontStyle: 'italic',
+  },
   permGrid: {
     display: 'flex',
     flexDirection: 'column',
@@ -710,7 +796,9 @@ const styles = {
     color: '#166534',
     border: '1px solid #86EFAC',
   },
-  hiddenCheckbox: { display: 'none' },
+  hiddenCheckbox: {
+    display: 'none',
+  },
   tabs: {
     display: 'flex',
     gap: '8px',
@@ -727,6 +815,7 @@ const styles = {
     color: '#475569',
     fontWeight: 500,
     transition: 'all 0.2s ease',
+    fontFamily: 'inherit',
   },
   tabBtnActive: {
     backgroundColor: '#0EA5E9',
@@ -761,5 +850,6 @@ const styles = {
     padding: '10px',
     borderBottom: '1px solid #F1F5F9',
     fontSize: '14px',
+    color: '#0F172A',
   },
 };

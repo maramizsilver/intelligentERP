@@ -62,17 +62,55 @@ export default function Header() {
   );
 
   const renderNavButtons = () => {
+    // ============================================================
+    // SUPER ADMIN
+    // ============================================================
     if (user.is_super_admin) {
       return (
-        <NavButton
-          to="/superadmin/dashboard"
-          label={t('dashboard')}
-          active={isActive('/superadmin/dashboard')}
-          onClick={() => navigate('/superadmin/dashboard')}
-        />
+        <>
+          <NavButton
+            to="/superadmin/dashboard"
+            label={t('dashboard')}
+            active={isActive('/superadmin/dashboard')}
+            onClick={() => navigate('/superadmin/dashboard')}
+          />
+          <NavButton
+            to="/superadmin/taux-reference"
+            label="Taux référence"
+            active={isActive('/superadmin/taux-reference')}
+            onClick={() => navigate('/superadmin/taux-reference')}
+          />
+          <NavButton
+            to="/superadmin/sessions"
+            label="Sessions"
+            active={isActive('/superadmin/sessions')}
+            onClick={() => navigate('/superadmin/sessions')}
+          />
+          <NavButton
+            to="/superadmin/audit"
+            label="Audit"
+            active={isActive('/superadmin/audit')}
+            onClick={() => navigate('/superadmin/audit')}
+          />
+          <NavButton
+            to="/superadmin/abonnements"
+            label="Abonnements"
+            active={isActive('/superadmin/abonnements')}
+            onClick={() => navigate('/superadmin/abonnements')}
+          />
+          <NavButton
+            to="/superadmin/backup"
+            label="Backup"
+            active={isActive('/superadmin/backup')}
+            onClick={() => navigate('/superadmin/backup')}
+          />
+        </>
       );
     }
 
+    // ============================================================
+    // CLIENT EXTERNE
+    // ============================================================
     if (user.is_external) {
       return [
         { path: '/client/dashboard', label: t('dashboard') },
@@ -91,9 +129,18 @@ export default function Header() {
       ));
     }
 
+    // ============================================================
+    // UTILISATEUR INTERNE - Routes avec permissions
+    // ============================================================
     const internalRoutes = [];
+
+    // Dashboard - toujours visible
     internalRoutes.push({ path: '/dashboard', label: t('dashboard') });
 
+    // ⬇️⬇️⬇️ AJOUT : Mon Profil dans la navigation ⬇️⬇️⬇️
+    internalRoutes.push({ path: '/profil', label: 'Mon Profil' });
+
+    // Ventes
     if (hasPermission('Ventes', 'consultation')) {
       internalRoutes.push({ path: '/clients', label: t('clients') });
       internalRoutes.push({ path: '/devis', label: t('devis') });
@@ -101,15 +148,18 @@ export default function Header() {
       internalRoutes.push({ path: '/promotions', label: 'Promotions' });
     }
 
+    // Achats
     if (hasPermission('Achats', 'consultation')) {
       internalRoutes.push({ path: '/fournisseurs', label: t('fournisseurs') });
       internalRoutes.push({ path: '/achats', label: t('achats') });
     }
 
+    // Finance
     if (hasPermission('Finance', 'consultation')) {
       internalRoutes.push({ path: '/finance', label: t('finance') });
     }
 
+    // Stock
     if (hasPermission('Stock', 'consultation')) {
       internalRoutes.push({ path: '/produits', label: t('produits') });
       internalRoutes.push({ path: '/mouvements-stock', label: t('mouvements_stock') });
@@ -118,10 +168,12 @@ export default function Header() {
       internalRoutes.push({ path: '/inventaires', label: t('inventaire') });
     }
 
+    // Utilisateurs
     if (hasPermission('Utilisateurs', 'consultation')) {
       internalRoutes.push({ path: '/utilisateurs', label: t('utilisateurs') });
     }
 
+    // Documents
     if (hasPermission('Documents', 'consultation')) {
       internalRoutes.push({ path: '/documents', label: t('documents') });
       internalRoutes.push({ path: '/documents/generation', label: 'Generer un document' });
@@ -269,9 +321,38 @@ export default function Header() {
 
         {!isMobile && (
           <>
-            <span style={{ fontSize: '13px', color: '#64748B' }}>
+            {/* ⬇️⬇️⬇️ NOM CLICQUABLE VERS LE PROFIL ⬇️⬇️⬇️ */}
+            <span
+              style={{
+                fontSize: '13px',
+                color: '#64748B',
+                cursor: 'pointer',
+                transition: 'color 0.2s ease',
+                textDecoration: 'underline',
+                textDecorationColor: 'transparent',
+                fontWeight: 500,
+              }}
+              onClick={() => {
+                if (user.is_super_admin) {
+                  navigate('/superadmin/dashboard');
+                } else if (user.is_external) {
+                  navigate('/client/profil');
+                } else {
+                  navigate('/profil');
+                }
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = '#0EA5E9';
+                e.currentTarget.style.textDecorationColor = '#0EA5E9';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = '#64748B';
+                e.currentTarget.style.textDecorationColor = 'transparent';
+              }}
+            >
               {user.prenom} {user.nom}
             </span>
+
             <span
               style={{
                 padding: '3px 12px',

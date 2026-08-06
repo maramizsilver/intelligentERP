@@ -92,12 +92,17 @@ const protectedRoutes = [
     { path: '/api/factures', route: './routes/factureRoutes' },
     { path: '/api/clients-tenant', route: './routes/clientTenantRoutes' },
     { path: '/api/chatbot', route: './routes/chatbotRoutes' }
-
+    // La route /api/client a été retirée de cette liste
 ];
 
 protectedRoutes.forEach(({ path, route }) => {
     app.use(path, authMiddleware, sessionMiddleware, auditMiddleware, require(route));
 });
+
+
+// Cette route utilise ses propres middlewares définis dans clientPortalRoutes.js
+// pour éviter la double application des middlewares
+app.use('/api/client', require('./routes/clientPortalRoutes'));
 
 // Routes notifications et paiements
 app.use('/api/notifications', authMiddleware, sessionMiddleware, require('./routes/notificationRoutes'));

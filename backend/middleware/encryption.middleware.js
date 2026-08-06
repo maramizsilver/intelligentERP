@@ -1,8 +1,5 @@
 const encryptionService = require('../services/encryption.service');
-
-// ============================================================
-// ROUTES EXCLUES DU CHIFFREMENT
-// ============================================================
+// ROUTES EXCLUES DU CHIFFREMENT — correspondance exacte de segment
 const EXCLUDED_PATHS = [
     '/auth/login',
     '/auth/register',
@@ -16,9 +13,20 @@ const EXCLUDED_PATHS = [
     '/users/entreprise'
 ];
 
-// ============================================================
+// Vérifie que le chemin correspond à un SEGMENT complet, pas juste une
+// sous-chaîne (évite par ex. qu'une future route "/roleshistory" soit
+// exclue par erreur à cause de "/roles").
+function estCheminExclu(reqPath) {
+    return EXCLUDED_PATHS.some(exclu => {
+        return reqPath === exclu
+            || reqPath.startsWith(exclu + '/')
+            || reqPath.includes('/api' + exclu)
+            || reqPath.includes('/api' + exclu + '/');
+    });
+}
+
+
 // CHAMPS SENSIBLES UNIQUEMENT (nom et prenom RETIRÉS)
-// ============================================================
 const SENSITIVE_FIELDS = [
     'email',
     'telephone',
@@ -28,23 +36,18 @@ const SENSITIVE_FIELDS = [
 ];
 
 const encryptSensitiveData = (req, res, next) => {
-    // Exclure les routes sensibles
-    if (EXCLUDED_PATHS.some(path => req.path.includes(path))) {
+    if (estCheminExclu(req.path)) {
         return next();
     }
-
     if (req.method === 'GET') {
         return next();
     }
-
     if (req.user && req.user.is_super_admin) {
         return next();
     }
 
-    const fieldsToEncrypt = SENSITIVE_FIELDS;
-
     if (req.body && typeof req.body === 'object') {
-        fieldsToEncrypt.forEach(field => {
+        SENSITIVE_FIELDS.forEach(field => {
             if (req.body[field] && typeof req.body[field] === 'string') {
                 if (!encryptionService.isEncrypted(req.body[field])) {
                     req.body[field] = encryptionService.encrypt(req.body[field]);
@@ -57,8 +60,7 @@ const encryptSensitiveData = (req, res, next) => {
 };
 
 const decryptSensitiveResponse = (req, res, next) => {
-    // Exclure les routes sensibles
-    if (EXCLUDED_PATHS.some(path => req.path.includes(path))) {
+    if (estCheminExclu(req.path)) {
         return next();
     }
 

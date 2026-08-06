@@ -7,26 +7,39 @@ import Layout from './components/layout/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import SessionMonitor from './components/SessionMonitor';
 
-import GenerationDocuments from './pages/documents/GenerationDocuments';
-import NumerisationOCR from './pages/documents/NumerisationOCR';
+// ============================================================
+// IMPORTS DES PAGES
+// ============================================================
 
+// Auth
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import RequestReset from './pages/auth/RequestReset';
 import ResetPassword from './pages/auth/ResetPassword';
 
+// Dashboard
 import Dashboard from './pages/dashboard/Dashboard';
 import SuperAdminDashboard from './pages/dashboard/SuperAdminDashboard';
 import EssaiExpire from './pages/dashboard/EssaiExpire';
 
+// Profil - Page unique pour tous les utilisateurs
+import Profil from './pages/profil/Profil';
+
+// Documents
+import GenerationDocuments from './pages/documents/GenerationDocuments';
+import NumerisationOCR from './pages/documents/NumerisationOCR';
+
+// Ventes
 import Clients from './pages/ventes/Clients';
 import Commandes from './pages/ventes/Commandes';
 import Devis from './pages/ventes/Devis';
 import Promotions from './pages/ventes/Promotions';
 
+// Achats
 import Fournisseurs from './pages/achats/Fournisseurs';
 import Achats from './pages/achats/Achats';
 
+// Stock
 import Produits from './pages/stock/Produits';
 import MouvementsStock from './pages/stock/MouvementsStock';
 import AlertesStock from './pages/stock/AlertesStock';
@@ -34,6 +47,7 @@ import Entrepots from './pages/stock/Entrepots';
 import TransfertStock from './pages/stock/TransfertStock';
 import Inventaires from './pages/stock/Inventaires';
 
+// Administration
 import Utilisateurs from './pages/admin/Utilisateurs';
 import Documents from './pages/admin/Documents';
 import Archives from './pages/admin/Archives';
@@ -44,6 +58,7 @@ import SuperAdminAbonnements from './pages/admin/superadmin/SuperAdminAbonnement
 import SuperAdminBackup from './pages/admin/superadmin/SuperAdminBackup';
 import TauxReference from './pages/admin/superadmin/TauxReference';
 
+// Client Externe
 import ClientDashboard from './pages/client/ClientDashboard';
 import ClientCommandes from './pages/client/ClientCommandes';
 import ClientCommandeDetail from './pages/client/ClientCommandeDetail';
@@ -51,17 +66,22 @@ import ClientProduits from './pages/client/ClientProduits';
 import ClientFactures from './pages/client/ClientFactures';
 import ClientProfil from './pages/client/ClientProfil';
 
+// Finance
 import Finance from './pages/Finance/Finance';
 import Calculateur from './pages/calculateur/Calculateur';
 
+// Paiements
 import PaiementClient from './pages/paiement/PaiementClient';
 import PaiementClientSuccess from './pages/paiement/PaiementClientSuccess';
 import PaiementFournisseur from './pages/paiement/PaiementFournisseur';
 import PaiementFournisseurSuccess from './pages/paiement/PaiementFournisseurSuccess';
 import PaiementCancel from './pages/paiement/PaiementCancel';
 import AbonnementSuccess from './pages/paiement/AbonnementSuccess';
+
+// Autres
 import Notifications from './pages/Notifications';
 
+// Styles
 import './styles/global.css';
 import './styles/print.css';
 
@@ -82,190 +102,217 @@ function AppRoutes() {
 
   return (
     <SessionMonitor>
-    <Routes>
-      <Route path="/" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/request-reset" element={<RequestReset />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
+      <Routes>
+        {/* Routes publiques */}
+        <Route path="/" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/request-reset" element={<RequestReset />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
-      <Route path="/essai-expire" element={
-        <PrivateRoute allowEssaiExpire>
-          <Layout><EssaiExpire /></Layout>
-        </PrivateRoute>
-      } />
+        {/* Essai expiré */}
+        <Route path="/essai-expire" element={
+          <PrivateRoute allowEssaiExpire>
+            <Layout><EssaiExpire /></Layout>
+          </PrivateRoute>
+        } />
 
-      <Route path="/superadmin/dashboard" element={
-        <PrivateRoute superAdminOnly>
-          <Layout><SuperAdminDashboard /></Layout>
-        </PrivateRoute>
-      } />
+        {/* ============================================================
+            ROUTES SUPER ADMIN
+            ============================================================ */}
+        <Route path="/superadmin/dashboard" element={
+          <PrivateRoute superAdminOnly>
+            <Layout><SuperAdminDashboard /></Layout>
+          </PrivateRoute>
+        } />
 
-      <Route path="/superadmin/taux-reference" element={
-        <PrivateRoute superAdminOnly>
-          <Layout><TauxReference /></Layout>
-        </PrivateRoute>
-      } />
+        <Route path="/superadmin/taux-reference" element={
+          <PrivateRoute superAdminOnly>
+            <Layout><TauxReference /></Layout>
+          </PrivateRoute>
+        } />
 
-      <Route path="/superadmin/sessions" element={
-        <PrivateRoute superAdminOnly>
-          <Layout><SuperAdminSessions /></Layout>
-        </PrivateRoute>
-      } />
+        <Route path="/superadmin/sessions" element={
+          <PrivateRoute superAdminOnly>
+            <Layout><SuperAdminSessions /></Layout>
+          </PrivateRoute>
+        } />
 
-      <Route path="/superadmin/audit" element={
-        <PrivateRoute superAdminOnly>
-          <Layout><SuperAdminAudit /></Layout>
-        </PrivateRoute>
-      } />
+        <Route path="/superadmin/audit" element={
+          <PrivateRoute superAdminOnly>
+            <Layout><SuperAdminAudit /></Layout>
+          </PrivateRoute>
+        } />
 
-      <Route path="/superadmin/abonnements" element={
-        <PrivateRoute superAdminOnly>
-          <Layout><SuperAdminAbonnements /></Layout>
-        </PrivateRoute>
-      } />
+        <Route path="/superadmin/abonnements" element={
+          <PrivateRoute superAdminOnly>
+            <Layout><SuperAdminAbonnements /></Layout>
+          </PrivateRoute>
+        } />
 
-      <Route path="/superadmin/backup" element={
-        <PrivateRoute superAdminOnly>
-          <Layout><SuperAdminBackup /></Layout>
-        </PrivateRoute>
-      } />
+        <Route path="/superadmin/backup" element={
+          <PrivateRoute superAdminOnly>
+            <Layout><SuperAdminBackup /></Layout>
+          </PrivateRoute>
+        } />
 
-      <Route path="/client/dashboard" element={
-        <PrivateRoute externalOnly><ClientDashboard /></PrivateRoute>
-      } />
+        {/* ============================================================
+            ROUTES CLIENT EXTERNE
+            ============================================================ */}
+        <Route path="/client/dashboard" element={
+          <PrivateRoute externalOnly><ClientDashboard /></PrivateRoute>
+        } />
 
-      <Route path="/client/commandes" element={
-        <PrivateRoute externalOnly><ClientCommandes /></PrivateRoute>
-      } />
+        <Route path="/client/commandes" element={
+          <PrivateRoute externalOnly><ClientCommandes /></PrivateRoute>
+        } />
 
-      <Route path="/client/commande/:id" element={
-        <PrivateRoute externalOnly><ClientCommandeDetail /></PrivateRoute>
-      } />
+        <Route path="/client/commande/:id" element={
+          <PrivateRoute externalOnly><ClientCommandeDetail /></PrivateRoute>
+        } />
 
-      <Route path="/client/produits" element={
-        <PrivateRoute externalOnly><ClientProduits /></PrivateRoute>
-      } />
+        <Route path="/client/produits" element={
+          <PrivateRoute externalOnly><ClientProduits /></PrivateRoute>
+        } />
 
-      <Route path="/client/factures" element={
-        <PrivateRoute externalOnly><ClientFactures /></PrivateRoute>
-      } />
+        <Route path="/client/factures" element={
+          <PrivateRoute externalOnly><ClientFactures /></PrivateRoute>
+        } />
 
-      <Route path="/client/profil" element={
-        <PrivateRoute externalOnly><ClientProfil /></PrivateRoute>
-      } />
+        <Route path="/client/profil" element={
+          <PrivateRoute externalOnly><ClientProfil /></PrivateRoute>
+        } />
 
-      <Route path="/dashboard" element={
-        <PrivateRoute><Layout><Dashboard /></Layout></PrivateRoute>
-      } />
+        {/* ============================================================
+            ROUTES INTERNES (utilisateurs de l'entreprise)
+            ============================================================ */}
 
-      <Route path="/notifications" element={
-        <PrivateRoute><Layout><Notifications /></Layout></PrivateRoute>
-      } />
+        {/* Dashboard */}
+        <Route path="/dashboard" element={
+          <PrivateRoute><Layout><Dashboard /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/finance" element={
-        <PrivateRoute><Layout><Finance /></Layout></PrivateRoute>
-      } />
+        {/* Notifications */}
+        <Route path="/notifications" element={
+          <PrivateRoute><Layout><Notifications /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/calculateur" element={
-        <PrivateRoute><Layout><Calculateur /></Layout></PrivateRoute>
-      } />
+        {/* ⬇️⬇️⬇️ AJOUT DE LA ROUTE PROFIL ⬇️⬇️⬇️ */}
+        <Route path="/profil" element={
+          <PrivateRoute><Layout><Profil /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/clients" element={
-        <PrivateRoute><Layout><Clients /></Layout></PrivateRoute>
-      } />
+        {/* Finance */}
+        <Route path="/finance" element={
+          <PrivateRoute><Layout><Finance /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/commandes" element={
-        <PrivateRoute><Layout><Commandes /></Layout></PrivateRoute>
-      } />
+        {/* Calculateur */}
+        <Route path="/calculateur" element={
+          <PrivateRoute><Layout><Calculateur /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/devis" element={
-        <PrivateRoute><Layout><Devis /></Layout></PrivateRoute>
-      } />
+        {/* Ventes */}
+        <Route path="/clients" element={
+          <PrivateRoute><Layout><Clients /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/promotions" element={
-        <PrivateRoute><Layout><Promotions /></Layout></PrivateRoute>
-      } />
+        <Route path="/commandes" element={
+          <PrivateRoute><Layout><Commandes /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/fournisseurs" element={
-        <PrivateRoute><Layout><Fournisseurs /></Layout></PrivateRoute>
-      } />
+        <Route path="/devis" element={
+          <PrivateRoute><Layout><Devis /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/achats" element={
-        <PrivateRoute><Layout><Achats /></Layout></PrivateRoute>
-      } />
+        <Route path="/promotions" element={
+          <PrivateRoute><Layout><Promotions /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/produits" element={
-        <PrivateRoute><Layout><Produits /></Layout></PrivateRoute>
-      } />
+        {/* Achats */}
+        <Route path="/fournisseurs" element={
+          <PrivateRoute><Layout><Fournisseurs /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/mouvements-stock" element={
-        <PrivateRoute><Layout><MouvementsStock /></Layout></PrivateRoute>
-      } />
+        <Route path="/achats" element={
+          <PrivateRoute><Layout><Achats /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/alertes-stock" element={
-        <PrivateRoute><Layout><AlertesStock /></Layout></PrivateRoute>
-      } />
+        {/* Stock */}
+        <Route path="/produits" element={
+          <PrivateRoute><Layout><Produits /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/entrepots" element={
-        <PrivateRoute><Layout><Entrepots /></Layout></PrivateRoute>
-      } />
+        <Route path="/mouvements-stock" element={
+          <PrivateRoute><Layout><MouvementsStock /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/transfert-stock" element={
-        <PrivateRoute><Layout><TransfertStock /></Layout></PrivateRoute>
-      } />
+        <Route path="/alertes-stock" element={
+          <PrivateRoute><Layout><AlertesStock /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/inventaires" element={
-        <PrivateRoute><Layout><Inventaires /></Layout></PrivateRoute>
-      } />
+        <Route path="/entrepots" element={
+          <PrivateRoute><Layout><Entrepots /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/utilisateurs" element={
-        <PrivateRoute><Layout><Utilisateurs /></Layout></PrivateRoute>
-      } />
+        <Route path="/transfert-stock" element={
+          <PrivateRoute><Layout><TransfertStock /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/documents" element={
-        <PrivateRoute><Layout><Documents /></Layout></PrivateRoute>
-      } />
+        <Route path="/inventaires" element={
+          <PrivateRoute><Layout><Inventaires /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/documents/generation" element={
-        <PrivateRoute><Layout><GenerationDocuments /></Layout></PrivateRoute>
-      } />
+        {/* Administration */}
+        <Route path="/utilisateurs" element={
+          <PrivateRoute><Layout><Utilisateurs /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/documents/numerisation" element={
-        <PrivateRoute><Layout><NumerisationOCR /></Layout></PrivateRoute>
-      } />
+        <Route path="/documents" element={
+          <PrivateRoute><Layout><Documents /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/archives" element={
-        <PrivateRoute><Layout><Archives /></Layout></PrivateRoute>
-      } />
+        <Route path="/documents/generation" element={
+          <PrivateRoute><Layout><GenerationDocuments /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/securite/mfa" element={
-        <PrivateRoute><Layout><SecuriteMFA /></Layout></PrivateRoute>
-      } />
+        <Route path="/documents/numerisation" element={
+          <PrivateRoute><Layout><NumerisationOCR /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/paiement/client" element={
-        <PrivateRoute><Layout><PaiementClient /></Layout></PrivateRoute>
-      } />
+        <Route path="/archives" element={
+          <PrivateRoute><Layout><Archives /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/paiement/client/success" element={
-        <PrivateRoute><PaiementClientSuccess /></PrivateRoute>
-      } />
+        <Route path="/securite/mfa" element={
+          <PrivateRoute><Layout><SecuriteMFA /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/paiement/fournisseur" element={
-        <PrivateRoute><Layout><PaiementFournisseur /></Layout></PrivateRoute>
-      } />
+        {/* Paiements */}
+        <Route path="/paiement/client" element={
+          <PrivateRoute><Layout><PaiementClient /></Layout></PrivateRoute>
+        } />
 
-      <Route path="/paiement/fournisseur/success" element={
-        <PrivateRoute><PaiementFournisseurSuccess /></PrivateRoute>
-      } />
+        <Route path="/paiement/client/success" element={
+          <PrivateRoute><PaiementClientSuccess /></PrivateRoute>
+        } />
 
-      <Route path="/paiement/cancel" element={<PaiementCancel />} />
-      <Route path="/paiement/abonnement-success" element={<AbonnementSuccess />} />
-      <Route path="/paiement/abonnement-cancel" element={<PaiementCancel />} />
+        <Route path="/paiement/fournisseur" element={
+          <PrivateRoute><Layout><PaiementFournisseur /></Layout></PrivateRoute>
+        } />
 
-      <Route path="*" element={<Navigate to="/" />} />
-    </Routes>
+        <Route path="/paiement/fournisseur/success" element={
+          <PrivateRoute><PaiementFournisseurSuccess /></PrivateRoute>
+        } />
+
+        {/* Paiement public */}
+        <Route path="/paiement/cancel" element={<PaiementCancel />} />
+        <Route path="/paiement/abonnement-success" element={<AbonnementSuccess />} />
+        <Route path="/paiement/abonnement-cancel" element={<PaiementCancel />} />
+
+        {/* Redirection par défaut */}
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
     </SessionMonitor>
-    
   );
 }
 

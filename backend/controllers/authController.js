@@ -18,6 +18,7 @@ function validateRegisterInput({ nom, prenom, email, password }) {
     return errors;
 }
 
+// findUserByEmail - SUPPRESSION du LEFT JOIN roles
 async function findUserByEmail(email) {
     const cleanEmail = email.trim().toLowerCase();
     
@@ -31,11 +32,10 @@ async function findUserByEmail(email) {
     }
     
     const [allUsers] = await db.promisePoolMaster.query(
-        `SELECT u.*, r.nom AS role_nom, e.nom AS entreprise_nom, 
+        `SELECT u.*, e.nom AS entreprise_nom, 
                 e.statut AS entreprise_statut, e.plan_type, 
                 e.connexions_utilisees, e.limite_connexions_essai, e.db_name
          FROM users u
-         LEFT JOIN roles r ON u.role_id = r.id
          LEFT JOIN entreprises e ON u.entreprise_id = e.id
          WHERE u.is_super_admin = 0`
     );
@@ -155,6 +155,7 @@ exports.registerEntreprise = async (req, res) => {
     }
 };
 
+// exports.login - Récupération du vrai nom du rôle
 exports.login = async (req, res) => {
     const { email, password } = req.body;
 
@@ -253,9 +254,6 @@ exports.login = async (req, res) => {
             });
         }
 
-        // ============================================
-        // VERIFICATION DU VERROUILLAGE DE COMPTE
-        // ============================================
         console.log('[LOGIN] Verification du verrouillage de compte pour user:', user.id);
         const accountLock = await SessionService.isAccountLocked(user.id);
         if (accountLock.locked) {
@@ -413,12 +411,31 @@ exports.login = async (req, res) => {
             }
         }
 
+        // RÉCUPÉRATION DU VRAI NOM DU RÔLE DEPUIS LA BASE TENANT
+        let roleNom = 'Utilisateur';
+        
+        if (!user.is_super_admin && user.entreprise_id && user.db_name && user.role_id) {
+            try {
+                const clientPoolRole = db.getClientPool(user.entreprise_id, user.db_name);
+                const [roleRows] = await clientPoolRole.promise().query(
+                    'SELECT nom FROM roles WHERE id = ?',
+                    [user.role_id]
+                );
+                if (roleRows.length > 0) {
+                    roleNom = roleRows[0].nom;
+                }
+            } catch (err) {
+                console.error('[LOGIN] Erreur récupération nom du rôle:', err.message);
+            }
+        }
+
         const token = jwt.sign(
             {
                 id: user.id,
                 entreprise_id: user.entreprise_id,
                 role_id: user.role_id,
                 is_super_admin: false,
+                is_entreprise_admin: user.is_entreprise_admin || false,
                 is_external: user.is_external || false,
                 client_id: user.client_id || null,
                 essai_expire: essaiExpire,
@@ -462,14 +479,16 @@ exports.login = async (req, res) => {
             [user.id, cleanEmail, req.ip || req.connection.remoteAddress, req.headers['user-agent']]
         );
 
+        // CONSTRUCTION DES DONNÉES UTILISATEUR AVEC LE VRAI NOM DU RÔLE
         const userData = {
             id: user.id,
-            nom: user.nom,
-            prenom: user.prenom,
+            nom: user.nom || '',
+            prenom: user.prenom || '',
             email: cleanEmail,
-            role: user.role_nom || 'Utilisateur',
+            role: roleNom,  
             entreprise: user.entreprise_nom || null,
             is_super_admin: false,
+            is_entreprise_admin: user.is_entreprise_admin || false,
             is_external: user.is_external || false,
             plan_type: user.plan_type || null,
             essai_expire: essaiExpire,
@@ -535,25 +554,67 @@ exports.getMe = async (req, res) => {
     }
 };
 
+// getMesPermissions 
 exports.getMesPermissions = (req, res) => {
     const db = req.db;
-    
+
+    // SuperAdmin et comptes externes : pas de permissions à afficher
     if (req.user.is_super_admin || req.user.is_external || !req.user.role_id) {
         return res.json({ permissions: [] });
     }
-    const sql = `
-        SELECT m.nom AS module_nom, p.consultation, p.creation, p.modification, p.suppression, p.validation, p.export
-        FROM permissions p
-        JOIN modules m ON p.module_id = m.id
-        WHERE p.role_id = ?
-    `;
-    db.query(sql, [req.user.role_id], (err, results) => {
-        if (err) {
-            console.error('Erreur getMesPermissions:', err);
-            return res.status(500).json({ message: 'Erreur serveur' });
+
+    // Vérifier si le rôle est Admin Entreprise
+    db.query(
+        'SELECT est_admin_entreprise FROM roles WHERE id = ?',
+        [req.user.role_id],
+        (errRole, roleRows) => {
+            if (errRole) {
+                console.error('Erreur getMesPermissions - verification role:', errRole);
+                return res.status(500).json({ message: 'Erreur serveur' });
+            }
+
+            if (roleRows.length === 0) {
+                return res.json({ permissions: [] });
+            }
+
+            // Admin Entreprise => accès total
+            if (roleRows[0].est_admin_entreprise) {
+                db.query('SELECT nom FROM modules ORDER BY nom', (errMod, modules) => {
+                    if (errMod) {
+                        console.error('Erreur getMesPermissions - modules:', errMod);
+                        return res.status(500).json({ message: 'Erreur serveur' });
+                    }
+                    const permissions = modules.map(m => ({
+                        module_nom: m.nom,
+                        consultation: true,
+                        creation: true,
+                        modification: true,
+                        suppression: true,
+                        validation: true,
+                        export: true
+                    }));
+                    return res.json({ permissions });
+                });
+                return;
+            }
+
+            // 3. Rôle normal => lecture classique
+            const sql = `
+                SELECT m.nom AS module_nom, p.consultation, p.creation, p.modification, p.suppression, p.validation, p.export
+                FROM permissions p
+                JOIN modules m ON p.module_id = m.id
+                WHERE p.role_id = ?
+                ORDER BY m.nom
+            `;
+            db.query(sql, [req.user.role_id], (err, results) => {
+                if (err) {
+                    console.error('Erreur getMesPermissions:', err);
+                    return res.status(500).json({ message: 'Erreur serveur' });
+                }
+                res.json({ permissions: results });
+            });
         }
-        res.json({ permissions: results });
-    });
+    );
 };
 
 exports.updateMe = async (req, res) => {
@@ -612,7 +673,6 @@ exports.getUsersEntreprise = async (req, res) => {
         const entrepriseId = req.user.entreprise_id;
         console.log('[getUsersEntreprise] Recherche pour entreprise_id:', entrepriseId);
 
-        // Requête simple sans JOIN sur roles
         const [rows] = await db.promisePoolMaster.query(
             `SELECT id, nom, prenom, email, is_external, created_at, role_id
              FROM users
@@ -627,7 +687,6 @@ exports.getUsersEntreprise = async (req, res) => {
             return res.json({ users: [] });
         }
 
-        // Récupérer les rôles depuis la base tenant
         let roleNames = {};
         try {
             const clientPool = db.getClientPool(entrepriseId, req.user.db_name);
@@ -637,7 +696,6 @@ exports.getUsersEntreprise = async (req, res) => {
             console.error('[getUsersEntreprise] Erreur récupération rôles tenant:', err.message);
         }
 
-        // Ajouter les noms des rôles
         const users = rows.map(u => ({
             ...u,
             role_nom: roleNames[u.role_id] || 'Sans rôle'
@@ -650,6 +708,7 @@ exports.getUsersEntreprise = async (req, res) => {
         res.status(500).json({ message: 'Erreur serveur' });
     }
 };
+
 exports.createUserByAdmin = async (req, res) => {
     const { nom, prenom, email, password, role_id, telephone, matricule, fonction, service } = req.body;
     
@@ -791,6 +850,7 @@ exports.updateUserRole = async (req, res) => {
     }
 };
 
+
 exports.deleteUser = async (req, res) => {
     const { id } = req.params;
 
@@ -805,8 +865,8 @@ exports.deleteUser = async (req, res) => {
             `SELECT u.id, r.est_admin_entreprise
              FROM users u
              LEFT JOIN roles r ON u.role_id = r.id
-             WHERE u.id = ? AND u.entreprise_id = ?`,
-            [id, req.user.entreprise_id]
+             WHERE u.id = ?`,
+            [id]
         );
         
         if (infoRows.length === 0) {
@@ -820,8 +880,8 @@ exports.deleteUser = async (req, res) => {
                 `SELECT COUNT(*) AS total
                  FROM users u
                  JOIN roles r ON u.role_id = r.id
-                 WHERE u.entreprise_id = ? AND r.est_admin_entreprise = TRUE`,
-                [req.user.entreprise_id]
+                 WHERE r.est_admin_entreprise = TRUE`,
+                []
             );
             
             if (countRows[0].total <= 1) {
@@ -834,6 +894,7 @@ exports.deleteUser = async (req, res) => {
             [id, req.user.entreprise_id]
         );
 
+        // Supprimer de la base TENANT
         await clientPool.promise().query(
             'DELETE FROM users WHERE id = ?',
             [id]
@@ -850,17 +911,27 @@ exports.deleteUser = async (req, res) => {
 
 exports.getUserStats = async (req, res) => {
     try {
+        let roleNames = {};
+        try {
+            const clientPool = db.getClientPool(req.user.entreprise_id, req.user.db_name);
+            const [roles] = await clientPool.promise().query('SELECT id, nom FROM roles');
+            roles.forEach(r => { roleNames[r.id] = r.nom; });
+        } catch (err) {
+            console.error('[getUserStats] Erreur récupération rôles tenant:', err.message);
+        }
+
         const [statsRows] = await db.promisePoolMaster.query(
-            `SELECT
-                COALESCE(r.nom, 'Externe / sans role') AS role_nom,
-                COUNT(*) AS total
+            `SELECT u.role_id, COUNT(*) AS total
              FROM users u
-             LEFT JOIN erp_db.roles r ON u.role_id = r.id
              WHERE u.entreprise_id = ?
-             GROUP BY r.nom
-             ORDER BY total DESC`,
+             GROUP BY u.role_id`,
             [req.user.entreprise_id]
         );
+
+        const stats = statsRows.map(row => ({
+            role_nom: roleNames[row.role_id] || 'Sans rôle',
+            total: row.total
+        }));
 
         const [extRows] = await db.promisePoolMaster.query(
             'SELECT COUNT(*) AS total FROM users WHERE entreprise_id = ? AND is_external = TRUE',
@@ -868,7 +939,7 @@ exports.getUserStats = async (req, res) => {
         );
 
         res.json({
-            stats_par_role: statsRows,
+            stats_par_role: stats,
             total_comptes_externes: extRows[0].total
         });
     } catch (err) {

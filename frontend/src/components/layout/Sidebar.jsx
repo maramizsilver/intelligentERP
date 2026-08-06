@@ -39,7 +39,8 @@ export default function Sidebar() {
             { path: '/superadmin/dashboard', label: t('dashboard'), icon: '🏢' },
             { path: '/superadmin/taux-reference', label: 'Taux & Périodes', icon: '📊' },
             { path: '/superadmin/sessions', label: 'Sessions', icon: '🔐' },
-            { path: '/notifications', label: t('notifications'), icon: '🔔' }
+            { path: '/notifications', label: t('notifications'), icon: '🔔' },
+            { path: '/profil', label: 'Mon profil', icon: '🙍' }
           ]
         }
       ];

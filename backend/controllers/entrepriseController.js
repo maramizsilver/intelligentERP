@@ -1,180 +1,144 @@
 // backend/controllers/entrepriseController.js
 const db = require('../config/db');
-const encryptionService = require('../services/encryption.service');
+const { reparerPermissionsManquantes } = require('../services/permissions.service');
 
-exports.getAllEntreprises = (req, res) => {
-    db.query('SELECT * FROM entreprises ORDER BY date_inscription DESC', (err, results) => {
-        if (err) { 
-            console.error(err); 
-            return res.status(500).json({ message: 'Erreur serveur' }); 
-        }
-        
-        const entreprises = results.map(entreprise => {
-            try {
-                entreprise.nom = encryptionService.decrypt(entreprise.nom) || entreprise.nom;
-            } catch (e) {}
-            try {
-                entreprise.email = encryptionService.decrypt(entreprise.email) || entreprise.email;
-            } catch (e) {}
-            return entreprise;
-        });
-        
-        res.json({ entreprises: entreprises });
-    });
+// Récupérer toutes les entreprises
+exports.getAllEntreprises = async (req, res) => {
+  try {
+    const [rows] = await db.promisePoolMaster.query(`
+      SELECT e.*, 
+             COUNT(DISTINCT u.id) as nb_users,
+             COUNT(DISTINCT c.id) as nb_clients,
+             COUNT(DISTINCT p.id) as nb_produits
+      FROM entreprises e
+      LEFT JOIN users u ON e.id = u.entreprise_id
+      LEFT JOIN clients c ON e.id = c.entreprise_id
+      LEFT JOIN produits p ON e.id = p.entreprise_id
+      GROUP BY e.id
+    `);
+    res.json({ entreprises: rows });
+  } catch (err) {
+    console.error('Erreur getAllEntreprises:', err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
 };
 
-exports.getEntrepriseById = (req, res) => {
+// Récupérer une entreprise par ID
+exports.getEntrepriseById = async (req, res) => {
+  try {
     const { id } = req.params;
-    db.query(
-        `SELECT e.*,
-                COUNT(DISTINCT u.id) AS total_users,
-                (SELECT COUNT(*) FROM sessions s WHERE s.user_id IN (SELECT id FROM users WHERE entreprise_id = e.id) AND s.is_active = 1) AS active_sessions
-         FROM entreprises e
-         LEFT JOIN users u ON u.entreprise_id = e.id
-         WHERE e.id = ?
-         GROUP BY e.id`,
-        [id],
-        (err, results) => {
-            if (err) { 
-                console.error(err); 
-                return res.status(500).json({ message: 'Erreur serveur' }); 
-            }
-            if (results.length === 0) {
-                return res.status(404).json({ message: 'Entreprise introuvable' });
-            }
-            
-            const entreprise = results[0];
-            try {
-                entreprise.nom = encryptionService.decrypt(entreprise.nom) || entreprise.nom;
-            } catch (e) {}
-            try {
-                entreprise.email = encryptionService.decrypt(entreprise.email) || entreprise.email;
-            } catch (e) {}
-            
-            res.json({ entreprise: entreprise });
-        }
+    const [rows] = await db.promisePoolMaster.query(
+      'SELECT * FROM entreprises WHERE id = ?',
+      [id]
     );
-};
-
-exports.validerEntreprise = (req, res) => {
-    db.query(
-        "UPDATE entreprises SET statut = 'actif' WHERE id = ?",
-        [req.params.id],
-        (err, result) => {
-            if (err) { 
-                console.error(err); 
-                return res.status(500).json({ message: 'Erreur serveur' }); 
-            }
-            if (result.affectedRows === 0) {
-                return res.status(404).json({ message: 'Entreprise introuvable' });
-            }
-            res.json({ message: 'Entreprise validee avec succes' });
-        }
-    );
-};
-
-exports.suspendreEntreprise = (req, res) => {
-    db.query(
-        "UPDATE entreprises SET statut = 'suspendu' WHERE id = ?",
-        [req.params.id],
-        (err, result) => {
-            if (err) { 
-                console.error(err); 
-                return res.status(500).json({ message: 'Erreur serveur' }); 
-            }
-            if (result.affectedRows === 0) {
-                return res.status(404).json({ message: 'Entreprise introuvable' });
-            }
-            res.json({ message: 'Entreprise suspendue avec succes' });
-        }
-    );
-};
-
-exports.passerEnPayant = (req, res) => {
-    db.query(
-        "UPDATE entreprises SET plan_type = 'payant' WHERE id = ?",
-        [req.params.id],
-        (err, result) => {
-            if (err) { 
-                console.error(err); 
-                return res.status(500).json({ message: 'Erreur serveur' }); 
-            }
-            if (result.affectedRows === 0) {
-                return res.status(404).json({ message: 'Entreprise introuvable' });
-            }
-            res.json({ message: 'Entreprise passee en abonnement payant avec succes' });
-        }
-    );
-};
-
-exports.deleteEntreprise = async (req, res) => {
-    const { id } = req.params;
-
-    try {
-        const [count] = await db.promisePoolMaster.query(
-            'SELECT COUNT(*) as total FROM entreprises'
-        );
-
-        if (count[0].total <= 1) {
-            return res.status(400).json({
-                message: 'Impossible de supprimer la derniere entreprise. Il doit y avoir au moins 1 entreprise sur la plateforme.'
-            });
-        }
-
-        const [rows] = await db.promisePoolMaster.query(
-            'SELECT id, nom, db_name FROM entreprises WHERE id = ?',
-            [id]
-        );
-
-        if (rows.length === 0) {
-            return res.status(404).json({ message: 'Entreprise introuvable' });
-        }
-
-        const entreprise = rows[0];
-        const dbName = entreprise.db_name;
-
-        await db.promisePoolMaster.query(`DROP DATABASE IF EXISTS \`${dbName}\``);
-
-        await db.promisePoolMaster.query(
-            'DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE entreprise_id = ?)',
-            [id]
-        );
-
-        await db.promisePoolMaster.query(
-            'DELETE FROM user_connections WHERE user_id IN (SELECT id FROM users WHERE entreprise_id = ?)',
-            [id]
-        );
-
-        await db.promisePoolMaster.query(
-            'DELETE FROM user_devices WHERE user_id IN (SELECT id FROM users WHERE entreprise_id = ?)',
-            [id]
-        );
-
-        await db.promisePoolMaster.query(
-            'DELETE FROM security_alerts WHERE user_id IN (SELECT id FROM users WHERE entreprise_id = ?)',
-            [id]
-        );
-
-        await db.promisePoolMaster.query(
-            'DELETE FROM users WHERE entreprise_id = ?',
-            [id]
-        );
-
-        await db.promisePoolMaster.query(
-            'DELETE FROM entreprises WHERE id = ?',
-            [id]
-        );
-
-        const tenantMiddleware = require('../middleware/tenant.middleware');
-        tenantMiddleware.invalidateCache(id);
-
-        res.json({
-            message: `Entreprise "${entreprise.nom}" supprimee avec succes`,
-            entreprise_id: id
-        });
-
-    } catch (err) {
-        console.error('Erreur suppression entreprise:', err);
-        res.status(500).json({ message: 'Erreur lors de la suppression' });
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Entreprise non trouvée' });
     }
+    res.json({ entreprise: rows[0] });
+  } catch (err) {
+    console.error('Erreur getEntrepriseById:', err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+// Valider une entreprise (passer de en_attente à actif)
+exports.validerEntreprise = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [result] = await db.promisePoolMaster.query(
+      'UPDATE entreprises SET statut = "actif" WHERE id = ?',
+      [id]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Entreprise non trouvée' });
+    }
+    res.json({ message: 'Entreprise validée avec succès' });
+  } catch (err) {
+    console.error('Erreur validerEntreprise:', err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+// Suspendre une entreprise
+exports.suspendreEntreprise = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [result] = await db.promisePoolMaster.query(
+      'UPDATE entreprises SET statut = "suspendu" WHERE id = ?',
+      [id]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Entreprise non trouvée' });
+    }
+    res.json({ message: 'Entreprise suspendue avec succès' });
+  } catch (err) {
+    console.error('Erreur suspendreEntreprise:', err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+// Passer une entreprise en payant
+exports.passerEnPayant = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [result] = await db.promisePoolMaster.query(
+      'UPDATE entreprises SET plan_type = "payant", statut = "actif" WHERE id = ?',
+      [id]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Entreprise non trouvée' });
+    }
+    res.json({ message: 'Entreprise passée en plan payant avec succès' });
+  } catch (err) {
+    console.error('Erreur passerEnPayant:', err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+// Supprimer une entreprise
+exports.deleteEntreprise = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [result] = await db.promisePoolMaster.query(
+      'DELETE FROM entreprises WHERE id = ?',
+      [id]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Entreprise non trouvée' });
+    }
+    res.json({ message: 'Entreprise supprimée avec succès' });
+  } catch (err) {
+    console.error('Erreur deleteEntreprise:', err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+//  Réparer les permissions manquantes d'une entreprise
+exports.reparerPermissions = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Vérifier que l'entreprise existe
+    const [rows] = await db.promisePoolMaster.query(
+      'SELECT db_name FROM entreprises WHERE id = ?',
+      [id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Entreprise introuvable' });
+    }
+
+    // Récupérer la connexion vers la base tenant
+    const clientPool = db.getClientPool(id, rows[0].db_name);
+    
+    // Lancer la réparation
+    const resultat = await reparerPermissionsManquantes(clientPool);
+
+    res.json({
+      message: ` Permissions réparées : ${resultat.lignesAjoutees} ligne(s) ajoutée(s)`,
+      ...resultat
+    });
+  } catch (err) {
+    console.error('Erreur reparerPermissions:', err);
+    res.status(500).json({ message: 'Erreur lors de la réparation des permissions' });
+  }
 };
