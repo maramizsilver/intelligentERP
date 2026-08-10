@@ -1,19 +1,18 @@
-// src/pages/stock/MouvementsStock.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import Table from '../../components/common/Table';
 import Badge from '../../components/common/Badge';
-import Input from '../../components/common/Input';
-import Modal from '../../components/common/Modal';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 export default function MouvementsStock() {
   const { hasPermission } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [produits, setProduits] = useState([]);
@@ -76,7 +75,7 @@ export default function MouvementsStock() {
 
     try {
       await API.post('/mouvements-stock/ajuster', formAjustement);
-      setSuccess(' Stock ajusté avec succès');
+      setSuccess(t('stock_ajuste_succes'));
       setShowAjustement(false);
       setFormAjustement({ produit_id: '', quantite: '', motif: '' });
       loadProduits();
@@ -90,11 +89,11 @@ export default function MouvementsStock() {
 
   const getTypeBadge = (type) => {
     const types = {
-      entree: { label: 'Entrée', variant: 'success' },
-      sortie: { label: 'Sortie', variant: 'danger' },
-      ajustement: { label: 'Ajustement', variant: 'warning' },
-      commande_client: { label: 'Commande client', variant: 'primary' },
-      achat_fournisseur: { label: 'Achat fournisseur', variant: 'secondary' }
+      entree: { label: t('entree'), variant: 'success' },
+      sortie: { label: t('sortie'), variant: 'danger' },
+      ajustement: { label: t('ajustement'), variant: 'warning' },
+      commande_client: { label: t('commande_client_type'), variant: 'primary' },
+      achat_fournisseur: { label: t('achat_fournisseur_type'), variant: 'secondary' }
     };
     return types[type] || { label: type, variant: 'outline' };
   };
@@ -104,7 +103,7 @@ export default function MouvementsStock() {
   const columns = [
     {
       key: 'created_at',
-      label: 'Date',
+      label: t('date'),
       render: (row) => (
         <span style={{ fontSize: '12px' }}>
           {new Date(row.created_at).toLocaleDateString('fr-FR')}
@@ -115,7 +114,7 @@ export default function MouvementsStock() {
     },
     {
       key: 'type',
-      label: 'Type',
+      label: t('type'),
       render: (row) => {
         const type = getTypeBadge(row.type);
         return <Badge variant={type.variant}>{type.label}</Badge>;
@@ -123,19 +122,19 @@ export default function MouvementsStock() {
     },
     {
       key: 'quantite',
-      label: 'Quantité',
+      label: t('quantite'),
       render: (row) => (
         <span style={{ fontWeight: 'bold', color: row.quantite > 0 ? '#22C55E' : '#EF4444' }}>
           {row.quantite > 0 ? `+${row.quantite}` : row.quantite}
         </span>
       )
     },
-    { key: 'ancien_stock', label: 'Ancien stock' },
-    { key: 'nouveau_stock', label: 'Nouveau stock' },
-    { key: 'motif', label: 'Motif' },
+    { key: 'ancien_stock', label: t('ancien_stock') },
+    { key: 'nouveau_stock', label: t('nouveau_stock') },
+    { key: 'motif', label: t('motif_ajustement').replace(' *', '') },
     {
       key: 'created_by',
-      label: 'Par',
+      label: t('par'),
       render: (row) => (
         <span style={{ fontSize: '13px', color: '#64748B' }}>
           {row.created_by_prenom} {row.created_by_nom}
@@ -148,12 +147,12 @@ export default function MouvementsStock() {
     <div>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}> Mouvements de stock</h1>
-          <p style={styles.subtitle}>Consultez l'historique des mouvements par produit</p>
+          <h1 style={styles.title}>{t('mouvements_stock')}</h1>
+          <p style={styles.subtitle}>{t('historique_mouvements')}</p>
         </div>
         <div style={styles.headerActions}>
           <Button variant="secondary" onClick={() => navigate('/dashboard')} icon="←">
-            Retour
+            {t('retour')}
           </Button>
           {peutModifier && (
             <Button
@@ -161,7 +160,7 @@ export default function MouvementsStock() {
               icon={showAjustement ? '✕' : '⚙️'}
               onClick={() => setShowAjustement(!showAjustement)}
             >
-              {showAjustement ? 'Fermer' : 'Ajuster le stock'}
+              {showAjustement ? t('fermer') : t('ajuster_stock')}
             </Button>
           )}
         </div>
@@ -169,23 +168,23 @@ export default function MouvementsStock() {
 
       {error && (
         <div style={styles.errorContainer}>
-          <span>❌</span>
+          <span>X</span>
           <span style={styles.errorText}>{error}</span>
         </div>
       )}
       {success && (
         <div style={styles.successContainer}>
-          <span>done</span>
+          <span>✅</span>
           <span style={styles.successText}>{success}</span>
         </div>
       )}
 
       {showAjustement && (
-        <Card title=" Ajuster le stock" variant="warning" style={{ marginBottom: '24px' }}>
+        <Card title={t('ajuster_stock')} variant="warning" style={{ marginBottom: '24px' }}>
           <form onSubmit={handleAjustement}>
             <div style={styles.formGrid}>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Produit *</label>
+                <label style={styles.label}>{t('produits')} *</label>
                 <select
                   style={styles.select}
                   value={formAjustement.produit_id}
@@ -193,16 +192,16 @@ export default function MouvementsStock() {
                   required
                   disabled={formLoading}
                 >
-                  <option value="">-- Choisir un produit --</option>
+                  <option value="">{t('choisir_produit_placeholder')}</option>
                   {produits.map(p => (
                     <option key={p.id} value={p.id}>
-                      {p.nom} (Stock: {p.quantite_stock})
+                      {p.nom} ({t('stock')}: {p.quantite_stock})
                     </option>
                   ))}
                 </select>
               </div>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Quantité (+ entrée, - sortie) *</label>
+                <label style={styles.label}>{t('quantite_entree_sortie')}</label>
                 <input
                   style={styles.input}
                   type="number"
@@ -215,10 +214,10 @@ export default function MouvementsStock() {
                 />
               </div>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Motif *</label>
+                <label style={styles.label}>{t('motif_ajustement')}</label>
                 <input
                   style={styles.input}
-                  placeholder="Raison de l'ajustement"
+                  placeholder={t('raison_ajustement')}
                   value={formAjustement.motif}
                   onChange={(e) => setFormAjustement({ ...formAjustement, motif: e.target.value })}
                   required
@@ -227,23 +226,23 @@ export default function MouvementsStock() {
               </div>
             </div>
             <Button type="submit" variant="primary" loading={formLoading} fullWidth>
-              Appliquer l'ajustement
+              {t('appliquer_ajustement')}
             </Button>
           </form>
         </Card>
       )}
 
-      <Card title=" Sélectionner un produit" variant="primary" style={{ marginBottom: '24px' }}>
+      <Card title={t('selectionner_produit_titre')} variant="primary" style={{ marginBottom: '24px' }}>
         <div style={styles.selectWrapper}>
           <select
             style={styles.selectLarge}
             value={produitId}
             onChange={(e) => setProduitId(e.target.value)}
           >
-            <option value="">-- Sélectionner un produit --</option>
+            <option value="">{t('choisir_produit_placeholder')}</option>
             {produits.map(p => (
               <option key={p.id} value={p.id}>
-                {p.nom} (Stock: {p.quantite_stock})
+                {p.nom} ({t('stock')}: {p.quantite_stock})
               </option>
             ))}
           </select>
@@ -252,8 +251,8 @@ export default function MouvementsStock() {
 
       {produitId && (
         <Card
-          title={` Historique des mouvements - ${produitSelectionne?.nom || ''}`}
-          subtitle={`Stock actuel: ${produitSelectionne?.quantite_stock || 0}`}
+          title={`${t('historique_mouvements_produit')} - ${produitSelectionne?.nom || ''}`}
+          subtitle={`${t('stock_actuel_label')}: ${produitSelectionne?.quantite_stock || 0}`}
           variant="primary"
         >
           <Table columns={columns} data={mouvements} loading={loading} />
@@ -310,10 +309,6 @@ const styles = {
     boxSizing: 'border-box',
     outline: 'none',
     transition: 'all 0.2s ease',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
   },
   selectLarge: {
     padding: '12px 16px',
@@ -326,10 +321,6 @@ const styles = {
     boxSizing: 'border-box',
     outline: 'none',
     transition: 'all 0.2s ease',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
   },
   selectWrapper: { display: 'flex', justifyContent: 'center' },
   input: {
@@ -340,9 +331,5 @@ const styles = {
     backgroundColor: '#F8FAFC',
     outline: 'none',
     transition: 'all 0.2s ease',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
   },
 };

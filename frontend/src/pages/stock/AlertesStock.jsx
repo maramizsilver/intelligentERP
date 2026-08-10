@@ -1,7 +1,7 @@
-// src/pages/stock/AlertesStock.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 
 import Card from '../../components/common/Card';
@@ -13,6 +13,7 @@ import EmptyState from '../../components/common/EmptyState';
 
 export default function AlertesStock() {
   const { hasPermission } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [alertes, setAlertes] = useState([]);
@@ -36,17 +37,17 @@ export default function AlertesStock() {
   };
 
   const getLevelBadge = (stock) => {
-    if (stock === 0) return { label: 'Rupture', variant: 'danger' };
-    if (stock <= 2) return { label: 'Très critique', variant: 'danger' };
-    if (stock <= 5) return { label: 'Critique', variant: 'warning' };
-    return { label: 'Bas', variant: 'primary' };
+    if (stock === 0) return { label: t('rupture_totale'), variant: 'danger' };
+    if (stock <= 2) return { label: t('tres_critique'), variant: 'danger' };
+    if (stock <= 5) return { label: t('critique_niveau'), variant: 'warning' };
+    return { label: t('bas_niveau'), variant: 'primary' };
   };
 
   const columns = [
-    { key: 'nom', label: 'Produit' },
+    { key: 'nom', label: t('produits') },
     {
       key: 'quantite_stock',
-      label: 'Stock actuel',
+      label: t('stock_actuel_label'),
       render: (row) => (
         <Badge variant={getLevelBadge(row.quantite_stock).variant}>
           {row.quantite_stock}
@@ -55,7 +56,7 @@ export default function AlertesStock() {
     },
     {
       key: 'niveau',
-      label: 'Niveau',
+      label: t('niveau'),
       render: (row) => {
         const level = getLevelBadge(row.quantite_stock);
         return <Badge variant={level.variant}>{level.label}</Badge>;
@@ -65,36 +66,36 @@ export default function AlertesStock() {
 
   const actions = [
     {
-      label: ' Commander',
+      label: t('commander'),
       variant: 'primary',
       onClick: (row) => navigate('/achats')
     }
   ];
 
   if (loading) {
-    return <LoadingSpinner size="lg" text="Chargement des alertes..." />;
+    return <LoadingSpinner size="lg" text={t('chargement')} />;
   }
 
   return (
     <div>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}> Alertes de rupture de stock</h1>
-          <p style={styles.subtitle}>Surveillez les produits à risque</p>
+          <h1 style={styles.title}>{t('alertes_rupture_stock')}</h1>
+          <p style={styles.subtitle}>{t('surveillez_produits_risque')}</p>
         </div>
         <div style={styles.headerActions}>
           <Button variant="secondary" onClick={() => navigate('/dashboard')} icon="←">
-            Retour
+            {t('retour')}
           </Button>
           <Button variant="primary" onClick={loadAlertes} icon="⟳" loading={loading}>
-            Rafraîchir
+            {t('rafraichir')}
           </Button>
         </div>
       </div>
 
       {error && (
         <div style={styles.errorContainer}>
-          <span>❌</span>
+          <span>X</span>
           <span style={styles.errorText}>{error}</span>
         </div>
       )}
@@ -102,24 +103,24 @@ export default function AlertesStock() {
       <div style={styles.statsRow}>
         <div style={{ ...styles.statCard, borderLeft: '4px solid #EF4444' }}>
           <span style={styles.statNumber}>{alertes.length}</span>
-          <span style={styles.statLabel}>Produits en alerte</span>
+          <span style={styles.statLabel}>{t('produits_en_alerte')}</span>
         </div>
         <div style={{ ...styles.statCard, borderLeft: '4px solid #DC2626' }}>
           <span style={styles.statNumber}>
             {alertes.filter(a => a.quantite_stock === 0).length}
           </span>
-          <span style={styles.statLabel}>En rupture totale</span>
+          <span style={styles.statLabel}>{t('en_rupture_totale')}</span>
         </div>
       </div>
 
       {alertes.length === 0 ? (
         <EmptyState
           icon="✅"
-          title="Pas d'alerte de rupture"
-          description="Tous vos produits ont un stock suffisant."
+          title={t('pas_alerte_rupture')}
+          description={t('tous_produits_stock_suffisant')}
         />
       ) : (
-        <Card title="Produits en alerte" variant="danger">
+        <Card title={t('produits_en_alerte')} variant="danger">
           <Table columns={columns} data={alertes} actions={actions} />
         </Card>
       )}
