@@ -15,19 +15,37 @@ const rateLimiter = require('./middleware/rateLimit.middleware');
 
 const app = express();
 
-// CORS amélioré pour accepter les requêtes multi-origines
+// ============================================================
+// CORS CORRIGÉ - Accepte toutes les origines en développement
+// ============================================================
 app.use(cors({
     origin: function (origin, callback) {
+        // Autoriser les requêtes sans origine (Postman, curl, etc.)
+        if (!origin) {
+            return callback(null, true);
+        }
+        
         const allowedOrigins = [
             'http://localhost:3000',
             'http://localhost:3001',
             'http://127.0.0.1:3000',
+            'http://localhost:5000',
+            'http://127.0.0.1:5000',
             'https://votre-domaine.com'
         ];
-        if (!origin || allowedOrigins.includes(origin)) {
+        
+        // Vérifier si l'origine est autorisée
+        if (allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            callback(new Error('Not allowed by CORS'));
+            // En développement, autoriser toutes les origines
+            if (process.env.NODE_ENV === 'development') {
+                console.log(`[CORS] Origine autorisée en développement: ${origin}`);
+                callback(null, true);
+            } else {
+                console.log(`[CORS] Origine non autorisée: ${origin}`);
+                callback(new Error('Not allowed by CORS'));
+            }
         }
     },
     credentials: true,
@@ -38,7 +56,8 @@ app.use(cors({
         'X-CSRF-Token',
         'X-Enterprise-Id',
         'Cookie',
-        'Accept-Language'
+        'Accept-Language',
+        'X-Requested-With'
     ],
     exposedHeaders: [
         'Content-Disposition',
@@ -68,7 +87,7 @@ app.use('/api/reset', require('./routes/resetRoutes'));
 app.use('/api/superadmin', authMiddleware, require('./routes/superAdminRoutes'));
 app.use('/api/entreprises', authMiddleware, require('./routes/entrepriseRoutes'));
 
-// Routes protégées avec session et audit
+// Routes protégées
 const protectedRoutes = [
     { path: '/api/clients', route: './routes/clientRoutes' },
     { path: '/api/fournisseurs', route: './routes/fournisseurRoutes' },
@@ -91,14 +110,14 @@ const protectedRoutes = [
     { path: '/api/documents-intelligents', route: './routes/documentIntelligenceRoutes' },
     { path: '/api/factures', route: './routes/factureRoutes' },
     { path: '/api/clients-tenant', route: './routes/clientTenantRoutes' },
-    { path: '/api/chatbot', route: './routes/chatbotRoutes' }
-    // La route /api/client a été retirée de cette liste
+    { path: '/api/chatbot', route: './routes/chatbotRoutes' },
+    { path: '/api/documents-actions', route: './routes/documentActionsRoutes' },
+    { path: '/api/documents-metier', route: './routes/documentsMetierRoutes' }
 ];
 
 protectedRoutes.forEach(({ path, route }) => {
     app.use(path, authMiddleware, sessionMiddleware, auditMiddleware, require(route));
 });
-
 
 // Cette route utilise ses propres middlewares définis dans clientPortalRoutes.js
 // pour éviter la double application des middlewares

@@ -43,20 +43,32 @@ class NotificationService {
     }
   }
 
-  async sendEmail({ to, subject, html, text }) {
+
+  async sendEmail({ to, subject, html, text, attachments = [] }) {
     if (!this.emailTransporter) {
       console.warn('[Email] Email non configure');
       return { success: false, error: 'Email not configured' };
     }
 
     try {
-      const info = await this.emailTransporter.sendMail({
+      const mailOptions = {
         from: `"${notificationConfig.email.fromName}" <${notificationConfig.email.from}>`,
         to,
         subject,
         html: html || text,
         text: text || html?.replace(/<[^>]*>/g, '') || '',
-      });
+      };
+
+      // Ajouter les pièces jointes si présentes
+      if (attachments && attachments.length > 0) {
+        mailOptions.attachments = attachments.map(att => ({
+          filename: att.filename,
+          content: Buffer.isBuffer(att.content) ? att.content : Buffer.from(att.content, 'base64'),
+          contentType: att.contentType || 'application/octet-stream'
+        }));
+      }
+
+      const info = await this.emailTransporter.sendMail(mailOptions);
 
       console.log('[Email] Envoye:', info.messageId);
       return { success: true, messageId: info.messageId };

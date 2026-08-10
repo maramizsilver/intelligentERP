@@ -4,6 +4,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/layout/Layout';
 import PrivateRoute from './components/PrivateRoute';
+import TestDocumentation from './pages/TestDocumentation';
+
 
 // ============================================================
 // AUTH
@@ -341,6 +343,8 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
+      <Route path="/test-documentation" element={<TestDocumentation />} />
+
 
       {/* ============================================================
           REDIRECTION
