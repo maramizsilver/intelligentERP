@@ -104,6 +104,13 @@ export default function Header() {
             active={isActive('/superadmin/backup')}
             onClick={() => navigate('/superadmin/backup')}
           />
+          {/* AJOUTER LE LIEN DE TEST POUR SUPER ADMIN */}
+          <NavButton
+            to="/test-documentation"
+            label="📄 Test Docs"
+            active={isActive('/test-documentation')}
+            onClick={() => navigate('/test-documentation')}
+          />
         </>
       );
     }
@@ -118,6 +125,8 @@ export default function Header() {
         { path: '/client/produits', label: t('produits') },
         { path: '/client/factures', label: t('factures') },
         { path: '/client/profil', label: t('profil') },
+        // AJOUTER LE LIEN DE TEST POUR CLIENT
+        { path: '/test-documentation', label: '📄 Test Docs' },
       ].map((route) => (
         <NavButton
           key={route.path}
@@ -137,8 +146,11 @@ export default function Header() {
     // Dashboard - toujours visible
     internalRoutes.push({ path: '/dashboard', label: t('dashboard') });
 
-    // ⬇️⬇️⬇️ AJOUT : Mon Profil dans la navigation ⬇️⬇️⬇️
+    // Mon Profil
     internalRoutes.push({ path: '/profil', label: 'Mon Profil' });
+
+    // AJOUTER LE LIEN DE TEST POUR TOUS LES UTILISATEURS
+    internalRoutes.push({ path: '/test-documentation', label: '📄 Test Docs' });
 
     // Ventes
     if (hasPermission('Ventes', 'consultation')) {
@@ -321,7 +333,6 @@ export default function Header() {
 
         {!isMobile && (
           <>
-            {/* ⬇️⬇️⬇️ NOM CLICQUABLE VERS LE PROFIL ⬇️⬇️⬇️ */}
             <span
               style={{
                 fontSize: '13px',

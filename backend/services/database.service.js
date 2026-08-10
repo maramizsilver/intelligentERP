@@ -669,6 +669,41 @@ const INITIAL_SCHEMA = [
     company_id INT DEFAULT 1,
     INDEX idx_chatbot_messages_user (user_id, created_at),
     INDEX idx_chatbot_messages_company_id (company_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  // NOUVELLES TABLES POUR LA GESTION DOCUMENTAIRE
+  `CREATE TABLE IF NOT EXISTS documents_metier (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    type_document VARCHAR(50) NOT NULL,
+    numero VARCHAR(50) NOT NULL,
+    reference_type VARCHAR(50) DEFAULT NULL,
+    reference_id INT DEFAULT NULL,
+    tiers_nom VARCHAR(255) DEFAULT NULL,
+    donnees JSON NOT NULL,
+    montant_ht DECIMAL(12,2) DEFAULT 0,
+    montant_ttc DECIMAL(12,2) DEFAULT 0,
+    statut VARCHAR(30) DEFAULT 'brouillon',
+    created_by INT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
+    INDEX idx_documents_metier_type (type_document),
+    INDEX idx_documents_metier_numero (numero),
+    INDEX idx_documents_metier_reference (reference_type, reference_id),
+    INDEX idx_documents_metier_company_id (company_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS documents_historique (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    type_document VARCHAR(50) NOT NULL,
+    document_id INT NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    details JSON DEFAULT NULL,
+    performed_by INT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    company_id INT DEFAULT 1,
+    INDEX idx_documents_historique_doc (type_document, document_id),
+    INDEX idx_documents_historique_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
 ];
 
@@ -716,6 +751,10 @@ async function migrerBaseExistante(dbName) {
       `ALTER TABLE sequences 
        ADD COLUMN IF NOT EXISTS dernier_numero_facture INT NOT NULL DEFAULT 0`,
       
+      // NOUVEAU: Ajout de la colonne dernier_numero_generique
+      `ALTER TABLE sequences 
+       ADD COLUMN IF NOT EXISTS dernier_numero_generique INT NOT NULL DEFAULT 0`,
+      
       `CREATE TABLE IF NOT EXISTS factures (
         id INT AUTO_INCREMENT PRIMARY KEY,
         numero_facture VARCHAR(50) NOT NULL,
@@ -749,6 +788,41 @@ async function migrerBaseExistante(dbName) {
         contenu MEDIUMTEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_chatbot_messages_user (user_id, created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+      // NOUVELLES TABLES POUR LA GESTION DOCUMENTAIRE (migration)
+      `CREATE TABLE IF NOT EXISTS documents_metier (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        type_document VARCHAR(50) NOT NULL,
+        numero VARCHAR(50) NOT NULL,
+        reference_type VARCHAR(50) DEFAULT NULL,
+        reference_id INT DEFAULT NULL,
+        tiers_nom VARCHAR(255) DEFAULT NULL,
+        donnees JSON NOT NULL,
+        montant_ht DECIMAL(12,2) DEFAULT 0,
+        montant_ttc DECIMAL(12,2) DEFAULT 0,
+        statut VARCHAR(30) DEFAULT 'brouillon',
+        created_by INT DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        company_id INT DEFAULT 1,
+        INDEX idx_documents_metier_type (type_document),
+        INDEX idx_documents_metier_numero (numero),
+        INDEX idx_documents_metier_reference (reference_type, reference_id),
+        INDEX idx_documents_metier_company_id (company_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+      `CREATE TABLE IF NOT EXISTS documents_historique (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        type_document VARCHAR(50) NOT NULL,
+        document_id INT NOT NULL,
+        action VARCHAR(50) NOT NULL,
+        details JSON DEFAULT NULL,
+        performed_by INT DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        company_id INT DEFAULT 1,
+        INDEX idx_documents_historique_doc (type_document, document_id),
+        INDEX idx_documents_historique_company_id (company_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
     ];
 

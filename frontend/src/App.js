@@ -81,6 +81,11 @@ import AbonnementSuccess from './pages/paiement/AbonnementSuccess';
 // Autres
 import Notifications from './pages/Notifications';
 
+// ============================================================
+// IMPORT PAGE DE TEST DOCUMENTATION
+// ============================================================
+import TestDocumentation from './pages/TestDocumentation';
+
 // Styles
 import './styles/global.css';
 import './styles/print.css';
@@ -196,7 +201,7 @@ function AppRoutes() {
           <PrivateRoute><Layout><Notifications /></Layout></PrivateRoute>
         } />
 
-        {/* ⬇️⬇️⬇️ AJOUT DE LA ROUTE PROFIL ⬇️⬇️⬇️ */}
+        {/* Profil */}
         <Route path="/profil" element={
           <PrivateRoute><Layout><Profil /></Layout></PrivateRoute>
         } />
@@ -285,6 +290,15 @@ function AppRoutes() {
 
         <Route path="/securite/mfa" element={
           <PrivateRoute><Layout><SecuriteMFA /></Layout></PrivateRoute>
+        } />
+
+        {/* 
+            ROUTE DE TEST DOCUMENTATION
+             */}
+        <Route path="/test-documentation" element={
+          <PrivateRoute>
+            <Layout><TestDocumentation /></Layout>
+          </PrivateRoute>
         } />
 
         {/* Paiements */}
