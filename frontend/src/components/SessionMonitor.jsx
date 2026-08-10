@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import API from '../utils/api';
 import Button from './common/Button';
 
 export default function SessionMonitor({ children }) {
   const { user, logout } = useAuth();
+  const { t } = useLanguage();
   const [activeSessions, setActiveSessions] = useState(0);
   const [showAlert, setShowAlert] = useState(false);
   const [sessionDetails, setSessionDetails] = useState([]);
@@ -50,7 +52,7 @@ export default function SessionMonitor({ children }) {
       const res = await API.get('/auth/sessions/active-detailed');
       setAllSessions(res.data.sessions?.filter(s => s.is_active) || []);
     } catch (err) {
-      setError('Erreur lors de la revocation');
+      setError(t('erreur_revocation') || 'Erreur lors de la révocation');
       console.error('Erreur revocation sessions:', err);
     } finally {
       setLoading(false);
@@ -59,8 +61,8 @@ export default function SessionMonitor({ children }) {
 
   const handleReportSession = async (sessionId, lockAccount = false) => {
     const confirmMessage = lockAccount 
-      ? 'Voulez-vous signaler cette session et verrouiller votre compte ?'
-      : 'Voulez-vous signaler cette session comme suspecte ?';
+      ? (t('signaler_verrouiller_confirmation') || 'Voulez-vous signaler cette session et verrouiller votre compte ?')
+      : (t('signaler_session_confirmation') || 'Voulez-vous signaler cette session comme suspecte ?');
     
     if (!window.confirm(confirmMessage)) {
       return;
@@ -69,7 +71,7 @@ export default function SessionMonitor({ children }) {
     try {
       setLoading(true);
       await API.post(`/auth/sessions/${sessionId}/report`, {
-        reason: 'Connexion suspecte - non reconnue par l\'utilisateur',
+        reason: t('session_suspecte') || 'Connexion suspecte - non reconnue par l\'utilisateur',
         lock_account: lockAccount
       });
       
@@ -82,7 +84,7 @@ export default function SessionMonitor({ children }) {
       const res = await API.get('/auth/sessions/active-detailed');
       setAllSessions(res.data.sessions?.filter(s => s.is_active) || []);
     } catch (err) {
-      setError('Erreur lors du signalement');
+      setError(t('erreur_signalement') || 'Erreur lors du signalement');
       console.error(err);
     } finally {
       setLoading(false);
@@ -90,19 +92,19 @@ export default function SessionMonitor({ children }) {
   };
 
   const handleLockAccount = async () => {
-    if (!window.confirm('Voulez-vous verrouiller votre compte ? Toutes vos sessions seront deconnectees.')) {
+    if (!window.confirm(t('verrouiller_compte_confirmation') || 'Voulez-vous verrouiller votre compte ? Toutes vos sessions seront déconnectées.')) {
       return;
     }
 
     try {
       setLoading(true);
       await API.post('/auth/account/lock', {
-        reason: 'Verrouillage volontaire par l\'utilisateur'
+        reason: t('verrouillage_volontaire') || 'Verrouillage volontaire par l\'utilisateur'
       });
       logout();
       window.location.href = '/login?locked=true';
     } catch (err) {
-      setError('Erreur lors du verrouillage');
+      setError(t('erreur_verrouillage') || 'Erreur lors du verrouillage');
       console.error(err);
     } finally {
       setLoading(false);
@@ -127,7 +129,6 @@ export default function SessionMonitor({ children }) {
     });
   };
 
-  // Determine if current session (check token)
   const isCurrentSession = (session) => {
     const token = localStorage.getItem('token');
     return session.token === token;
@@ -135,21 +136,20 @@ export default function SessionMonitor({ children }) {
 
   return (
     <>
-      {/* Alerte flottante pour sessions multiples */}
       {showAlert && (
         <div style={styles.alert}>
           <div style={styles.alertContent}>
             <span style={styles.alertIcon}>🔐</span>
             <div style={styles.alertMessage}>
-              <strong>{activeSessions} sessions actives detectees</strong>
+              <strong>{activeSessions} {t('sessions_actives_detectees') || 'sessions actives détectées'}</strong>
               <span style={styles.alertDetail}>
-                Votre compte est connecte sur plusieurs appareils
+                {t('compte_connecte_plusieurs_appareils') || 'Votre compte est connecté sur plusieurs appareils'}
               </span>
               {sessionDetails.length > 0 && (
                 <div style={styles.sessionList}>
                   {sessionDetails.slice(0, 3).map((s, i) => (
                     <div key={i} style={styles.sessionItem}>
-                      <span>{getDeviceIcon(s.device_type)} {s.device_type || 'Appareil inconnu'}</span>
+                      <span>{getDeviceIcon(s.device_type)} {s.device_type || t('appareil_inconnu') || 'Appareil inconnu'}</span>
                       <span style={styles.sessionTime}>
                         {new Date(s.last_activity).toLocaleString('fr-FR')}
                       </span>
@@ -165,37 +165,35 @@ export default function SessionMonitor({ children }) {
                 onClick={handleRevokeOtherSessions}
                 disabled={loading}
               >
-                Deconnecter les autres
+                {t('deconnecter_autres') || 'Déconnecter les autres'}
               </Button>
               <Button 
                 variant="secondary" 
                 size="sm" 
                 onClick={() => setShowAlert(false)}
               >
-                Ignorer
+                {t('ignorer') || 'Ignorer'}
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Bouton pour ouvrir le modal des sessions */}
       <div style={styles.fabContainer}>
         <button
           onClick={() => setShowModal(!showModal)}
           style={styles.fabButton}
-          title="Voir mes sessions"
+          title={t('mes_sessions_actives') || 'Voir mes sessions'}
         >
           {allSessions.length > 1 ? '🔴' : '🟢'} {allSessions.length}
         </button>
       </div>
 
-      {/* Modal de gestion des sessions */}
       {showModal && (
         <div style={styles.modalOverlay} onClick={() => setShowModal(false)}>
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <h3 style={styles.modalTitle}>Mes sessions actives</h3>
+              <h3 style={styles.modalTitle}>{t('mes_sessions_actives') || 'Mes sessions actives'}</h3>
               <button 
                 style={styles.modalClose} 
                 onClick={() => setShowModal(false)}
@@ -222,7 +220,7 @@ export default function SessionMonitor({ children }) {
                   cursor: (loading || allSessions.length <= 1) ? 'not-allowed' : 'pointer'
                 }}
               >
-                {loading ? 'Chargement...' : 'Déconnecter les autres'}
+                {loading ? (t('chargement') || 'Chargement...') : (t('deconnecter_autres_sessions') || 'Déconnecter les autres')}
               </button>
               <button
                 onClick={handleLockAccount}
@@ -234,12 +232,12 @@ export default function SessionMonitor({ children }) {
                   cursor: loading ? 'not-allowed' : 'pointer'
                 }}
               >
-                {loading ? 'Chargement...' : '🔒 Verrouiller mon compte'}
+                {loading ? (t('chargement') || 'Chargement...') : (t('verrouiller_mon_compte') || 'Verrouiller mon compte')}
               </button>
             </div>
 
             {allSessions.length === 0 ? (
-              <div style={styles.noSessions}>Aucune session active</div>
+              <div style={styles.noSessions}>{t('aucune_session_active') || 'Aucune session active'}</div>
             ) : (
               <div style={styles.sessionsList}>
                 {allSessions.map((session) => {
@@ -258,23 +256,23 @@ export default function SessionMonitor({ children }) {
                         </div>
                         <div style={styles.sessionInfo}>
                           <div style={styles.sessionDevice}>
-                            <strong>{session.device_type || 'Appareil inconnu'}</strong>
+                            <strong>{session.device_type || t('appareil_inconnu') || 'Appareil inconnu'}</strong>
                             {isCurrent && (
-                              <span style={styles.badgeCurrent}>Session actuelle</span>
+                              <span style={styles.badgeCurrent}>{t('session_actuelle') || 'Session actuelle'}</span>
                             )}
                             {session.is_reported === 1 && (
-                              <span style={styles.badgeReported}>Signalée</span>
+                              <span style={styles.badgeReported}>{t('signalee') || 'Signalée'}</span>
                             )}
                           </div>
                           <div style={styles.sessionDetails}>
-                            <span>OS: {session.os || 'Inconnu'}</span>
+                            <span>OS: {session.os || t('inconnu') || 'Inconnu'}</span>
                             <span>|</span>
-                            <span>Navigateur: {session.browser || 'Inconnu'}</span>
+                            <span>{t('navigateur') || 'Navigateur'}: {session.browser || t('inconnu') || 'Inconnu'}</span>
                           </div>
                           <div style={styles.sessionDetails}>
-                            <span>IP: {session.ip_address || 'Inconnue'}</span>
+                            <span>IP: {session.ip_address || t('inconnu') || 'Inconnue'}</span>
                             <span>|</span>
-                            <span>Connecté: {formatDate(session.created_at)}</span>
+                            <span>{t('connecte') || 'Connecté'}: {formatDate(session.created_at)}</span>
                           </div>
                         </div>
                       </div>
@@ -291,7 +289,7 @@ export default function SessionMonitor({ children }) {
                               cursor: loading ? 'not-allowed' : 'pointer'
                             }}
                           >
-                            Signaler
+                            {t('signaler') || 'Signaler'}
                           </button>
                           <button
                             onClick={() => handleReportSession(session.id, true)}
@@ -303,14 +301,14 @@ export default function SessionMonitor({ children }) {
                               cursor: loading ? 'not-allowed' : 'pointer'
                             }}
                           >
-                            Signaler + Verrouiller
+                            {t('signaler_verrouiller') || 'Signaler + Verrouiller'}
                           </button>
                         </div>
                       )}
                       
                       {session.is_reported === 1 && (
                         <div style={styles.reportedInfo}>
-                          ⛔ Session signalée
+                          ⛔ {t('session_signalee') || 'Session signalée'}
                           {session.report_reason && (
                             <span style={styles.reportedReason}>: {session.report_reason}</span>
                           )}
@@ -334,10 +332,10 @@ export default function SessionMonitor({ children }) {
                 }}
                 style={styles.refreshButton}
               >
-                🔄 Rafraîchir
+                {t('rafraichir') || 'Rafraîchir'}
               </button>
               <span style={styles.sessionCount}>
-                {allSessions.length} session(s) active(s)
+                {allSessions.length} {t('session_active') || 'session(s) active(s)'}
               </span>
             </div>
           </div>
@@ -350,7 +348,6 @@ export default function SessionMonitor({ children }) {
 }
 
 const styles = {
-  // Alerte flottante
   alert: {
     position: 'fixed',
     bottom: '24px',
@@ -407,8 +404,6 @@ const styles = {
     gap: '6px',
     flexShrink: 0,
   },
-
-  // Bouton flottant (FAB)
   fabContainer: {
     position: 'fixed',
     bottom: '80px',
@@ -431,8 +426,6 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // Modal
   modalOverlay: {
     position: 'fixed',
     top: 0,

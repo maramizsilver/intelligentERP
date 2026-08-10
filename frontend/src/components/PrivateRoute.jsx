@@ -2,6 +2,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import LoadingSpinner from './common/LoadingSpinner';
 
 export default function PrivateRoute({
@@ -11,9 +12,10 @@ export default function PrivateRoute({
   allowEssaiExpire = false,
 }) {
   const { user, loading } = useAuth();
+  const { t } = useLanguage();
 
   if (loading) {
-    return <LoadingSpinner size="lg" text="Chargement..." />;
+    return <LoadingSpinner size="lg" text={t('chargement_verification') || 'Chargement...'} />;
   }
 
   if (!user) {

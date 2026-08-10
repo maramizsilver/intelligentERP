@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
+import { useLanguage } from '../../../context/LanguageContext';
 import API from '../../../utils/api';
 import Card from '../../../components/common/Card';
 import Button from '../../../components/common/Button';
 import Table from '../../../components/common/Table';
 import Badge from '../../../components/common/Badge';
-import Input from '../../../components/common/Input';
 import LoadingSpinner from '../../../components/common/LoadingSpinner';
 import EmptyState from '../../../components/common/EmptyState';
 
 export default function SuperAdminAudit() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('logs');
   const [loading, setLoading] = useState(false);
@@ -75,10 +76,10 @@ export default function SuperAdminAudit() {
 
   const getStatusBadge = (status) => {
     const statuses = {
-      success: { label: 'Succès', variant: 'success' },
-      failed: { label: 'Échec', variant: 'danger' },
-      locked: { label: 'Bloqué', variant: 'warning' },
-      error: { label: 'Erreur', variant: 'danger' }
+      success: { label: t('status_succes') || 'Succès', variant: 'success' },
+      failed: { label: t('status_echec') || 'Échec', variant: 'danger' },
+      locked: { label: t('status_bloque') || 'Bloqué', variant: 'warning' },
+      error: { label: t('status_erreur') || 'Erreur', variant: 'danger' }
     };
     return statuses[status] || { label: status, variant: 'outline' };
   };
@@ -86,16 +87,16 @@ export default function SuperAdminAudit() {
   const logsColumns = [
     {
       key: 'created_at',
-      label: 'Date',
+      label: t('date'),
       render: (row) => new Date(row.created_at).toLocaleString('fr-FR')
     },
-    { key: 'entreprise_nom', label: 'Entreprise' },
-    { key: 'nom', label: 'Utilisateur', render: (row) => `${row.prenom || ''} ${row.nom || ''}` },
-    { key: 'action', label: 'Action' },
-    { key: 'module', label: 'Module' },
+    { key: 'entreprise_nom', label: t('entreprise') || 'Entreprise' },
+    { key: 'nom', label: t('utilisateur') || 'Utilisateur', render: (row) => `${row.prenom || ''} ${row.nom || ''}` },
+    { key: 'action', label: t('action') || 'Action' },
+    { key: 'module', label: t('module') || 'Module' },
     {
       key: 'status',
-      label: 'Statut',
+      label: t('statut'),
       render: (row) => {
         const s = getStatusBadge(row.status);
         return <Badge variant={s.variant}>{s.label}</Badge>;
@@ -107,15 +108,15 @@ export default function SuperAdminAudit() {
   const connexionsColumns = [
     {
       key: 'created_at',
-      label: 'Date',
+      label: t('date'),
       render: (row) => new Date(row.created_at).toLocaleString('fr-FR')
     },
-    { key: 'entreprise_nom', label: 'Entreprise' },
-    { key: 'nom', label: 'Utilisateur', render: (row) => `${row.prenom || ''} ${row.nom || ''}` },
-    { key: 'email', label: 'Email' },
+    { key: 'entreprise_nom', label: t('entreprise') || 'Entreprise' },
+    { key: 'nom', label: t('utilisateur') || 'Utilisateur', render: (row) => `${row.prenom || ''} ${row.nom || ''}` },
+    { key: 'email', label: t('email') },
     {
       key: 'status',
-      label: 'Statut',
+      label: t('statut'),
       render: (row) => {
         const s = getStatusBadge(row.status);
         return <Badge variant={s.variant}>{s.label}</Badge>;
@@ -128,12 +129,12 @@ export default function SuperAdminAudit() {
     <div>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>Audit Global</h1>
-          <p style={styles.subtitle}>Consultez tous les logs de la plateforme</p>
+          <h1 style={styles.title}>{t('audit_global') || 'Audit Global'}</h1>
+          <p style={styles.subtitle}>{t('consulter_logs') || 'Consultez tous les logs de la plateforme'}</p>
         </div>
         <div style={styles.headerActions}>
           <Button variant="secondary" onClick={() => navigate('/superadmin/dashboard')}>
-            Retour
+            {t('retour')}
           </Button>
         </div>
       </div>
@@ -142,15 +143,15 @@ export default function SuperAdminAudit() {
         <div style={styles.statsGrid}>
           <div style={{ ...styles.statCard, borderLeft: '4px solid #0EA5E9' }}>
             <span style={styles.statNumber}>{stats.logs_by_entreprise?.length || 0}</span>
-            <span style={styles.statLabel}>Entreprises avec logs</span>
+            <span style={styles.statLabel}>{t('entreprises_avec_logs') || 'Entreprises avec logs'}</span>
           </div>
           <div style={{ ...styles.statCard, borderLeft: '4px solid #22C55E' }}>
             <span style={styles.statNumber}>{stats.top_actions?.length || 0}</span>
-            <span style={styles.statLabel}>Actions distinctes</span>
+            <span style={styles.statLabel}>{t('actions_distinctes') || 'Actions distinctes'}</span>
           </div>
           <div style={{ ...styles.statCard, borderLeft: '4px solid #F59E0B' }}>
             <span style={styles.statNumber}>{stats.top_modules?.length || 0}</span>
-            <span style={styles.statLabel}>Modules utilisés</span>
+            <span style={styles.statLabel}>{t('modules_utilises') || 'Modules utilisés'}</span>
           </div>
         </div>
       )}
@@ -160,53 +161,53 @@ export default function SuperAdminAudit() {
           style={{ ...styles.tab, ...(activeTab === 'logs' ? styles.tabActive : {}) }}
           onClick={() => setActiveTab('logs')}
         >
-          Logs d'actions ({total})
+          {t('logs_actions') || "Logs d'actions"} ({total})
         </button>
         <button
           style={{ ...styles.tab, ...(activeTab === 'connexions' ? styles.tabActive : {}) }}
           onClick={() => setActiveTab('connexions')}
         >
-          Logs de connexion
+          {t('logs_connexion') || 'Logs de connexion'}
         </button>
       </div>
 
-      <Card title="Filtres" variant="primary" style={{ marginBottom: '20px' }}>
+      <Card title={t('filtres') || 'Filtres'} variant="primary" style={{ marginBottom: '20px' }}>
         <div style={styles.filterGrid}>
           <div style={styles.formGroup}>
-            <label style={styles.label}>Entreprise ID</label>
+            <label style={styles.label}>{t('entreprise_id') || 'Entreprise ID'}</label>
             <input
               style={styles.input}
               type="text"
               name="entreprise_id"
-              placeholder="ID entreprise"
+              placeholder={t('entreprise_id') || 'ID entreprise'}
               value={filters.entreprise_id}
               onChange={handleFilterChange}
             />
           </div>
           <div style={styles.formGroup}>
-            <label style={styles.label}>Action</label>
+            <label style={styles.label}>{t('action') || 'Action'}</label>
             <input
               style={styles.input}
               type="text"
               name="action"
-              placeholder="Rechercher une action"
+              placeholder={t('rechercher_action') || 'Rechercher une action'}
               value={filters.action}
               onChange={handleFilterChange}
             />
           </div>
           <div style={styles.formGroup}>
-            <label style={styles.label}>Module</label>
+            <label style={styles.label}>{t('module') || 'Module'}</label>
             <input
               style={styles.input}
               type="text"
               name="module"
-              placeholder="Module"
+              placeholder={t('module') || 'Module'}
               value={filters.module}
               onChange={handleFilterChange}
             />
           </div>
           <div style={styles.formGroup}>
-            <label style={styles.label}>Date début</label>
+            <label style={styles.label}>{t('date_debut') || 'Date début'}</label>
             <input
               style={styles.input}
               type="date"
@@ -216,7 +217,7 @@ export default function SuperAdminAudit() {
             />
           </div>
           <div style={styles.formGroup}>
-            <label style={styles.label}>Date fin</label>
+            <label style={styles.label}>{t('date_fin') || 'Date fin'}</label>
             <input
               style={styles.input}
               type="date"
@@ -240,13 +241,13 @@ export default function SuperAdminAudit() {
                 });
               }}
             >
-              Réinitialiser
+              {t('reinitialiser_filtres') || 'Réinitialiser'}
             </Button>
           </div>
         </div>
       </Card>
 
-      <Card title={activeTab === 'logs' ? 'Logs d\'actions' : 'Logs de connexion'} variant="primary">
+      <Card title={activeTab === 'logs' ? (t('logs_actions') || "Logs d'actions") : (t('logs_connexion') || 'Logs de connexion')} variant="primary">
         <Table
           columns={activeTab === 'logs' ? logsColumns : connexionsColumns}
           data={logs}
@@ -259,7 +260,7 @@ export default function SuperAdminAudit() {
               disabled={filters.offset === 0}
               onClick={() => setFilters({ ...filters, offset: filters.offset - filters.limit })}
             >
-              Précédent
+              {t('precedent') || 'Précédent'}
             </Button>
             <span style={styles.paginationInfo}>
               {filters.offset + 1} - {Math.min(filters.offset + filters.limit, total)} sur {total}
@@ -269,7 +270,7 @@ export default function SuperAdminAudit() {
               disabled={filters.offset + filters.limit >= total}
               onClick={() => setFilters({ ...filters, offset: filters.offset + filters.limit })}
             >
-              Suivant
+              {t('suivant') || 'Suivant'}
             </Button>
           </div>
         )}

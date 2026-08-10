@@ -190,6 +190,7 @@ export default function Entrepots() {
 
       {entrepots.length === 0 ? (
         <EmptyState
+      
           title={t('aucun_entrepot')}
           description={t('entrepots_gerer')}
           action={peutModifier ? {

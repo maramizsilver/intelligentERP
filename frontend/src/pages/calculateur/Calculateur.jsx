@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 import * as XLSX from 'xlsx';
 
@@ -11,24 +12,22 @@ import Badge from '../../components/common/Badge';
 import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
+
 const CATEGORIES = ['TVA', 'INTERET', 'PENALITE', 'REMISE', 'TAXE', 'COMMISSION'];
 
-// COMPOSANT PRINCIPAL
 export default function Calculateur() {
   const { hasPermission, user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
-  // ETATS
   const [onglet, setOnglet] = useState('calcul');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [resultat, setResultat] = useState(null);
 
-  // Mode de calcul
   const [modeCalcul, setModeCalcul] = useState('manuel');
 
-  //  Taux unique
   const [formUnique, setFormUnique] = useState({
     montant: '',
     date_debut: '',
@@ -36,13 +35,11 @@ export default function Calculateur() {
     taux: ''
   });
 
-  // Taux variables (manuel)
   const [formVariables, setFormVariables] = useState({
     montant: '',
     periodes: [{ date_debut: '', date_fin: '', taux: '' }]
   });
 
-  // Taux variables (auto)
   const [formAuto, setFormAuto] = useState({
     montant: '',
     date_debut: '',
@@ -51,26 +48,21 @@ export default function Calculateur() {
     sous_categorie: ''
   });
 
-  // Taux de reference (lecture seule)
   const [tauxReference, setTauxReference] = useState([]);
   const [loadingTaux, setLoadingTaux] = useState(false);
 
-  // Historiques separes
   const [historiqueUnique, setHistoriqueUnique] = useState([]);
   const [historiqueVariable, setHistoriqueVariable] = useState([]);
   const [totalUnique, setTotalUnique] = useState(0);
   const [totalVariable, setTotalVariable] = useState(0);
   const [sousOngletHistorique, setSousOngletHistorique] = useState('unique');
 
-  // Export
   const [typeRapport, setTypeRapport] = useState('detaille');
 
   const [loadingCalcul, setLoadingCalcul] = useState(false);
 
   const peutExporter = hasPermission('Finance', 'export');
   const isSuperAdmin = user?.is_super_admin;
-  // CHARGEMENT DES DONNEES
-
 
   useEffect(() => {
     if (onglet === 'taux') loadTauxReference();
@@ -86,7 +78,7 @@ export default function Calculateur() {
       const res = await API.get('/calculateur/taux-reference');
       setTauxReference(res.data.taux || []);
     } catch (err) {
-      setError('Impossible de charger les taux de reference');
+      setError(t('impossible_charger_taux') || 'Impossible de charger les taux de référence');
     } finally {
       setLoadingTaux(false);
     }
@@ -98,7 +90,7 @@ export default function Calculateur() {
       setHistoriqueUnique(res.data.historique || []);
       setTotalUnique(res.data.total || 0);
     } catch (err) {
-      setError('Impossible de charger l\'historique des taux uniques');
+      setError(t('impossible_charger_historique_unique') || 'Impossible de charger l\'historique des taux uniques');
     }
   };
 
@@ -108,13 +100,9 @@ export default function Calculateur() {
       setHistoriqueVariable(res.data.historique || []);
       setTotalVariable(res.data.total || 0);
     } catch (err) {
-      setError('Impossible de charger l\'historique des taux variables');
+      setError(t('impossible_charger_historique_variable') || 'Impossible de charger l\'historique des taux variables');
     }
   };
-
-  // ============================================================
-  // GESTION DES FORMULAIRES
-  // ============================================================
 
   const handleUniqueChange = (e) => {
     const { name, value } = e.target;
@@ -152,10 +140,6 @@ export default function Calculateur() {
     setResultat(null);
   };
 
-  // ============================================================
-  // CALCULS
-  // ============================================================
-
   const handleCalculUnique = async (e) => {
     e.preventDefault();
     setError('');
@@ -165,9 +149,9 @@ export default function Calculateur() {
     try {
       const res = await API.post('/calculateur/taux-unique', formUnique);
       setResultat({ ...res.data, type_calcul: 'taux_unique' });
-      setSuccess('Calcul effectue avec succes');
+      setSuccess(t('calcul_effectue') || 'Calcul effectué avec succès');
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur lors du calcul');
+      setError(err.response?.data?.message || t('erreur_calcul') || 'Erreur lors du calcul');
     } finally {
       setLoadingCalcul(false);
     }
@@ -184,7 +168,7 @@ export default function Calculateur() {
     );
 
     if (periodesValides.length === 0) {
-      setError('Ajoutez au moins une periode complete');
+      setError(t('ajouter_periode_complete') || 'Ajoutez au moins une période complète');
       setLoadingCalcul(false);
       return;
     }
@@ -195,9 +179,9 @@ export default function Calculateur() {
         periodes: periodesValides
       });
       setResultat({ ...res.data, type_calcul: 'taux_variables_manuel' });
-      setSuccess('Calcul effectue avec succes');
+      setSuccess(t('calcul_effectue') || 'Calcul effectué avec succès');
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur lors du calcul');
+      setError(err.response?.data?.message || t('erreur_calcul') || 'Erreur lors du calcul');
     } finally {
       setLoadingCalcul(false);
     }
@@ -212,17 +196,13 @@ export default function Calculateur() {
     try {
       const res = await API.post('/calculateur/taux-variables-auto', formAuto);
       setResultat({ ...res.data, type_calcul: 'taux_variables_auto' });
-      setSuccess('Calcul effectue avec succes');
+      setSuccess(t('calcul_effectue') || 'Calcul effectué avec succès');
     } catch (err) {
-      setError(err.response?.data?.message || err.response?.data?.message || 'Erreur lors du calcul');
+      setError(err.response?.data?.message || t('erreur_calcul') || 'Erreur lors du calcul');
     } finally {
       setLoadingCalcul(false);
     }
   };
-
-  // ============================================================
-  // IMPRESSION
-  // ============================================================
 
   const handlePrint = () => {
     document.body.classList.add('printing');
@@ -232,13 +212,9 @@ export default function Calculateur() {
     }, 100);
   };
 
-  // ============================================================
-  // EXPORTS (PDF + Word + Excel)
-  // ============================================================
-
   const handleExportPDF = async () => {
     if (!resultat) {
-      setError('Aucun resultat a exporter');
+      setError(t('aucun_resultat_exporter') || 'Aucun résultat à exporter');
       return;
     }
     
@@ -259,10 +235,10 @@ export default function Calculateur() {
       link.remove();
       window.URL.revokeObjectURL(url);
       
-      setSuccess('PDF exporte avec succes');
+      setSuccess(t('pdf_exporte') || 'PDF exporté avec succès');
     } catch (err) {
       console.error('Erreur export PDF:', err);
-      setError(err.response?.data?.message || 'Erreur lors de l\'export PDF');
+      setError(err.response?.data?.message || t('erreur_export_pdf') || 'Erreur lors de l\'export PDF');
     } finally {
       setLoadingCalcul(false);
     }
@@ -270,7 +246,7 @@ export default function Calculateur() {
 
   const handleExportWord = async () => {
     if (!resultat) {
-      setError('Aucun resultat a exporter');
+      setError(t('aucun_resultat_exporter') || 'Aucun résultat à exporter');
       return;
     }
     
@@ -295,18 +271,14 @@ export default function Calculateur() {
       link.remove();
       window.URL.revokeObjectURL(url);
       
-      setSuccess('Word exporte avec succes');
+      setSuccess(t('word_exporte') || 'Word exporté avec succès');
     } catch (err) {
       console.error('Erreur export Word:', err);
-      setError(err.response?.data?.message || 'Erreur lors de l\'export Word');
+      setError(err.response?.data?.message || t('erreur_export_word') || 'Erreur lors de l\'export Word');
     } finally {
       setLoadingCalcul(false);
     }
   };
-
-  // ============================================================
-  // EXPORTS DEPUIS L'HISTORIQUE
-  // ============================================================
 
   const handleExportHistoriquePDF = async (id) => {
     try {
@@ -324,10 +296,10 @@ export default function Calculateur() {
       link.remove();
       window.URL.revokeObjectURL(url);
       
-      setSuccess('PDF historique exporte avec succes');
+      setSuccess(t('pdf_historique_exporte') || 'PDF historique exporté avec succès');
     } catch (err) {
       console.error('Erreur export PDF historique:', err);
-      setError('Erreur lors de l\'export PDF');
+      setError(t('erreur_export_pdf_historique') || 'Erreur lors de l\'export PDF historique');
     }
   };
 
@@ -349,16 +321,12 @@ export default function Calculateur() {
       link.remove();
       window.URL.revokeObjectURL(url);
       
-      setSuccess('Word historique exporte avec succes');
+      setSuccess(t('word_historique_exporte') || 'Word historique exporté avec succès');
     } catch (err) {
       console.error('Erreur export Word historique:', err);
-      setError('Erreur lors de l\'export Word');
+      setError(t('erreur_export_word_historique') || 'Erreur lors de l\'export Word historique');
     }
   };
-
-  // ============================================================
-  // IMPRESSION DEPUIS L'HISTORIQUE
-  // ============================================================
 
   const handleViewHistoriqueDetail = async (id, type) => {
     try {
@@ -379,15 +347,11 @@ export default function Calculateur() {
         handlePrint();
       }, 500);
     } catch (err) {
-      setError('Erreur lors du chargement des details');
+      setError(t('erreur_chargement_details') || 'Erreur lors du chargement des détails');
     } finally {
       setLoading(false);
     }
   };
-
-  // ============================================================
-  // EXPORT EXCEL
-  // ============================================================
 
   const exportExcel = () => {
     if (!resultat) return;
@@ -428,59 +392,54 @@ export default function Calculateur() {
     XLSX.writeFile(wb, `calcul-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  // ============================================================
-  // COLONNES TABLEAUX
-  // ============================================================
-
   const columnsDetails = resultat?.cas !== 'taux_unique' && resultat?.details ? [
-    { key: 'periode', label: 'Periode', render: (row) => `#${row.periode}` },
-    { key: 'date_debut', label: 'Date debut' },
-    { key: 'date_fin', label: 'Date fin' },
-    { key: 'nbJours', label: 'Jours' },
-    { key: 'taux', label: 'Taux', render: (row) => `${row.taux}%` },
-    { key: 'resultat', label: 'Resultat', render: (row) => <strong>{row.resultat} DT</strong> }
+    { key: 'periode', label: t('periode') || 'Période', render: (row) => `#${row.periode}` },
+    { key: 'date_debut', label: t('date_debut') || 'Date début' },
+    { key: 'date_fin', label: t('date_fin') || 'Date fin' },
+    { key: 'nbJours', label: t('jours') || 'Jours' },
+    { key: 'taux', label: t('taux') || 'Taux', render: (row) => `${row.taux}%` },
+    { key: 'resultat', label: t('resultat') || 'Résultat', render: (row) => <strong>{row.resultat} DT</strong> }
   ] : [];
 
   const columnsTaux = [
-    { key: 'categorie', label: 'Categorie' },
-    { key: 'nom', label: 'Nom' },
-    { key: 'date_debut', label: 'Date debut', render: (row) => new Date(row.date_debut).toLocaleDateString('fr-FR') },
-    { key: 'date_fin', label: 'Date fin', render: (row) => new Date(row.date_fin).toLocaleDateString('fr-FR') },
-    { key: 'taux', label: 'Taux', render: (row) => `${row.taux}%` },
-    { key: 'actif', label: 'Actif', render: (row) => <Badge variant={row.actif ? 'success' : 'danger'}>{row.actif ? 'Oui' : 'Non'}</Badge> }
+    { key: 'categorie', label: t('categorie') || 'Catégorie' },
+    { key: 'nom', label: t('nom') || 'Nom' },
+    { key: 'date_debut', label: t('date_debut') || 'Date début', render: (row) => new Date(row.date_debut).toLocaleDateString('fr-FR') },
+    { key: 'date_fin', label: t('date_fin') || 'Date fin', render: (row) => new Date(row.date_fin).toLocaleDateString('fr-FR') },
+    { key: 'taux', label: t('taux') || 'Taux', render: (row) => `${row.taux}%` },
+    { key: 'actif', label: t('actif') || 'Actif', render: (row) => <Badge variant={row.actif ? 'success' : 'danger'}>{row.actif ? (t('oui') || 'Oui') : (t('non') || 'Non')}</Badge> }
   ];
 
   const columnsHistorique = [
     { key: 'id', label: '#' },
-    { key: 'type_calcul', label: 'Type', render: (row) => {
+    { key: 'type_calcul', label: t('type') || 'Type', render: (row) => {
       const types = {
-        'taux_unique': 'Taux unique',
-        'taux_variables_manuel': 'Taux variables (manuel)',
-        'taux_variables_auto': 'Taux variables (auto)'
+        'taux_unique': t('taux_unique') || 'Taux unique',
+        'taux_variables_manuel': t('taux_variables_manuel') || 'Taux variables (manuel)',
+        'taux_variables_auto': t('taux_variables_auto') || 'Taux variables (auto)'
       };
       return types[row.type_calcul] || row.type_calcul;
     }},
-    { key: 'montant', label: 'Montant', render: (row) => `${row.montant} DT` },
-    { key: 'resultat', label: 'Resultat', render: (row) => `${row.resultat} DT` },
-    { key: 'created_at', label: 'Date', render: (row) => new Date(row.created_at).toLocaleString('fr-FR') },
-    { key: 'prenom', label: 'Par', render: (row) => `${row.prenom || ''} ${row.nom || ''}` }
+    { key: 'montant', label: t('montant') || 'Montant', render: (row) => `${row.montant} DT` },
+    { key: 'resultat', label: t('resultat') || 'Résultat', render: (row) => `${row.resultat} DT` },
+    { key: 'created_at', label: t('date') || 'Date', render: (row) => new Date(row.created_at).toLocaleString('fr-FR') },
+    { key: 'prenom', label: t('par') || 'Par', render: (row) => `${row.prenom || ''} ${row.nom || ''}` }
   ];
 
-  // Actions pour l'historique avec PDF, Word et Imprimer
   const actionsHistorique = [];
   if (peutExporter) {
     actionsHistorique.push({
-      label: 'PDF',
+      label: t('exporter_pdf') || 'PDF',
       variant: 'primary',
       onClick: (row) => handleExportHistoriquePDF(row.id)
     });
     actionsHistorique.push({
-      label: 'Word',
+      label: t('exporter_word') || 'Word',
       variant: 'secondary',
       onClick: (row) => handleExportHistoriqueWord(row.id)
     });
     actionsHistorique.push({
-      label: 'Imprimer',
+      label: t('imprimer') || 'Imprimer',
       variant: 'outline',
       onClick: (row) => {
         const type = sousOngletHistorique === 'unique' ? 'unique' : 'variable';
@@ -489,28 +448,22 @@ export default function Calculateur() {
     });
   }
 
-  // ============================================================
-  // RENDER
-  // ============================================================
-
   return (
     <div>
-      {/* HEADER */}
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>Moteur de calcul</h1>
+          <h1 style={styles.title}>{t('moteur_calcul') || 'Moteur de calcul'}</h1>
           <p style={styles.subtitle}>
-            Calcul automatique base sur les periodes et les taux (%)
+            {t('calcul_auto_periodes_taux') || 'Calcul automatique basé sur les périodes et les taux (%)'}
           </p>
         </div>
         <div style={styles.headerActions}>
           <Button variant="secondary" onClick={() => navigate('/dashboard')}>
-            Retour
+            {t('retour')}
           </Button>
         </div>
       </div>
 
-      {/* Messages */}
       {error && (
         <div style={styles.errorContainer}>
           <span style={styles.errorIcon}>✕</span>
@@ -524,50 +477,44 @@ export default function Calculateur() {
         </div>
       )}
 
-      {/* Onglets principaux */}
       <div style={styles.segmentedControl}>
         <button
           style={{ ...styles.segment, ...(onglet === 'calcul' ? styles.segmentActive : {}) }}
           onClick={() => { setOnglet('calcul'); setResultat(null); }}
         >
-          Calcul
+          {t('calcul') || 'Calcul'}
         </button>
         <button
           style={{ ...styles.segment, ...(onglet === 'taux' ? styles.segmentActive : {}) }}
           onClick={() => { setOnglet('taux'); setResultat(null); }}
         >
-          Taux de reference
+          {t('taux_reference') || 'Taux de référence'}
         </button>
         <button
           style={{ ...styles.segment, ...(onglet === 'historique' ? styles.segmentActive : {}) }}
           onClick={() => { setOnglet('historique'); setResultat(null); }}
         >
-          Historique
+          {t('historique') || 'Historique'}
         </button>
       </div>
 
-      {/* ============================================================
-          ONGLET : CALCUL
-          ============================================================ */}
       {onglet === 'calcul' && (
         <>
-          {/* Mode de calcul */}
           <div style={styles.modeSelector}>
             <button
               style={{ ...styles.modeBtn, ...(modeCalcul === 'manuel' ? styles.modeBtnActive : {}) }}
               onClick={() => { setModeCalcul('manuel'); setResultat(null); }}
             >
-              Mode manuel
+              {t('mode_manuel') || 'Mode manuel'}
             </button>
             <button
               style={{ ...styles.modeBtn, ...(modeCalcul === 'auto' ? styles.modeBtnActive : {}) }}
               onClick={() => { setModeCalcul('auto'); setResultat(null); }}
             >
-              Mode automatique (BDD)
+              {t('mode_automatique_bdd') || 'Mode automatique (BDD)'}
             </button>
           </div>
 
-          {/* ===== MODE MANUEL ===== */}
           {modeCalcul === 'manuel' && (
             <>
               <div style={styles.subSegmentedControl}>
@@ -575,35 +522,34 @@ export default function Calculateur() {
                   style={{ ...styles.subSegment, ...(formUnique.active !== false ? styles.subSegmentActive : {}) }}
                   onClick={() => setFormUnique({ ...formUnique, active: true })}
                 >
-                  Taux unique
+                  {t('taux_unique') || 'Taux unique'}
                 </button>
                 <button
                   style={{ ...styles.subSegment, ...(formUnique.active === false ? styles.subSegmentActive : {}) }}
                   onClick={() => setFormUnique({ ...formUnique, active: false })}
                 >
-                  Taux variables
+                  {t('taux_variables') || 'Taux variables'}
                 </button>
               </div>
 
-              {/* Taux unique */}
               {formUnique.active !== false && (
-                <Card title="Saisie des donnees - Taux unique" variant="primary">
+                <Card title={t('saisie_donnees_taux_unique') || 'Saisie des données - Taux unique'} variant="primary">
                   <form onSubmit={handleCalculUnique}>
                     <div style={styles.formGrid}>
                       <Input
-                        label="Montant de base (DT) *"
+                        label={t('montant_base') || 'Montant de base (DT) *'}
                         name="montant"
                         type="number"
                         step="0.01"
                         min="0.01"
-                        placeholder="Ex: 10000"
+                        placeholder={t('exemple_montant') || 'Ex: 10000'}
                         value={formUnique.montant}
                         onChange={handleUniqueChange}
                         required
                         disabled={loadingCalcul}
                       />
                       <Input
-                        label="Date de debut *"
+                        label={t('date_debut') || 'Date début *'}
                         name="date_debut"
                         type="date"
                         value={formUnique.date_debut}
@@ -612,7 +558,7 @@ export default function Calculateur() {
                         disabled={loadingCalcul}
                       />
                       <Input
-                        label="Date de fin *"
+                        label={t('date_fin') || 'Date fin *'}
                         name="date_fin"
                         type="date"
                         value={formUnique.date_fin}
@@ -621,12 +567,12 @@ export default function Calculateur() {
                         disabled={loadingCalcul}
                       />
                       <Input
-                        label="Taux (%) *"
+                        label={t('taux_pourcent') || 'Taux (%) *'}
                         name="taux"
                         type="number"
                         step="0.01"
                         min="0"
-                        placeholder="Ex: 10"
+                        placeholder={t('exemple_taux') || 'Ex: 10'}
                         value={formUnique.taux}
                         onChange={handleUniqueChange}
                         required
@@ -634,24 +580,23 @@ export default function Calculateur() {
                       />
                     </div>
                     <Button type="submit" variant="primary" loading={loadingCalcul} fullWidth>
-                      Calculer
+                      {t('calculer') || 'Calculer'}
                     </Button>
                   </form>
                 </Card>
               )}
 
-              {/* Taux variables manuel */}
               {formUnique.active === false && (
-                <Card title="Saisie des donnees - Taux variables" variant="primary">
+                <Card title={t('saisie_donnees_taux_variables') || 'Saisie des données - Taux variables'} variant="primary">
                   <form onSubmit={handleCalculVariables}>
                     <div style={styles.formGrid}>
                       <Input
-                        label="Montant de base (DT) *"
+                        label={t('montant_base') || 'Montant de base (DT) *'}
                         name="montant"
                         type="number"
                         step="0.01"
                         min="0.01"
-                        placeholder="Ex: 10000"
+                        placeholder={t('exemple_montant') || 'Ex: 10000'}
                         value={formVariables.montant}
                         onChange={(e) => setFormVariables({ ...formVariables, montant: e.target.value })}
                         required
@@ -661,9 +606,9 @@ export default function Calculateur() {
 
                     <div style={styles.periodesContainer}>
                       <div style={styles.periodesHeader}>
-                        <span style={styles.periodesTitle}>Periodes et taux</span>
+                        <span style={styles.periodesTitle}>{t('periodes_et_taux') || 'Périodes et taux'}</span>
                         <Button type="button" variant="outline" size="sm" onClick={addPeriode}>
-                          + Ajouter une periode
+                          + {t('ajouter_periode') || 'Ajouter une période'}
                         </Button>
                       </div>
 
@@ -673,7 +618,7 @@ export default function Calculateur() {
                           <input
                             style={styles.input}
                             type="date"
-                            placeholder="Date debut"
+                            placeholder={t('date_debut') || 'Date début'}
                             value={periode.date_debut}
                             onChange={(e) => handlePeriodeChange(index, 'date_debut', e.target.value)}
                             required
@@ -682,7 +627,7 @@ export default function Calculateur() {
                           <input
                             style={styles.input}
                             type="date"
-                            placeholder="Date fin"
+                            placeholder={t('date_fin') || 'Date fin'}
                             value={periode.date_fin}
                             onChange={(e) => handlePeriodeChange(index, 'date_fin', e.target.value)}
                             required
@@ -693,7 +638,7 @@ export default function Calculateur() {
                             type="number"
                             step="0.01"
                             min="0"
-                            placeholder="Taux %"
+                            placeholder={t('taux_pourcent') || 'Taux %'}
                             value={periode.taux}
                             onChange={(e) => handlePeriodeChange(index, 'taux', e.target.value)}
                             required
@@ -709,7 +654,7 @@ export default function Calculateur() {
                     </div>
 
                     <Button type="submit" variant="primary" loading={loadingCalcul} fullWidth>
-                      Calculer
+                      {t('calculer') || 'Calculer'}
                     </Button>
                   </form>
                 </Card>
@@ -717,25 +662,24 @@ export default function Calculateur() {
             </>
           )}
 
-          {/* ===== MODE AUTOMATIQUE (BDD) ===== */}
           {modeCalcul === 'auto' && (
-            <Card title="Saisie des donnees - Taux depuis BDD" variant="primary">
+            <Card title={t('saisie_donnees_taux_bdd') || 'Saisie des données - Taux depuis BDD'} variant="primary">
               <form onSubmit={handleCalculAuto}>
                 <div style={styles.formGrid}>
                   <Input
-                    label="Montant de base (DT) *"
+                    label={t('montant_base') || 'Montant de base (DT) *'}
                     name="montant"
                     type="number"
                     step="0.01"
                     min="0.01"
-                    placeholder="Ex: 10000"
+                    placeholder={t('exemple_montant') || 'Ex: 10000'}
                     value={formAuto.montant}
                     onChange={handleAutoChange}
                     required
                     disabled={loadingCalcul}
                   />
                   <Input
-                    label="Date de debut *"
+                    label={t('date_debut') || 'Date début *'}
                     name="date_debut"
                     type="date"
                     value={formAuto.date_debut}
@@ -744,7 +688,7 @@ export default function Calculateur() {
                     disabled={loadingCalcul}
                   />
                   <Input
-                    label="Date de fin *"
+                    label={t('date_fin') || 'Date fin *'}
                     name="date_fin"
                     type="date"
                     value={formAuto.date_fin}
@@ -753,7 +697,7 @@ export default function Calculateur() {
                     disabled={loadingCalcul}
                   />
                   <div style={styles.formGroup}>
-                    <label style={styles.label}>Categorie *</label>
+                    <label style={styles.label}>{t('categorie') || 'Catégorie'} *</label>
                     <select
                       style={styles.select}
                       name="categorie"
@@ -762,36 +706,34 @@ export default function Calculateur() {
                       required
                       disabled={loadingCalcul}
                     >
-                      <option value="">-- Choisir une categorie --</option>
+                      <option value="">{t('choisir_categorie') || '-- Choisir une catégorie --'}</option>
                       {CATEGORIES.map(c => (
                         <option key={c} value={c}>{c}</option>
                       ))}
                     </select>
                   </div>
                   <Input
-                    label="Sous-categorie (optionnel)"
+                    label={t('sous_categorie') || 'Sous-catégorie (optionnel)'}
                     name="sous_categorie"
-                    placeholder="Ex: Standard, Reduite..."
+                    placeholder={t('exemple_sous_categorie') || 'Ex: Standard, Réduite...'}
                     value={formAuto.sous_categorie}
                     onChange={handleAutoChange}
                     disabled={loadingCalcul}
                   />
                 </div>
                 <Button type="submit" variant="primary" loading={loadingCalcul} fullWidth>
-                  Calculer avec les taux de reference
+                  {t('calculer_avec_taux_reference') || 'Calculer avec les taux de référence'}
                 </Button>
               </form>
             </Card>
           )}
 
-          {/* Resultat */}
           {resultat && (
-            <Card title="Resultat du calcul" variant="success" style={{ marginTop: '20px' }}>
-              {/* Options d'export */}
+            <Card title={t('resultat_calcul') || 'Résultat du calcul'} variant="success" style={{ marginTop: '20px' }}>
               {peutExporter && (
                 <div style={styles.exportOptions}>
                   <div style={styles.exportTypeSelector}>
-                    <label style={styles.exportLabel}>Type de rapport :</label>
+                    <label style={styles.exportLabel}>{t('type_rapport') || 'Type de rapport :'}</label>
                     <select
                       style={styles.selectSmall}
                       value={typeRapport}
@@ -799,22 +741,22 @@ export default function Calculateur() {
                         setTypeRapport(e.target.value);
                       }}
                     >
-                      <option value="detaille">Rapport detaille</option>
-                      <option value="simplifie">Rapport simplifie</option>
+                      <option value="detaille">{t('rapport_detaille') || 'Rapport détaillé'}</option>
+                      <option value="simplifie">{t('rapport_simplifie') || 'Rapport simplifié'}</option>
                     </select>
                   </div>
                   <div style={styles.exportButtons}>
                     <Button variant="secondary" size="sm" onClick={handlePrint}>
-                      Imprimer
+                      {t('imprimer') || 'Imprimer'}
                     </Button>
                     <Button variant="secondary" size="sm" onClick={handleExportPDF}>
-                      PDF
+                      {t('exporter_pdf') || 'PDF'}
                     </Button>
                     <Button variant="secondary" size="sm" onClick={handleExportWord}>
-                      Word
+                      {t('exporter_word') || 'Word'}
                     </Button>
                     <Button variant="secondary" size="sm" onClick={exportExcel}>
-                      Excel
+                      {t('exporter_excel') || 'Excel'}
                     </Button>
                   </div>
                 </div>
@@ -822,25 +764,25 @@ export default function Calculateur() {
 
               <div style={styles.resultGrid}>
                 <div style={styles.resultItem}>
-                  <span style={styles.resultLabel}>Montant</span>
+                  <span style={styles.resultLabel}>{t('montant') || 'Montant'}</span>
                   <span style={styles.resultValue}>{resultat.montant} DT</span>
                 </div>
                 <div style={styles.resultItem}>
-                  <span style={styles.resultLabel}>Base de calcul</span>
-                  <span style={styles.resultValue}>{resultat.base_jours} jours</span>
+                  <span style={styles.resultLabel}>{t('base_calcul') || 'Base de calcul'}</span>
+                  <span style={styles.resultValue}>{resultat.base_jours} {t('jours') || 'jours'}</span>
                 </div>
                 {resultat.cas === 'taux_unique' && (
                   <>
                     <div style={styles.resultItem}>
-                      <span style={styles.resultLabel}>Periode</span>
+                      <span style={styles.resultLabel}>{t('periode') || 'Période'}</span>
                       <span style={styles.resultValue}>{resultat.date_debut} → {resultat.date_fin}</span>
                     </div>
                     <div style={styles.resultItem}>
-                      <span style={styles.resultLabel}>Nombre de jours</span>
+                      <span style={styles.resultLabel}>{t('nombre_jours') || 'Nombre de jours'}</span>
                       <span style={styles.resultValue}>{resultat.nbJours}</span>
                     </div>
                     <div style={styles.resultItem}>
-                      <span style={styles.resultLabel}>Taux</span>
+                      <span style={styles.resultLabel}>{t('taux') || 'Taux'}</span>
                       <span style={styles.resultValue}>{resultat.taux}%</span>
                     </div>
                   </>
@@ -848,12 +790,12 @@ export default function Calculateur() {
                 {resultat.cas === 'taux_variables_auto' && (
                   <>
                     <div style={styles.resultItem}>
-                      <span style={styles.resultLabel}>Categorie</span>
+                      <span style={styles.resultLabel}>{t('categorie') || 'Catégorie'}</span>
                       <span style={styles.resultValue}>{resultat.categorie}</span>
                     </div>
                     {resultat.sous_categorie && (
                       <div style={styles.resultItem}>
-                        <span style={styles.resultLabel}>Sous-categorie</span>
+                        <span style={styles.resultLabel}>{t('sous_categorie') || 'Sous-catégorie'}</span>
                         <span style={styles.resultValue}>{resultat.sous_categorie}</span>
                       </div>
                     )}
@@ -861,7 +803,7 @@ export default function Calculateur() {
                 )}
                 <div style={{ ...styles.resultItem, gridColumn: '1 / -1', borderTop: '2px solid #E2E8F0', paddingTop: '16px' }}>
                   <span style={{ ...styles.resultLabel, fontSize: '16px', fontWeight: 700 }}>
-                    Resultat final
+                    {t('resultat_final') || 'Résultat final'}
                   </span>
                   <span style={{ ...styles.resultValue, fontSize: '24px', fontWeight: 700, color: '#0EA5E9' }}>
                     {resultat.total || resultat.resultat} DT
@@ -869,10 +811,9 @@ export default function Calculateur() {
                 </div>
               </div>
 
-              {/* Detail par periode */}
               {resultat.details && resultat.details.length > 0 && (
                 <div style={{ marginTop: '20px' }}>
-                  <h4 style={styles.detailTitle}>Detail par periode</h4>
+                  <h4 style={styles.detailTitle}>{t('detail_par_periode') || 'Détail par période'}</h4>
                   <Table columns={columnsDetails} data={resultat.details} />
                 </div>
               )}
@@ -881,9 +822,6 @@ export default function Calculateur() {
         </>
       )}
 
-      {/* ============================================================
-          ONGLET : TAUX DE REFERENCE (lecture seule pour les internes)
-          ============================================================ */}
       {onglet === 'taux' && (
         <>
           <div style={styles.actionBar}>
@@ -892,25 +830,22 @@ export default function Calculateur() {
                 variant="primary"
                 onClick={() => navigate('/superadmin/taux-reference')}
               >
-                Gerer les taux (Admin)
+                {t('gerer_taux_admin') || 'Gérer les taux (Admin)'}
               </Button>
             )}
             {!isSuperAdmin && (
               <Badge variant="secondary" style={{ padding: '8px 16px' }}>
-                Lecture seule - Les taux sont geres par le SuperAdmin
+                {t('lecture_seule_taux') || 'Lecture seule - Les taux sont gérés par le SuperAdmin'}
               </Badge>
             )}
           </div>
 
-          <Card title="Taux de reference centralises" variant="primary">
+          <Card title={t('taux_centralises') || 'Taux de référence centralisés'} variant="primary">
             <Table columns={columnsTaux} data={tauxReference} loading={loadingTaux} />
           </Card>
         </>
       )}
 
-      {/* ============================================================
-          ONGLET : HISTORIQUE (separe en deux sous-onglets)
-          ============================================================ */}
       {onglet === 'historique' && (
         <>
           <div style={styles.subSegmentedControl}>
@@ -918,21 +853,21 @@ export default function Calculateur() {
               style={{ ...styles.subSegment, ...(sousOngletHistorique === 'unique' ? styles.subSegmentActive : {}) }}
               onClick={() => setSousOngletHistorique('unique')}
             >
-              Taux unique ({totalUnique})
+              {t('taux_unique') || 'Taux unique'} ({totalUnique})
             </button>
             <button
               style={{ ...styles.subSegment, ...(sousOngletHistorique === 'variable' ? styles.subSegmentActive : {}) }}
               onClick={() => setSousOngletHistorique('variable')}
             >
-              Taux variables ({totalVariable})
+              {t('taux_variables') || 'Taux variables'} ({totalVariable})
             </button>
           </div>
 
           {sousOngletHistorique === 'unique' ? (
-            <Card title="Historique - Taux unique" variant="primary">
+            <Card title={t('historique_taux_unique') || 'Historique - Taux unique'} variant="primary">
               <div style={styles.historiqueActions}>
                 <span style={styles.historiqueInfo}>
-                  {totalUnique} calcul(s) enregistre(s)
+                  {totalUnique} {t('calculs_enregistres') || 'calcul(s) enregistré(s)'}
                 </span>
                 {peutExporter && (
                   <div style={styles.exportTypeSelectorInline}>
@@ -943,8 +878,8 @@ export default function Calculateur() {
                         setTypeRapport(e.target.value);
                       }}
                     >
-                      <option value="detaille">Rapport detaille</option>
-                      <option value="simplifie">Rapport simplifie</option>
+                      <option value="detaille">{t('rapport_detaille') || 'Rapport détaillé'}</option>
+                      <option value="simplifie">{t('rapport_simplifie') || 'Rapport simplifié'}</option>
                     </select>
                   </div>
                 )}
@@ -957,10 +892,10 @@ export default function Calculateur() {
               />
             </Card>
           ) : (
-            <Card title="Historique - Taux variables" variant="primary">
+            <Card title={t('historique_taux_variables') || 'Historique - Taux variables'} variant="primary">
               <div style={styles.historiqueActions}>
                 <span style={styles.historiqueInfo}>
-                  {totalVariable} calcul(s) enregistre(s)
+                  {totalVariable} {t('calculs_enregistres') || 'calcul(s) enregistré(s)'}
                 </span>
                 {peutExporter && (
                   <div style={styles.exportTypeSelectorInline}>
@@ -971,8 +906,8 @@ export default function Calculateur() {
                         setTypeRapport(e.target.value);
                       }}
                     >
-                      <option value="detaille">Rapport detaille</option>
-                      <option value="simplifie">Rapport simplifie</option>
+                      <option value="detaille">{t('rapport_detaille') || 'Rapport détaillé'}</option>
+                      <option value="simplifie">{t('rapport_simplifie') || 'Rapport simplifié'}</option>
                     </select>
                   </div>
                 )}
@@ -991,9 +926,6 @@ export default function Calculateur() {
   );
 }
 
-// ============================================================
-// STYLES
-// ============================================================
 const styles = {
   header: {
     display: 'flex',

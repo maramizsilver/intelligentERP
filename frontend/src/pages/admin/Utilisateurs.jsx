@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 
 import Card from '../../components/common/Card';
@@ -13,7 +14,7 @@ import EmptyState from '../../components/common/EmptyState';
 
 const ACTIONS = [
   { key: 'consultation', label: 'Voir' },
-  { key: 'creation', label: 'Creer' },
+  { key: 'creation', label: 'Créer' },
   { key: 'modification', label: 'Modifier' },
   { key: 'suppression', label: 'Supprimer' },
   { key: 'validation', label: 'Valider' },
@@ -31,6 +32,7 @@ const MODULE_ICONS = {
 
 export default function Utilisateurs() {
   const { hasPermission, user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [ongletPrincipal, setOngletPrincipal] = useState('roles');
@@ -75,18 +77,18 @@ export default function Utilisateurs() {
       const res = await API.get('/roles');
       setRoles(res.data.roles || []);
     } catch (err) {
-      flashError('Impossible de charger les roles');
+      flashError(t('impossible_charger_roles') || 'Impossible de charger les rôles');
     }
   };
 
   const loadUsers = async () => {
-  try {
-    const res = await API.get('/auth/users/entreprise');
-    setUsers(res.data.users || []);
-  } catch (err) {
-    flashError(err.response?.data?.message || 'Impossible de charger les comptes');
-  }
-};
+    try {
+      const res = await API.get('/auth/users/entreprise');
+      setUsers(res.data.users || []);
+    } catch (err) {
+      flashError(err.response?.data?.message || t('impossible_charger_comptes') || 'Impossible de charger les comptes');
+    }
+  };
 
   const selectionnerRole = async (roleId) => {
     setSelectedRoleId(roleId);
@@ -95,7 +97,7 @@ export default function Utilisateurs() {
       const res = await API.get(`/roles/${roleId}/permissions`);
       setPermissions(res.data.permissions || []);
     } catch (err) {
-      flashError('Impossible de charger les permissions de ce role');
+      flashError(t('impossible_charger_permissions') || 'Impossible de charger les permissions de ce rôle');
     } finally {
       setPermsLoading(false);
     }
@@ -113,7 +115,7 @@ export default function Utilisateurs() {
         [actionKey]: nouvelleValeur
       });
     } catch (err) {
-      flashError(err.response?.data?.message || 'Erreur');
+      flashError(err.response?.data?.message || t('erreur_permission') || 'Erreur');
       setPermissions(prev => prev.map(m => 
         m.module_id === moduleRow.module_id ? { ...m, [actionKey]: !nouvelleValeur } : m
       ));
@@ -124,7 +126,7 @@ export default function Utilisateurs() {
     e.preventDefault();
     setFormLoading(true);
     if (!nouveauRoleNom.trim()) {
-      flashError('Le nom du role est requis');
+      flashError(t('nom_role_requis') || 'Le nom du rôle est requis');
       setFormLoading(false);
       return;
     }
@@ -132,27 +134,27 @@ export default function Utilisateurs() {
       await API.post('/roles', { nom: nouveauRoleNom.trim() });
       setNouveauRoleNom('');
       setAfficherFormRole(false);
-      flashMessage('Role cree avec succes');
+      flashMessage(t('role_cree') || 'Rôle créé avec succès');
       loadRoles();
     } catch (err) {
-      flashError(err.response?.data?.message || 'Erreur');
+      flashError(err.response?.data?.message || t('erreur_role') || 'Erreur');
     } finally {
       setFormLoading(false);
     }
   };
 
   const supprimerRole = async (roleId) => {
-    if (!window.confirm("Supprimer ce role ? Les comptes qui l'utilisent perdront leurs acces.")) return;
+    if (!window.confirm(t('confirmation_suppression_role') || "Supprimer ce rôle ? Les comptes qui l'utilisent perdront leurs accès.")) return;
     try {
       await API.delete(`/roles/${roleId}`);
       if (selectedRoleId === roleId) {
         setSelectedRoleId(null);
         setPermissions([]);
       }
-      flashMessage('Role supprime avec succes');
+      flashMessage(t('role_supprime') || 'Rôle supprimé avec succès');
       loadRoles();
     } catch (err) {
-      flashError(err.response?.data?.message || 'Erreur');
+      flashError(err.response?.data?.message || t('erreur_suppression_role') || 'Erreur');
     }
   };
 
@@ -160,20 +162,16 @@ export default function Utilisateurs() {
     setFormUser({ ...formUser, [e.target.name]: e.target.value });
   };
 
-  // ============================================================
-  // ✅ CORRIGÉ : Routes API correctes
-  // ============================================================
   const creerUtilisateur = async (e) => {
     e.preventDefault();
     setFormLoading(true);
     try {
       if (ongletCreation === 'interne') {
         if (!formUser.role_id) {
-          flashError('Veuillez choisir un role');
+          flashError(t('choisir_role_requis') || 'Veuillez choisir un rôle');
           setFormLoading(false);
           return;
         }
-        // ✅ Route correcte : /auth/users
         await API.post('/auth/users', {
           nom: formUser.nom,
           prenom: formUser.prenom,
@@ -187,11 +185,10 @@ export default function Utilisateurs() {
         });
       } else {
         if (!formUser.client_id) {
-          flashError('Veuillez choisir un client');
+          flashError(t('choisir_client_requis') || 'Veuillez choisir un client');
           setFormLoading(false);
           return;
         }
-        // ✅ Route correcte : /auth/users/externes
         await API.post('/auth/users/externes', {
           nom: formUser.nom,
           prenom: formUser.prenom,
@@ -209,43 +206,35 @@ export default function Utilisateurs() {
         telephone: '', matricule: '', fonction: '', service: ''
       });
       setAfficherFormUser(false);
-      flashMessage('Compte cree avec succes');
+      flashMessage(t('compte_cree') || 'Compte créé avec succès');
       loadUsers();
     } catch (err) {
       const apiErrors = err.response?.data?.errors;
-      flashError(apiErrors ? apiErrors.join(', ') : (err.response?.data?.message || 'Erreur'));
+      flashError(apiErrors ? apiErrors.join(', ') : (err.response?.data?.message || t('erreur_creation_compte') || 'Erreur'));
     } finally {
       setFormLoading(false);
     }
   };
 
-  // ============================================================
-  // ✅ CORRIGÉ : Route API correcte
-  // ============================================================
   const changerRoleUtilisateur = async (userId, roleId) => {
     if (!roleId) return;
     try {
-      // ✅ Route correcte : /auth/users/:id/role
       await API.put(`/auth/users/${userId}/role`, { role_id: roleId });
-      flashMessage('Role mis a jour');
+      flashMessage(t('role_mis_a_jour') || 'Rôle mis à jour');
       loadUsers();
     } catch (err) {
-      flashError(err.response?.data?.message || 'Erreur');
+      flashError(err.response?.data?.message || t('erreur_mise_a_jour_role') || 'Erreur');
     }
   };
 
-  // ============================================================
-  // ✅ AJOUTÉ : Supprimer un utilisateur
-  // ============================================================
   const supprimerUtilisateur = async (userId) => {
-    if (!window.confirm('Supprimer definitivement cet utilisateur ?')) return;
+    if (!window.confirm(t('confirmation_suppression_utilisateur') || 'Supprimer définitivement cet utilisateur ?')) return;
     try {
-      // ✅ Route correcte : /auth/users/:id
       await API.delete(`/auth/users/${userId}`);
-      flashMessage('Utilisateur supprime avec succes');
+      flashMessage(t('utilisateur_supprime') || 'Utilisateur supprimé avec succès');
       loadUsers();
     } catch (err) {
-      flashError(err.response?.data?.message || 'Erreur');
+      flashError(err.response?.data?.message || t('erreur_suppression_utilisateur') || 'Erreur');
     }
   };
 
@@ -253,11 +242,11 @@ export default function Utilisateurs() {
     return (
       <div style={styles.container}>
         <div style={styles.header}>
-          <h1 style={styles.title}>Acces refuse</h1>
-          <p style={styles.subtitle}>Vous n'avez pas la permission de consulter cette page.</p>
+          <h1 style={styles.title}>{t('acces_refuse_utilisateurs') || 'Accès refusé'}</h1>
+          <p style={styles.subtitle}>{t('pas_permission_utilisateurs') || "Vous n'avez pas la permission de consulter cette page."}</p>
         </div>
         <Button variant="secondary" onClick={() => navigate('/dashboard')}>
-          Retour
+          {t('retour')}
         </Button>
       </div>
     );
@@ -267,11 +256,11 @@ export default function Utilisateurs() {
     <div style={styles.container}>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>Utilisateurs & Roles</h1>
-          <p style={styles.subtitle}>Gerez qui a acces a quoi, module par module</p>
+          <h1 style={styles.title}>{t('utilisateurs_et_roles') || 'Utilisateurs & Rôles'}</h1>
+          <p style={styles.subtitle}>{t('gerer_acces_module') || 'Gérez qui a accès à quoi, module par module'}</p>
         </div>
         <Button variant="secondary" onClick={() => navigate('/dashboard')}>
-          Retour
+          {t('retour')}
         </Button>
       </div>
 
@@ -291,28 +280,28 @@ export default function Utilisateurs() {
           style={{ ...styles.segment, ...(ongletPrincipal === 'roles' ? styles.segmentActive : {}) }}
           onClick={() => setOngletPrincipal('roles')}
         >
-          Roles & permissions
+          {t('roles_et_permissions') || 'Rôles & permissions'}
         </button>
         <button
           style={{ ...styles.segment, ...(ongletPrincipal === 'comptes' ? styles.segmentActive : {}) }}
           onClick={() => setOngletPrincipal('comptes')}
         >
-          Comptes utilisateurs ({users.length})
+          {t('comptes_utilisateurs') || 'Comptes utilisateurs'} ({users.length})
         </button>
       </div>
 
       {ongletPrincipal === 'roles' ? (
         <div style={styles.twoColumns}>
-          <Card title="Roles de l'entreprise" variant="primary">
+          <Card title={t('roles_entreprise') || "Rôles de l'entreprise"} variant="primary">
             <div style={styles.cardHeaderRow}>
-              <span style={styles.cardSubtitle}>Gerez les roles personnalises</span>
+              <span style={styles.cardSubtitle}>{t('gerer_roles_personnalises') || 'Gérez les rôles personnalisés'}</span>
               {peutCreer && (
                 <Button
                   size="sm"
                   variant="primary"
                   onClick={() => setAfficherFormRole(v => !v)}
                 >
-                  {afficherFormRole ? 'Fermer' : 'Nouveau role'}
+                  {afficherFormRole ? t('fermer') : t('nouveau_role') || 'Nouveau rôle'}
                 </Button>
               )}
             </div>
@@ -321,20 +310,23 @@ export default function Utilisateurs() {
               <form onSubmit={creerRole} style={styles.inlineForm}>
                 <input
                   style={styles.input}
-                  placeholder="Ex: Responsable Achats"
+                  placeholder={t('exemple_role') || 'Ex: Responsable Achats'}
                   value={nouveauRoleNom}
                   onChange={(e) => setNouveauRoleNom(e.target.value)}
                   autoFocus
                   disabled={formLoading}
                 />
                 <Button type="submit" size="sm" loading={formLoading}>
-                  Creer
+                  {t('creer')}
                 </Button>
               </form>
             )}
 
             {roles.length === 0 ? (
-              <EmptyState title="Aucun role" description="Creez votre premier role personnalise." />
+              <EmptyState 
+                title={t('aucun_role') || 'Aucun rôle'} 
+                description={t('creer_premier_role') || 'Créez votre premier rôle personnalisé.'} 
+              />
             ) : (
               <ul style={styles.roleList}>
                 {roles.map(r => (
@@ -363,16 +355,16 @@ export default function Utilisateurs() {
           </Card>
 
           <Card
-            title={selectedRoleId ? `Permissions — ${roles.find(r => r.id === selectedRoleId)?.nom || ''}` : 'Permissions par module'}
+            title={selectedRoleId ? `${t('permissions_par_module') || 'Permissions par module'} — ${roles.find(r => r.id === selectedRoleId)?.nom || ''}` : t('permissions_par_module') || 'Permissions par module'}
             variant="secondary"
           >
             {!selectedRoleId ? (
               <EmptyState
-                title="Selectionnez un role"
-                description="Cliquez sur un role a gauche pour configurer ses permissions."
+                title={t('selectionner_role') || 'Sélectionnez un rôle'}
+                description={t('selectionner_role_description') || 'Cliquez sur un rôle à gauche pour configurer ses permissions.'}
               />
             ) : permsLoading ? (
-              <LoadingSpinner size="md" text="Chargement des permissions..." />
+              <LoadingSpinner size="md" text={t('chargement') || 'Chargement des permissions...'} />
             ) : (
               <div style={styles.permGrid}>
                 {permissions.map(m => (
@@ -404,16 +396,16 @@ export default function Utilisateurs() {
           </Card>
         </div>
       ) : (
-        <Card title="Comptes de l'entreprise" variant="primary">
+        <Card title={t('comptes_utilisateurs') || "Comptes de l'entreprise"} variant="primary">
           <div style={styles.cardHeaderRow}>
-            <span style={styles.cardSubtitle}>Gerez les comptes utilisateurs</span>
+            <span style={styles.cardSubtitle}>{t('gerer_comptes') || 'Gérez les comptes utilisateurs'}</span>
             {peutCreer && (
               <Button
                 size="sm"
                 variant="primary"
                 onClick={() => setAfficherFormUser(v => !v)}
               >
-                {afficherFormUser ? 'Fermer' : 'Nouveau compte'}
+                {afficherFormUser ? t('fermer') : t('nouveau_compte') || 'Nouveau compte'}
               </Button>
             )}
           </div>
@@ -425,20 +417,20 @@ export default function Utilisateurs() {
                   style={{ ...styles.tabBtn, ...(ongletCreation === 'interne' ? styles.tabBtnActive : {}) }}
                   onClick={() => setOngletCreation('interne')}
                 >
-                  Collaborateur interne
+                  {t('collaborateur_interne') || 'Collaborateur interne'}
                 </button>
                 <button
                   style={{ ...styles.tabBtn, ...(ongletCreation === 'externe' ? styles.tabBtnActive : {}) }}
                   onClick={() => setOngletCreation('externe')}
                 >
-                  Compte externe (client)
+                  {t('compte_externe_client') || 'Compte externe (client)'}
                 </button>
               </div>
 
               <form onSubmit={creerUtilisateur} style={styles.userFormGrid}>
                 <Input
                   name="nom"
-                  placeholder="Nom"
+                  placeholder={t('nom_placeholder') || 'Nom'}
                   value={formUser.nom}
                   onChange={handleFormUserChange}
                   required
@@ -446,7 +438,7 @@ export default function Utilisateurs() {
                 />
                 <Input
                   name="prenom"
-                  placeholder="Prenom"
+                  placeholder={t('prenom_placeholder') || 'Prénom'}
                   value={formUser.prenom}
                   onChange={handleFormUserChange}
                   required
@@ -455,7 +447,7 @@ export default function Utilisateurs() {
                 <Input
                   name="email"
                   type="email"
-                  placeholder="Email"
+                  placeholder={t('email_placeholder') || 'Email'}
                   value={formUser.email}
                   onChange={handleFormUserChange}
                   required
@@ -464,7 +456,7 @@ export default function Utilisateurs() {
                 <Input
                   name="password"
                   type="password"
-                  placeholder="Mot de passe"
+                  placeholder={t('mot_de_passe_placeholder') || 'Mot de passe'}
                   value={formUser.password}
                   onChange={handleFormUserChange}
                   required
@@ -474,28 +466,28 @@ export default function Utilisateurs() {
 
                 <Input
                   name="telephone"
-                  placeholder="Telephone"
+                  placeholder={t('telephone_placeholder') || 'Téléphone'}
                   value={formUser.telephone}
                   onChange={handleFormUserChange}
                   disabled={formLoading}
                 />
                 <Input
                   name="matricule"
-                  placeholder="Matricule"
+                  placeholder={t('matricule_placeholder') || 'Matricule'}
                   value={formUser.matricule}
                   onChange={handleFormUserChange}
                   disabled={formLoading}
                 />
                 <Input
                   name="fonction"
-                  placeholder="Fonction"
+                  placeholder={t('fonction_placeholder') || 'Fonction'}
                   value={formUser.fonction}
                   onChange={handleFormUserChange}
                   disabled={formLoading}
                 />
                 <Input
                   name="service"
-                  placeholder="Service"
+                  placeholder={t('service_placeholder') || 'Service'}
                   value={formUser.service}
                   onChange={handleFormUserChange}
                   disabled={formLoading}
@@ -503,36 +495,39 @@ export default function Utilisateurs() {
 
                 {ongletCreation === 'interne' ? (
                   <select style={styles.select} name="role_id" value={formUser.role_id} onChange={handleFormUserChange} required disabled={formLoading}>
-                    <option value="">-- Choisir un role --</option>
+                    <option value="">{t('choisir_role') || '-- Choisir un rôle --'}</option>
                     {roles.filter(r => !r.est_admin_entreprise).map(r => (
                       <option key={r.id} value={r.id}>{r.nom}</option>
                     ))}
                   </select>
                 ) : (
                   <select style={styles.select} name="client_id" value={formUser.client_id} onChange={handleFormUserChange} required disabled={formLoading}>
-                    <option value="">-- Choisir un client --</option>
+                    <option value="">{t('choisir_client') || '-- Choisir un client --'}</option>
                     {clients.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
                   </select>
                 )}
 
                 <Button type="submit" variant="primary" loading={formLoading} style={{ gridColumn: '1 / -1' }}>
-                  Creer le compte
+                  {t('creer_compte') || 'Créer le compte'}
                 </Button>
               </form>
             </div>
           )}
 
           {users.length === 0 ? (
-            <EmptyState title="Aucun compte" description="Creez votre premier compte utilisateur." />
+            <EmptyState 
+              title={t('aucun_compte') || 'Aucun compte'} 
+              description={t('creer_premier_compte') || 'Créez votre premier compte utilisateur.'} 
+            />
           ) : (
             <table style={styles.table}>
               <thead>
                 <tr>
-                  <th style={styles.th}>Nom</th>
-                  <th style={styles.th}>Email</th>
-                  <th style={styles.th}>Type</th>
-                  <th style={styles.th}>Role</th>
-                  <th style={styles.th}>Actions</th>
+                  <th style={styles.th}>{t('nom')}</th>
+                  <th style={styles.th}>{t('email')}</th>
+                  <th style={styles.th}>{t('type_utilisateur') || 'Type'}</th>
+                  <th style={styles.th}>{t('role') || 'Rôle'}</th>
+                  <th style={styles.th}>{t('actions_utilisateur') || 'Actions'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -542,12 +537,12 @@ export default function Utilisateurs() {
                     <td style={styles.td}>{u.email}</td>
                     <td style={styles.td}>
                       <Badge variant={u.is_external ? 'secondary' : 'primary'}>
-                        {u.is_external ? 'Externe' : 'Interne'}
+                        {u.is_external ? t('externe') || 'Externe' : t('interne') || 'Interne'}
                       </Badge>
                     </td>
                     <td style={styles.td}>
                       {u.is_external ? (
-                        <span style={styles.mutedText}>Portail client</span>
+                        <span style={styles.mutedText}>{t('portail_client') || 'Portail client'}</span>
                       ) : peutModifier ? (
                         <select
                           style={styles.selectInline}
@@ -567,7 +562,7 @@ export default function Utilisateurs() {
                           variant="danger"
                           onClick={() => supprimerUtilisateur(u.id)}
                         >
-                          Supprimer
+                          {t('supprimer')}
                         </Button>
                       )}
                     </td>

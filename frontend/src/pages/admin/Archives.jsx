@@ -1,20 +1,18 @@
-// src/pages/admin/Archives.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import Table from '../../components/common/Table';
 import Badge from '../../components/common/Badge';
-import Input from '../../components/common/Input';
 import Modal from '../../components/common/Modal';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
-import EmptyState from '../../components/common/EmptyState';
 
 export default function Archives() {
   const { hasPermission } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [archives, setArchives] = useState([]);
@@ -47,7 +45,7 @@ export default function Archives() {
       const res = await API.get('/archives');
       setArchives(res.data.archives || []);
     } catch (err) {
-      setError('Impossible de charger les archives');
+      setError(t('erreur_chargement_archives') || 'Impossible de charger les archives');
     } finally {
       setLoading(false);
     }
@@ -66,12 +64,12 @@ export default function Archives() {
 
     try {
       await API.post('/archives', form);
-      setSuccess(' Entité archivée avec succès');
+      setSuccess(t('entite_archivee') || 'Entité archivée avec succès');
       setShowForm(false);
       setForm({ type_entite: 'commande', entite_id: '', motif: '', supprimer_original: false });
       loadArchives();
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur');
+      setError(err.response?.data?.message || t('erreur_archivage') || 'Erreur');
     } finally {
       setFormLoading(false);
     }
@@ -83,46 +81,56 @@ export default function Archives() {
       setDetailArchive(res.data.archive);
       setShowDetail(true);
     } catch (err) {
-      setError('Erreur lors du chargement des détails');
+      setError(t('erreur_chargement_archive') || 'Erreur lors du chargement des détails');
     }
   };
 
   const handleRestaurer = async (id) => {
-    if (!window.confirm('Restaurer cette archive ?')) return;
+    if (!window.confirm(t('restaurer_archive_confirmation') || 'Restaurer cette archive ?')) return;
     try {
       await API.post(`/archives/${id}/restaurer`);
-      setSuccess(' Archive restaurée avec succès');
+      setSuccess(t('archive_restauree') || 'Archive restaurée avec succès');
       loadArchives();
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur');
+      setError(err.response?.data?.message || t('erreur_restauration_archive') || 'Erreur');
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Supprimer définitivement cette archive ?')) return;
+    if (!window.confirm(t('supprimer_archive_confirmation') || 'Supprimer définitivement cette archive ?')) return;
     try {
       await API.delete(`/archives/${id}`);
-      setSuccess(' Archive supprimée définitivement');
+      setSuccess(t('archive_supprimee_definitivement') || 'Archive supprimée définitivement');
       loadArchives();
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur');
+      setError(err.response?.data?.message || t('erreur_suppression_archive') || 'Erreur');
     }
   };
 
   const getTypeBadge = (type) => {
     const types = {
-      commande: { label: ' Commande', variant: 'primary' },
-      devis: { label: ' Devis', variant: 'warning' },
-      achat: { label: ' Achat', variant: 'success' },
-      client: { label: ' Client', variant: 'secondary' }
+      commande: { label: t('type_commande_archive') || 'Commande', variant: 'primary' },
+      devis: { label: t('type_devis_archive') || 'Devis', variant: 'warning' },
+      achat: { label: t('type_achat_archive') || 'Achat', variant: 'success' },
+      client: { label: t('type_client_archive') || 'Client', variant: 'secondary' }
     };
     return types[type] || { label: type, variant: 'outline' };
+  };
+
+  const getTypeLabel = (type) => {
+    const types = {
+      commande: t('commande') || 'Commande',
+      devis: t('devis'),
+      achat: t('achat') || 'Achat',
+      client: t('client') || 'Client'
+    };
+    return types[type] || type;
   };
 
   const columns = [
     {
       key: 'type_entite',
-      label: 'Type',
+      label: t('type_entite') || 'Type',
       render: (row) => {
         const type = getTypeBadge(row.type_entite);
         return <Badge variant={type.variant}>{type.label}</Badge>;
@@ -130,21 +138,21 @@ export default function Archives() {
     },
     {
       key: 'entite_id',
-      label: 'ID original',
+      label: t('id_original') || 'ID original',
       render: (row) => `#${row.entite_id}`
     },
-    { key: 'motif', label: 'Motif' },
-    { key: 'archived_by', label: 'Archivé par' },
+    { key: 'motif', label: t('motif_archivage') || 'Motif' },
+    { key: 'archived_by', label: t('archive_par') || 'Archivé par' },
     {
       key: 'archived_at',
-      label: 'Date',
+      label: t('date_archivage') || 'Date',
       render: (row) => new Date(row.archived_at).toLocaleDateString('fr-FR')
     }
   ];
 
   const actions = [
     {
-      label: ' Voir',
+      label: t('voir_archive') || 'Voir',
       variant: 'primary',
       onClick: (row) => handleViewDetail(row.id)
     }
@@ -152,7 +160,7 @@ export default function Archives() {
 
   if (peutCreer) {
     actions.push({
-      label: '↩ Restaurer',
+      label: t('restaurer_archive') || 'Restaurer',
       variant: 'success',
       onClick: (row) => handleRestaurer(row.id),
       disabled: (row) => row.type_entite !== 'client'
@@ -161,7 +169,7 @@ export default function Archives() {
 
   if (peutSupprimer) {
     actions.push({
-      label: ' Supprimer',
+      label: t('supprimer_archive') || 'Supprimer',
       variant: 'danger',
       onClick: (row) => handleDelete(row.id)
     });
@@ -171,12 +179,12 @@ export default function Archives() {
     <div>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}> Archivage numérique</h1>
-          <p style={styles.subtitle}>Gérez vos archives et documents historiques</p>
+          <h1 style={styles.title}>{t('archivage_numerique_titre') || 'Archivage numérique'}</h1>
+          <p style={styles.subtitle}>{t('gerer_archives_documents') || 'Gérez vos archives et documents historiques'}</p>
         </div>
         <div style={styles.headerActions}>
           <Button variant="secondary" onClick={() => navigate('/dashboard')} icon="←">
-            Retour
+            {t('retour')}
           </Button>
           {peutCreer && (
             <Button
@@ -187,7 +195,7 @@ export default function Archives() {
                 setForm({ type_entite: 'commande', entite_id: '', motif: '', supprimer_original: false });
               }}
             >
-              {showForm ? 'Fermer' : 'Archiver une entité'}
+              {showForm ? t('fermer') : t('archiver_entite') || 'Archiver une entité'}
             </Button>
           )}
         </div>
@@ -195,23 +203,23 @@ export default function Archives() {
 
       {error && (
         <div style={styles.errorContainer}>
-          <span>❌</span>
+          <span>X</span>
           <span style={styles.errorText}>{error}</span>
         </div>
       )}
       {success && (
         <div style={styles.successContainer}>
-          <span>Done</span>
+          <span>OK</span>
           <span style={styles.successText}>{success}</span>
         </div>
       )}
 
       {showForm && (
-        <Card title=" Archiver une entité" variant="primary" style={{ marginBottom: '24px' }}>
+        <Card title={t('archiver_entite') || 'Archiver une entité'} variant="primary" style={{ marginBottom: '24px' }}>
           <form onSubmit={handleSubmit}>
             <div style={styles.formGrid}>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Type d'entité *</label>
+                <label style={styles.label}>{t('type_entite') || "Type d'entité"} *</label>
                 <select
                   style={styles.select}
                   name="type_entite"
@@ -219,19 +227,19 @@ export default function Archives() {
                   onChange={handleChange}
                   disabled={formLoading}
                 >
-                  <option value="commande">Commande</option>
-                  <option value="devis"> Devis</option>
-                  <option value="achat"> Achat</option>
-                  <option value="client">Client</option>
+                  <option value="commande">{t('type_commande_archive') || 'Commande'}</option>
+                  <option value="devis">{t('type_devis_archive') || 'Devis'}</option>
+                  <option value="achat">{t('type_achat_archive') || 'Achat'}</option>
+                  <option value="client">{t('type_client_archive') || 'Client'}</option>
                 </select>
               </div>
               <div style={styles.formGroup}>
-                <label style={styles.label}>ID de l'entité *</label>
+                <label style={styles.label}>{t('entite_id_label') || "ID de l'entité *"}</label>
                 <input
                   style={styles.input}
                   name="entite_id"
                   type="number"
-                  placeholder="ID de l'entité"
+                  placeholder={t('entite_id_label') || "ID de l'entité"}
                   value={form.entite_id}
                   onChange={handleChange}
                   required
@@ -240,11 +248,11 @@ export default function Archives() {
                 />
               </div>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Motif de l'archivage</label>
+                <label style={styles.label}>{t('motif_archivage_label') || "Motif de l'archivage"}</label>
                 <input
                   style={styles.input}
                   name="motif"
-                  placeholder="Motif de l'archivage"
+                  placeholder={t('motif_archivage_label') || "Motif de l'archivage"}
                   value={form.motif}
                   onChange={handleChange}
                   disabled={formLoading}
@@ -259,40 +267,39 @@ export default function Archives() {
                     onChange={handleChange}
                     disabled={formLoading}
                   />
-                  <span> Supprimer l'original après archivage</span>
+                  <span>{t('supprimer_original') || "Supprimer l'original après archivage"}</span>
                 </label>
               </div>
             </div>
             <Button type="submit" variant="primary" loading={formLoading} fullWidth>
-              Archiver
+              {t('archiver') || 'Archiver'}
             </Button>
           </form>
         </Card>
       )}
 
-      <Card title=" Liste des archives" variant="primary">
+      <Card title={t('liste_archives') || 'Liste des archives'} variant="primary">
         <Table columns={columns} data={archives} loading={loading} actions={actions} />
       </Card>
 
-      {/* Modal Détails */}
       {showDetail && detailArchive && (
         <div style={styles.modalOverlay} onClick={() => setShowDetail(false)}>
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h3 style={styles.modalTitle}>Détails de l'archive</h3>
+            <h3 style={styles.modalTitle}>{t('details_archive') || "Détails de l'archive"}</h3>
             <div style={styles.modalInfo}>
-              <p><strong>Type:</strong> {getTypeBadge(detailArchive.type_entite).label}</p>
-              <p><strong>ID original:</strong> #{detailArchive.entite_id}</p>
-              <p><strong>Motif:</strong> {detailArchive.motif || 'Non spécifié'}</p>
-              <p><strong>Date:</strong> {new Date(detailArchive.archived_at).toLocaleString('fr-FR')}</p>
+              <p><strong>{t('type_entite') || 'Type:'}</strong> {getTypeLabel(detailArchive.type_entite)}</p>
+              <p><strong>{t('id_original') || 'ID original:'}</strong> #{detailArchive.entite_id}</p>
+              <p><strong>{t('motif_archivage') || 'Motif:'}</strong> {detailArchive.motif || t('non_specifie_archive') || 'Non spécifié'}</p>
+              <p><strong>{t('date_archivage') || 'Date:'}</strong> {new Date(detailArchive.archived_at).toLocaleString('fr-FR')}</p>
             </div>
             <hr style={styles.modalHr} />
-            <h4> Données archivées (JSON)</h4>
+            <h4>{t('donnees_archivees') || 'Données archivées (JSON)'}</h4>
             <pre style={styles.jsonPreview}>
               {JSON.stringify(JSON.parse(detailArchive.donnees), null, 2)}
             </pre>
             <div style={styles.modalActions}>
               <Button variant="secondary" onClick={() => setShowDetail(false)}>
-                Fermer
+                {t('fermer')}
               </Button>
             </div>
           </div>
@@ -349,10 +356,6 @@ const styles = {
     transition: 'all 0.2s ease',
     width: '100%',
     boxSizing: 'border-box',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
   },
   select: {
     padding: '10px 14px',
@@ -364,10 +367,6 @@ const styles = {
     boxSizing: 'border-box',
     outline: 'none',
     transition: 'all 0.2s ease',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
   },
   checkboxGroup: { display: 'flex', alignItems: 'center', marginBottom: '16px' },
   checkboxLabel: {

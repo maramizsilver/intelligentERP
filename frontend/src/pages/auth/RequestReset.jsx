@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 import Button from '../../components/common/Button';
 import Card from '../../components/common/Card';
 import Input from '../../components/common/Input';
 
 export default function RequestReset() {
+    const { t } = useLanguage();
     const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
@@ -22,9 +24,9 @@ export default function RequestReset() {
         try {
             await API.post('/reset/request', { email });
             setSent(true);
-            setMessage('Un email de reinitialisation a ete envoye');
+            setMessage(t('email_reinitialisation_envoye') || 'Un email de réinitialisation a été envoyé');
         } catch (err) {
-            setError(err.response?.data?.message || 'Erreur');
+            setError(err.response?.data?.message || t('erreur_reinitialisation') || 'Erreur');
         } finally {
             setLoading(false);
         }
@@ -33,11 +35,11 @@ export default function RequestReset() {
     if (sent) {
         return (
             <div style={styles.container}>
-                <Card title="Email envoye" variant="success">
+                <Card title={t('email_envoye') || 'Email envoyé'} variant="success">
                     <p style={styles.text}>{message}</p>
-                    <p style={styles.subText}>Verifiez votre boite mail et suivez les instructions.</p>
+                    <p style={styles.subText}>{t('verifiez_email_instructions') || 'Vérifiez votre boîte mail et suivez les instructions.'}</p>
                     <Button variant="primary" onClick={() => navigate('/')}>
-                        Retour a la connexion
+                        {t('retour_connexion') || 'Retour à la connexion'}
                     </Button>
                 </Card>
             </div>
@@ -46,9 +48,9 @@ export default function RequestReset() {
 
     return (
         <div style={styles.container}>
-            <Card title="Reinitialiser mon mot de passe" variant="primary">
+            <Card title={t('reinitialiser_mot_de_passe') || 'Réinitialiser mon mot de passe'} variant="primary">
                 <p style={styles.infoText}>
-                    Saisissez votre email professionnel. Vous recevrez un lien pour creer un nouveau mot de passe.
+                    {t('saisissez_email_professionnel') || 'Saisissez votre email professionnel. Vous recevrez un lien pour créer un nouveau mot de passe.'}
                 </p>
 
                 {error && (
@@ -59,7 +61,7 @@ export default function RequestReset() {
 
                 <form onSubmit={handleSubmit}>
                     <Input
-                        label="Email"
+                        label={t('email')}
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
@@ -69,10 +71,10 @@ export default function RequestReset() {
                     />
                     <div style={styles.actions}>
                         <Button type="button" variant="secondary" onClick={() => navigate('/')}>
-                            Retour
+                            {t('retour')}
                         </Button>
                         <Button type="submit" variant="primary" loading={loading}>
-                            Envoyer
+                            {t('envoyer') || 'Envoyer'}
                         </Button>
                     </div>
                 </form>

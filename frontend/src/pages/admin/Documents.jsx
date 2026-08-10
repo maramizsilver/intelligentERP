@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 
 import Card from '../../components/common/Card';
@@ -15,6 +16,7 @@ import EmptyState from '../../components/common/EmptyState';
 
 export default function Documents() {
   const { hasPermission } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [documents, setDocuments] = useState([]);
@@ -45,7 +47,7 @@ export default function Documents() {
       const res = await API.get('/documents');
       setDocuments(res.data.documents || []);
     } catch (err) {
-      setError('Impossible de charger les documents');
+      setError(t('erreur_chargement_documents') || 'Impossible de charger les documents');
     } finally {
       setLoading(false);
     }
@@ -66,7 +68,7 @@ export default function Documents() {
     setFormLoading(true);
 
     if (!file) {
-      setError('Veuillez sélectionner un fichier');
+      setError(t('aucun_fichier_selectionne') || 'Veuillez sélectionner un fichier');
       setFormLoading(false);
       return;
     }
@@ -82,13 +84,13 @@ export default function Documents() {
       await API.post('/documents', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setSuccess(' Document uploadé avec succès');
+      setSuccess(t('document_upload_succes') || 'Document uploadé avec succès');
       setShowForm(false);
       setForm({ nom: '', type_document: 'autre', reference_type: '', reference_id: '' });
       setFile(null);
       loadDocuments();
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur lors de l\'upload');
+      setError(err.response?.data?.message || t('erreur_upload') || 'Erreur lors de l\'upload');
     } finally {
       setFormLoading(false);
     }
@@ -108,31 +110,41 @@ export default function Documents() {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      setError('Erreur lors du téléchargement');
+      setError(t('erreur_telechargement') || 'Erreur lors du téléchargement');
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Supprimer ce document ?')) return;
+    if (!window.confirm(t('confirmation_suppression_document') || 'Supprimer ce document ?')) return;
     try {
       await API.delete(`/documents/${id}`);
-      setSuccess(' Document supprimé');
+      setSuccess(t('document_supprime') || 'Document supprimé');
       loadDocuments();
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur');
+      setError(err.response?.data?.message || t('erreur_suppression_document') || 'Erreur');
     }
   };
 
   const getTypeBadge = (type) => {
     const types = {
-      facture: { label: ' Facture', variant: 'primary' },
-      contrat: { label: ' Contrat', variant: 'secondary' },
-      bon_commande: { label: ' Bon de commande', variant: 'success' },
-      devis: { label: ' Devis', variant: 'warning' },
-      identite: { label: ' Identité', variant: 'danger' },
-      autre: { label: ' Autre', variant: 'outline' }
+      facture: { label: t('type_facture') || 'Facture', variant: 'primary' },
+      contrat: { label: t('type_contrat') || 'Contrat', variant: 'secondary' },
+      bon_commande: { label: t('type_bon_commande') || 'Bon de commande', variant: 'success' },
+      devis: { label: t('type_devis_doc') || 'Devis', variant: 'warning' },
+      identite: { label: t('type_identite') || 'Identité', variant: 'danger' },
+      autre: { label: t('type_autre') || 'Autre', variant: 'outline' }
     };
     return types[type] || types.autre;
+  };
+
+  const getReferenceLabel = (type) => {
+    const types = {
+      commande: t('reference_commande') || 'Commande',
+      devis: t('devis'),
+      client: t('reference_client') || 'Client',
+      fournisseur: t('reference_fournisseur') || 'Fournisseur'
+    };
+    return types[type] || type;
   };
 
   const formatFileSize = (bytes) => {
@@ -142,10 +154,10 @@ export default function Documents() {
   };
 
   const columns = [
-    { key: 'nom', label: 'Nom' },
+    { key: 'nom', label: t('nom_document') || 'Nom' },
     {
       key: 'type_document',
-      label: 'Type',
+      label: t('type_document') || 'Type',
       render: (row) => {
         const type = getTypeBadge(row.type_document);
         return <Badge variant={type.variant}>{type.label}</Badge>;
@@ -153,21 +165,21 @@ export default function Documents() {
     },
     {
       key: 'reference',
-      label: 'Référence',
+      label: t('reference_type_doc') || 'Référence',
       render: (row) => (
         row.reference_type && row.reference_id
-          ? `${row.reference_type} #${row.reference_id}`
+          ? `${getReferenceLabel(row.reference_type)} #${row.reference_id}`
           : '—'
       )
     },
     {
       key: 'taille_octets',
-      label: 'Taille',
+      label: t('taille') || 'Taille',
       render: (row) => formatFileSize(row.taille_octets)
     },
     {
       key: 'created_at',
-      label: 'Date',
+      label: t('date'),
       render: (row) => new Date(row.created_at).toLocaleDateString('fr-FR')
     }
   ];
@@ -182,7 +194,7 @@ export default function Documents() {
 
   if (peutSupprimer) {
     actions.push({
-      label: 'suppr',
+      label: t('supprimer'),
       variant: 'danger',
       onClick: (row) => handleDelete(row.id)
     });
@@ -192,12 +204,12 @@ export default function Documents() {
     <div>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>Gestion Documentaire</h1>
-          <p style={styles.subtitle}>Gérez tous vos documents</p>
+          <h1 style={styles.title}>{t('gestion_documentaire_titre') || 'Gestion Documentaire'}</h1>
+          <p style={styles.subtitle}>{t('gerer_tous_documents') || 'Gérez tous vos documents'}</p>
         </div>
         <div style={styles.headerActions}>
           <Button variant="secondary" onClick={() => navigate('/dashboard')} icon="←">
-            Retour
+            {t('retour')}
           </Button>
           {peutCreer && (
             <Button
@@ -209,7 +221,7 @@ export default function Documents() {
                 setFile(null);
               }}
             >
-              {showForm ? 'Fermer' : 'Uploader un document'}
+              {showForm ? t('fermer') : t('uploader_document') || 'Uploader un document'}
             </Button>
           )}
         </div>
@@ -217,34 +229,34 @@ export default function Documents() {
 
       {error && (
         <div style={styles.errorContainer}>
-          <span>❌</span>
+          <span>X</span>
           <span style={styles.errorText}>{error}</span>
         </div>
       )}
       {success && (
         <div style={styles.successContainer}>
-          <span>Done</span>
+          <span>✅</span>
           <span style={styles.successText}>{success}</span>
         </div>
       )}
 
       {showForm && (
-        <Card title=" Uploader un document" variant="primary" style={{ marginBottom: '24px' }}>
+        <Card title={t('uploader_document') || 'Uploader un document'} variant="primary" style={{ marginBottom: '24px' }}>
           <form onSubmit={handleSubmit}>
             <div style={styles.formGrid}>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Nom du document</label>
+                <label style={styles.label}>{t('nom_document') || 'Nom du document'}</label>
                 <input
                   style={styles.input}
                   name="nom"
-                  placeholder="Nom du document"
+                  placeholder={t('nom_document') || 'Nom du document'}
                   value={form.nom}
                   onChange={handleChange}
                   disabled={formLoading}
                 />
               </div>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Type *</label>
+                <label style={styles.label}>{t('type_document') || 'Type'} *</label>
                 <select
                   style={styles.select}
                   name="type_document"
@@ -252,16 +264,16 @@ export default function Documents() {
                   onChange={handleChange}
                   disabled={formLoading}
                 >
-                  <option value="autre"> Autre</option>
-                  <option value="facture"> Facture</option>
-                  <option value="contrat"> Contrat</option>
-                  <option value="bon_commande">Bon de commande</option>
-                  <option value="devis"> Devis</option>
-                  <option value="identite">Identité</option>
+                  <option value="autre">{t('type_autre') || 'Autre'}</option>
+                  <option value="facture">{t('type_facture') || 'Facture'}</option>
+                  <option value="contrat">{t('type_contrat') || 'Contrat'}</option>
+                  <option value="bon_commande">{t('type_bon_commande') || 'Bon de commande'}</option>
+                  <option value="devis">{t('type_devis_doc') || 'Devis'}</option>
+                  <option value="identite">{t('type_identite') || 'Identité'}</option>
                 </select>
               </div>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Type de référence</label>
+                <label style={styles.label}>{t('reference_type_doc') || 'Type de référence'}</label>
                 <select
                   style={styles.select}
                   name="reference_type"
@@ -269,19 +281,19 @@ export default function Documents() {
                   onChange={handleChange}
                   disabled={formLoading}
                 >
-                  <option value="">Sans référence</option>
-                  <option value="commande">Commande</option>
-                  <option value="devis">Devis</option>
-                  <option value="client">Client</option>
-                  <option value="fournisseur">Fournisseur</option>
+                  <option value="">{t('sans_reference') || 'Sans référence'}</option>
+                  <option value="commande">{t('reference_commande') || 'Commande'}</option>
+                  <option value="devis">{t('devis')}</option>
+                  <option value="client">{t('reference_client') || 'Client'}</option>
+                  <option value="fournisseur">{t('reference_fournisseur') || 'Fournisseur'}</option>
                 </select>
               </div>
               <div style={styles.formGroup}>
-                <label style={styles.label}>ID de référence</label>
+                <label style={styles.label}>{t('reference_id_doc') || 'ID de référence'}</label>
                 <input
                   style={styles.input}
                   name="reference_id"
-                  placeholder="ID de référence"
+                  placeholder={t('reference_id_doc') || 'ID de référence'}
                   value={form.reference_id}
                   onChange={handleChange}
                   disabled={formLoading}
@@ -291,7 +303,7 @@ export default function Documents() {
 
             <div style={styles.fileInput}>
               <label style={styles.fileLabel}>
-                📎 Sélectionner un fichier
+                {t('selectionner_fichier') || ' Sélectionner un fichier'}
                 <input
                   type="file"
                   onChange={handleFileChange}
@@ -313,13 +325,13 @@ export default function Documents() {
               disabled={!file}
               fullWidth
             >
-              {formLoading ? 'Upload en cours...' : ' Uploader le document'}
+              {formLoading ? t('upload_en_cours') || 'Upload en cours...' : t('uploader_le_document') || 'Uploader le document'}
             </Button>
           </form>
         </Card>
       )}
 
-      <Card title=" Liste des documents" variant="primary">
+      <Card title={t('liste_documents') || 'Liste des documents'} variant="primary">
         <Table columns={columns} data={documents} loading={loading} actions={actions} />
       </Card>
     </div>
@@ -373,10 +385,6 @@ const styles = {
     transition: 'all 0.2s ease',
     width: '100%',
     boxSizing: 'border-box',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
   },
   select: {
     padding: '10px 14px',
@@ -388,10 +396,6 @@ const styles = {
     boxSizing: 'border-box',
     outline: 'none',
     transition: 'all 0.2s ease',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
   },
   fileInput: {
     marginBottom: '16px',
@@ -409,9 +413,6 @@ const styles = {
     fontSize: '14px',
     fontWeight: 500,
     transition: 'all 0.2s ease',
-    ':hover': {
-      backgroundColor: '#CBD5E1',
-    },
   },
   hiddenFileInput: { display: 'none' },
   fileName: {

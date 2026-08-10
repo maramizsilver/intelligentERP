@@ -37,10 +37,13 @@ export default function Sidebar() {
           section: t('administration') || 'Administration',
           items: [
             { path: '/superadmin/dashboard', label: t('dashboard'), icon: '🏢' },
-            { path: '/superadmin/taux-reference', label: 'Taux & Périodes', icon: '📊' },
-            { path: '/superadmin/sessions', label: 'Sessions', icon: '🔐' },
+            { path: '/superadmin/taux-reference', label: t('taux_periodes') || 'Taux & Périodes', icon: '📊' },
+            { path: '/superadmin/sessions', label: t('sessions') || 'Sessions', icon: '🔐' },
+            { path: '/superadmin/audit', label: t('audit') || 'Audit', icon: '📋' },
+            { path: '/superadmin/abonnements', label: t('abonnements') || 'Abonnements', icon: '💳' },
+            { path: '/superadmin/backup', label: t('backup') || 'Backup', icon: '💾' },
             { path: '/notifications', label: t('notifications'), icon: '🔔' },
-            { path: '/profil', label: 'Mon profil', icon: '🙍' }
+            { path: '/profil', label: t('mon_profil') || 'Mon profil', icon: '🙍' }
           ]
         }
       ];
@@ -62,8 +65,8 @@ export default function Sidebar() {
           { path: '/clients', label: t('clients'), icon: '👥' },
           { path: '/devis', label: t('devis'), icon: '📄' },
           { path: '/commandes', label: t('commandes'), icon: '🛒' },
-          { path: '/promotions', label: 'Promotions', icon: '🏷️' },
-          { path: '/paiement/client', label: 'Paiement en ligne', icon: '💳' }
+          { path: '/promotions', label: t('promotions') || 'Promotions', icon: '🏷️' },
+          { path: '/paiement/client', label: t('paiement_en_ligne') || 'Paiement en ligne', icon: '💳' }
         ]
       });
     }
@@ -74,7 +77,7 @@ export default function Sidebar() {
         items: [
           { path: '/fournisseurs', label: t('fournisseurs'), icon: '🏭' },
           { path: '/achats', label: t('achats'), icon: '📦' },
-          { path: '/paiement/fournisseur', label: 'Paiement fournisseur', icon: '💳' }
+          { path: '/paiement/fournisseur', label: t('paiement_fournisseur') || 'Paiement fournisseur', icon: '💳' }
         ]
       });
     }
@@ -93,11 +96,11 @@ export default function Sidebar() {
         { path: '/produits', label: t('produits'), icon: '📦' },
         { path: '/mouvements-stock', label: t('mouvements_stock'), icon: '🔄' },
         { path: '/alertes-stock', label: t('alerte_rupture'), icon: '⚠️' },
-        { path: '/entrepots', label: 'Entrepôts', icon: '🏚️' },
-        { path: '/calculateur', label: 'Calculateur', icon: '🧮' }
+        { path: '/entrepots', label: t('entrepots') || 'Entrepôts', icon: '🏚️' },
+        { path: '/calculateur', label: t('calculateur') || 'Calculateur', icon: '🧮' }
       ];
       if (hasPermission('Stock', 'modification')) {
-        stockItems.push({ path: '/transfert-stock', label: t('transfert_stock'), icon: '🔄' });
+        stockItems.push({ path: '/transfert-stock', label: t('transfert_stock') || 'Transfert stock', icon: '🔄' });
       }
       stockItems.push({ path: '/inventaires', label: t('inventaire'), icon: '📋' });
       sections.push({ section: t('stock') || 'Stock', items: stockItems });
@@ -109,12 +112,14 @@ export default function Sidebar() {
     }
     if (hasPermission('Documents', 'consultation')) {
       adminItems.push({ path: '/documents', label: t('documents'), icon: '📁' });
+      adminItems.push({ path: '/documents/generation', label: t('generer_document') || 'Générer un document', icon: '📄' });
+      adminItems.push({ path: '/documents/numerisation', label: t('numeriser_ocr') || 'Numériser (OCR)', icon: '📷' });
       adminItems.push({ path: '/archives', label: t('archives'), icon: '🗄️' });
     }
 
     adminItems.push({
       path: '/securite/mfa',
-      label: 'Sécurité MFA',
+      label: t('securite_mfa') || 'Sécurité MFA',
       icon: '🔐'
     });
 
@@ -122,6 +127,12 @@ export default function Sidebar() {
       path: '/notifications',
       label: t('notifications'),
       icon: '🔔'
+    });
+
+    adminItems.push({
+      path: '/profil',
+      label: t('mon_profil') || 'Mon profil',
+      icon: '🙍'
     });
 
     if (adminItems.length > 0) {
@@ -194,9 +205,6 @@ export default function Sidebar() {
                   {(!collapsed || isMobile) && (
                     <div style={styles.menuContent}>
                       <span style={styles.menuLabel}>{item.label}</span>
-                      {!collapsed && !isMobile && (
-                        <span style={styles.menuDescription}>{item.description}</span>
-                      )}
                     </div>
                   )}
                 </div>
@@ -213,7 +221,7 @@ export default function Sidebar() {
               </div>
               <div style={styles.userDetails}>
                 <div style={styles.userName}>{user.prenom} {user.nom}</div>
-                <div style={styles.userRole}>{user.role || 'Utilisateur'}</div>
+                <div style={styles.userRole}>{user.role || t('utilisateur') || 'Utilisateur'}</div>
               </div>
             </div>
           </div>

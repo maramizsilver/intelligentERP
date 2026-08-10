@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import API from '../utils/api';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -8,6 +9,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 
 export default function Notifications() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [whatsappLoading, setWhatsappLoading] = useState(false);
@@ -57,7 +59,7 @@ export default function Notifications() {
     setMessage('');
     try {
       await API.put('/notifications/preferences', preferences);
-      setMessage('Preferences mises a jour avec succes');
+      setMessage(t('preferences_enregistrees') || 'Préférences mises à jour avec succès');
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur');
     } finally {
@@ -67,7 +69,7 @@ export default function Notifications() {
 
   const sendTestEmail = async () => {
     if (!testEmail) {
-      setError('Veuillez entrer un email de test');
+      setError(t('email_destination_requis') || 'Veuillez entrer un email de test');
       return;
     }
     setSending(true);
@@ -80,9 +82,9 @@ export default function Notifications() {
         phone: preferences.phone || '+216XXXXXXXXX'
       });
       setResult(res.data);
-      setMessage('Email de test envoye avec succes');
+      setMessage(t('email_test_envoye') || 'Email de test envoyé avec succès');
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur envoi email');
+      setError(err.response?.data?.message || t('erreur_envoi_email') || 'Erreur envoi email');
     } finally {
       setSending(false);
     }
@@ -90,11 +92,11 @@ export default function Notifications() {
 
   const sendTestWhatsApp = async () => {
     if (!testPhone || testPhone === '+216') {
-      setError('Veuillez entrer un numero de telephone valide pour WhatsApp');
+      setError(t('numero_whatsapp_requis') || 'Veuillez entrer un numéro de téléphone valide pour WhatsApp');
       return;
     }
     if (!testMessage) {
-      setError('Veuillez entrer un message');
+      setError(t('message_requis') || 'Veuillez entrer un message');
       return;
     }
     
@@ -112,13 +114,13 @@ export default function Notifications() {
       
       setWhatsappResult(res.data);
       if (res.data.success) {
-        setMessage('WhatsApp envoye avec succes');
+        setMessage(t('whatsapp_envoye') || 'WhatsApp envoyé avec succès');
       } else {
-        setError('Erreur: ' + (res.data.result?.error || 'Echec de l\'envoi'));
+        setError(t('erreur_whatsapp') || 'Erreur: ' + (res.data.result?.error || 'Échec de l\'envoi'));
       }
     } catch (err) {
       console.error('Erreur WhatsApp:', err);
-      setError(err.response?.data?.error || err.response?.data?.message || 'Erreur envoi WhatsApp');
+      setError(err.response?.data?.error || err.response?.data?.message || t('erreur_whatsapp') || 'Erreur envoi WhatsApp');
     } finally {
       setWhatsappLoading(false);
     }
@@ -126,7 +128,7 @@ export default function Notifications() {
 
   const sendLoginAlert = async () => {
     if (!user) {
-      setError('Vous devez etre connecte');
+      setError(t('connexion_requise') || 'Vous devez être connecté');
       return;
     }
     
@@ -145,24 +147,24 @@ export default function Notifications() {
         ip: '192.168.1.1'
       });
       setResult(res.data);
-      setMessage('Alerte de connexion envoyee avec succes');
+      setMessage(t('alerte_connexion_envoyee') || 'Alerte de connexion envoyée avec succès');
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur envoi alerte');
+      setError(err.response?.data?.message || t('erreur_envoi_alerte') || 'Erreur envoi alerte');
     } finally {
       setSending(false);
     }
   };
 
   if (loading) {
-    return <LoadingSpinner size="lg" text="Chargement des preferences..." />;
+    return <LoadingSpinner size="lg" text={t('chargement_preferences') || 'Chargement des préférences...'} />;
   }
 
   return (
     <div style={styles.container}>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>Notifications</h1>
-          <p style={styles.subtitle}>Gerez vos preferences de notification</p>
+          <h1 style={styles.title}>{t('notifications_titre') || 'Notifications'}</h1>
+          <p style={styles.subtitle}>{t('gerer_preferences_notifications') || 'Gérez vos préférences de notification'}</p>
         </div>
       </div>
 
@@ -178,10 +180,10 @@ export default function Notifications() {
       )}
 
       <div style={styles.grid}>
-        <Card title="Preferences de notification" variant="primary">
+        <Card title={t('preferences_notification') || 'Préférences de notification'} variant="primary">
           <div style={styles.formGroup}>
             <Input
-              label="Numero de telephone (WhatsApp)"
+              label={t('numero_telephone_whatsapp') || 'Numéro de téléphone (WhatsApp)'}
               name="phone"
               value={preferences.phone || ''}
               onChange={handleChange}
@@ -197,7 +199,7 @@ export default function Notifications() {
                 checked={preferences.email_enabled}
                 onChange={handleChange}
               />
-              Email
+              {t('preferences_email') || 'Email'}
             </label>
             <label style={styles.checkboxLabel}>
               <input
@@ -206,19 +208,19 @@ export default function Notifications() {
                 checked={preferences.whatsapp_enabled}
                 onChange={handleChange}
               />
-              WhatsApp
+              {t('preferences_whatsapp') || 'WhatsApp'}
             </label>
           </div>
 
           <Button variant="primary" onClick={savePreferences} loading={loading}>
-            Enregistrer les preferences
+            {t('enregistrer_preferences') || 'Enregistrer les préférences'}
           </Button>
         </Card>
 
-        <Card title="Tester les notifications" variant="success">
+        <Card title={t('tester_notifications') || 'Tester les notifications'} variant="success">
           <div style={styles.formGroup}>
             <Input
-              label="Email de destination"
+              label={t('email_destination') || 'Email de destination'}
               type="email"
               value={testEmail}
               onChange={(e) => setTestEmail(e.target.value)}
@@ -230,7 +232,7 @@ export default function Notifications() {
               loading={sending}
               fullWidth
             >
-              Envoyer un email de test
+              {t('envoyer_email_test') || 'Envoyer un email de test'}
             </Button>
           </div>
 
@@ -238,16 +240,16 @@ export default function Notifications() {
 
           <div style={styles.formGroup}>
             <Input
-              label="Numero WhatsApp"
+              label={t('numero_whatsapp') || 'Numéro WhatsApp'}
               value={testPhone}
               onChange={(e) => setTestPhone(e.target.value)}
               placeholder="+216XXXXXXXXX"
             />
             <Input
-              label="Message"
+              label={t('message_test') || 'Message'}
               value={testMessage}
               onChange={(e) => setTestMessage(e.target.value)}
-              placeholder="Votre message..."
+              placeholder={t('message_whatsapp') || 'Votre message...'}
             />
             <Button
               variant="success"
@@ -255,7 +257,7 @@ export default function Notifications() {
               loading={whatsappLoading}
               fullWidth
             >
-              {whatsappLoading ? 'Envoi WhatsApp...' : 'Tester WhatsApp'}
+              {whatsappLoading ? (t('envoi_whatsapp') || 'Envoi WhatsApp...') : (t('tester_whatsapp') || 'Tester WhatsApp')}
             </Button>
           </div>
 
@@ -267,13 +269,13 @@ export default function Notifications() {
             loading={sending}
             fullWidth
           >
-            Envoyer une alerte de connexion
+            {t('envoyer_alerte_connexion') || 'Envoyer une alerte de connexion'}
           </Button>
         </Card>
       </div>
 
       {result && (
-        <Card title="Resultat Email" variant="info">
+        <Card title={t('resultat_email') || 'Résultat Email'} variant="info">
           <pre style={styles.jsonResult}>
             {JSON.stringify(result, null, 2)}
           </pre>
@@ -281,7 +283,7 @@ export default function Notifications() {
       )}
 
       {whatsappResult && (
-        <Card title="Resultat WhatsApp" variant="info">
+        <Card title={t('resultat_whatsapp') || 'Résultat WhatsApp'} variant="info">
           <pre style={styles.jsonResult}>
             {JSON.stringify(whatsappResult, null, 2)}
           </pre>

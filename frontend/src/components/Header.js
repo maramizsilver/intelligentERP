@@ -38,8 +38,8 @@ export default function Header() {
   const roleLabel = user.is_super_admin
     ? 'SuperAdmin'
     : user.is_external
-      ? 'Client'
-      : (user.role || 'Utilisateur');
+      ? t('client') || 'Client'
+      : (user.role || t('utilisateur') || 'Utilisateur');
 
   const NavButton = ({ to, label, active, onClick }) => (
     <button
@@ -76,38 +76,37 @@ export default function Header() {
           />
           <NavButton
             to="/superadmin/taux-reference"
-            label="Taux référence"
+            label={t('taux_periodes') || 'Taux référence'}
             active={isActive('/superadmin/taux-reference')}
             onClick={() => navigate('/superadmin/taux-reference')}
           />
           <NavButton
             to="/superadmin/sessions"
-            label="Sessions"
+            label={t('sessions') || 'Sessions'}
             active={isActive('/superadmin/sessions')}
             onClick={() => navigate('/superadmin/sessions')}
           />
           <NavButton
             to="/superadmin/audit"
-            label="Audit"
+            label={t('audit') || 'Audit'}
             active={isActive('/superadmin/audit')}
             onClick={() => navigate('/superadmin/audit')}
           />
           <NavButton
             to="/superadmin/abonnements"
-            label="Abonnements"
+            label={t('abonnements') || 'Abonnements'}
             active={isActive('/superadmin/abonnements')}
             onClick={() => navigate('/superadmin/abonnements')}
           />
           <NavButton
             to="/superadmin/backup"
-            label="Backup"
+            label={t('backup') || 'Backup'}
             active={isActive('/superadmin/backup')}
             onClick={() => navigate('/superadmin/backup')}
           />
-          {/* AJOUTER LE LIEN DE TEST POUR SUPER ADMIN */}
           <NavButton
             to="/test-documentation"
-            label="📄 Test Docs"
+            label={t('test_docs') || 'Test Docs'}
             active={isActive('/test-documentation')}
             onClick={() => navigate('/test-documentation')}
           />
@@ -125,8 +124,7 @@ export default function Header() {
         { path: '/client/produits', label: t('produits') },
         { path: '/client/factures', label: t('factures') },
         { path: '/client/profil', label: t('profil') },
-        // AJOUTER LE LIEN DE TEST POUR CLIENT
-        { path: '/test-documentation', label: '📄 Test Docs' },
+        { path: '/test-documentation', label: t('test_docs') || 'Test Docs' },
       ].map((route) => (
         <NavButton
           key={route.path}
@@ -147,23 +145,25 @@ export default function Header() {
     internalRoutes.push({ path: '/dashboard', label: t('dashboard') });
 
     // Mon Profil
-    internalRoutes.push({ path: '/profil', label: 'Mon Profil' });
+    internalRoutes.push({ path: '/profil', label: t('mon_profil') || 'Mon Profil' });
 
-    // AJOUTER LE LIEN DE TEST POUR TOUS LES UTILISATEURS
-    internalRoutes.push({ path: '/test-documentation', label: '📄 Test Docs' });
+    // Test Docs
+    internalRoutes.push({ path: '/test-documentation', label: t('test_docs') || 'Test Docs' });
 
     // Ventes
     if (hasPermission('Ventes', 'consultation')) {
       internalRoutes.push({ path: '/clients', label: t('clients') });
       internalRoutes.push({ path: '/devis', label: t('devis') });
       internalRoutes.push({ path: '/commandes', label: t('commandes') });
-      internalRoutes.push({ path: '/promotions', label: 'Promotions' });
+      internalRoutes.push({ path: '/promotions', label: t('promotions') || 'Promotions' });
+      internalRoutes.push({ path: '/paiement/client', label: t('paiement_en_ligne') || 'Paiement en ligne' });
     }
 
     // Achats
     if (hasPermission('Achats', 'consultation')) {
       internalRoutes.push({ path: '/fournisseurs', label: t('fournisseurs') });
       internalRoutes.push({ path: '/achats', label: t('achats') });
+      internalRoutes.push({ path: '/paiement/fournisseur', label: t('paiement_fournisseur') || 'Paiement fournisseur' });
     }
 
     // Finance
@@ -176,8 +176,10 @@ export default function Header() {
       internalRoutes.push({ path: '/produits', label: t('produits') });
       internalRoutes.push({ path: '/mouvements-stock', label: t('mouvements_stock') });
       internalRoutes.push({ path: '/alertes-stock', label: t('alerte_rupture') });
-      internalRoutes.push({ path: '/entrepots', label: 'Entrepots' });
+      internalRoutes.push({ path: '/entrepots', label: t('entrepots') || 'Entrepôts' });
       internalRoutes.push({ path: '/inventaires', label: t('inventaire') });
+      internalRoutes.push({ path: '/calculateur', label: t('calculateur') || 'Calculateur' });
+      internalRoutes.push({ path: '/transfert-stock', label: t('transfert_stock') || 'Transfert stock' });
     }
 
     // Utilisateurs
@@ -188,10 +190,16 @@ export default function Header() {
     // Documents
     if (hasPermission('Documents', 'consultation')) {
       internalRoutes.push({ path: '/documents', label: t('documents') });
-      internalRoutes.push({ path: '/documents/generation', label: 'Generer un document' });
-      internalRoutes.push({ path: '/documents/numerisation', label: 'Numeriser (OCR)' });
+      internalRoutes.push({ path: '/documents/generation', label: t('generer_document') || 'Générer un document' });
+      internalRoutes.push({ path: '/documents/numerisation', label: t('numeriser_ocr') || 'Numériser (OCR)' });
       internalRoutes.push({ path: '/archives', label: t('archives') });
     }
+
+    // Notifications
+    internalRoutes.push({ path: '/notifications', label: t('notifications') });
+
+    // Sécurité MFA
+    internalRoutes.push({ path: '/securite/mfa', label: t('securite_mfa') || 'Sécurité MFA' });
 
     return internalRoutes.map((route) => (
       <NavButton
