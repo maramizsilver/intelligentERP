@@ -1,4 +1,3 @@
-// frontend/src/pages/stock/Entrepots.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -9,10 +8,9 @@ import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import Table from '../../components/common/Table';
 import Badge from '../../components/common/Badge';
-import Input from '../../components/common/Input';
-import Modal from '../../components/common/Modal';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
+import Modal from '../../components/common/Modal';
 
 export default function Entrepots() {
   const { hasPermission } = useAuth();
@@ -20,29 +18,26 @@ export default function Entrepots() {
   const navigate = useNavigate();
 
   const [entrepots, setEntrepots] = useState([]);
-  const [produits, setProduits] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({ nom: '', adresse: '', responsable: '', actif: true });
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [formData, setFormData] = useState({
+    nom: '',
+    adresse: '',
+    capacite: '',
+    gerant: '',
+    actif: true
+  });
   const [formLoading, setFormLoading] = useState(false);
+  const [deleteModal, setDeleteModal] = useState({ open: false, id: null, nom: '' });
 
-  const [showStockModal, setShowStockModal] = useState(false);
-  const [selectedEntrepot, setSelectedEntrepot] = useState(null);
-  const [stockForm, setStockForm] = useState({ produit_id: '', quantite: '' });
-  const [stockList, setStockList] = useState([]);
-  const [loadingStock, setLoadingStock] = useState(false);
-
-  const peutCreer = hasPermission('Stock', 'creation');
-  const peutModifier = hasPermission('Stock', 'modification');
-  const peutSupprimer = hasPermission('Stock', 'suppression');
+  const peutModifier = hasPermission('Entrepots', 'modification');
+  const peutSupprimer = hasPermission('Entrepots', 'suppression');
 
   useEffect(() => {
     loadEntrepots();
-    loadProduits();
   }, []);
 
   const loadEntrepots = async () => {
@@ -57,30 +52,21 @@ export default function Entrepots() {
     }
   };
 
-  const loadProduits = async () => {
-    try {
-      const res = await API.get('/produits');
-      setProduits(res.data.produits || []);
-    } catch (err) {
-      console.error('Erreur chargement produits:', err);
+  const handleOpenModal = (entrepot = null) => {
+    if (entrepot) {
+      setEditId(entrepot.id);
+      setFormData({
+        nom: entrepot.nom,
+        adresse: entrepot.adresse || '',
+        capacite: entrepot.capacite || '',
+        gerant: entrepot.gerant || '',
+        actif: entrepot.actif !== undefined ? entrepot.actif : true
+      });
+    } else {
+      setEditId(null);
+      setFormData({ nom: '', adresse: '', capacite: '', gerant: '', actif: true });
     }
-  };
-
-  const loadStockEntrepot = async (entrepotId) => {
-    try {
-      setLoadingStock(true);
-      const res = await API.get(`/entrepots/${entrepotId}`);
-      setStockList(res.data.entrepot?.stock || []);
-    } catch (err) {
-      setError('Impossible de charger le stock');
-    } finally {
-      setLoadingStock(false);
-    }
-  };
-
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setForm({ ...form, [name]: type === 'checkbox' ? checked : value });
+    setModalOpen(true);
   };
 
   const handleSubmit = async (e) => {
@@ -90,16 +76,14 @@ export default function Entrepots() {
     setFormLoading(true);
 
     try {
-      if (editingId) {
-        await API.put(`/entrepots/${editingId}`, form);
-        setSuccess(t('entrepot_modifie') || 'Entrepôt mis à jour avec succès');
+      if (editId) {
+        await API.put(`/entrepots/${editId}`, formData);
+        setSuccess(t('entrepot_modifie'));
       } else {
-        await API.post('/entrepots', form);
-        setSuccess(t('entrepot_cree') || 'Entrepôt créé avec succès');
+        await API.post('/entrepots', formData);
+        setSuccess(t('entrepot_cree'));
       }
-      setShowForm(false);
-      setEditingId(null);
-      setForm({ nom: '', adresse: '', responsable: '', actif: true });
+      setModalOpen(false);
       loadEntrepots();
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur');
@@ -108,135 +92,84 @@ export default function Entrepots() {
     }
   };
 
-  const handleEdit = (entrepot) => {
-    setForm({
-      nom: entrepot.nom,
-      adresse: entrepot.adresse || '',
-      responsable: entrepot.responsable || '',
-      actif: entrepot.actif
-    });
-    setEditingId(entrepot.id);
-    setShowForm(true);
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm(t('confirmation_suppression'))) return;
+  const handleToggleActif = async (id, actif) => {
     try {
-      await API.delete(`/entrepots/${id}`);
-      setSuccess(t('entrepot_supprime') || 'Entrepôt supprimé');
+      await API.patch(`/entrepots/${id}`, { actif: !actif });
+      setSuccess(t('entrepot_actif_modifie'));
       loadEntrepots();
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur');
+      setError('Erreur');
     }
   };
 
-  const handleOpenStockModal = async (entrepot) => {
-    setSelectedEntrepot(entrepot);
-    setStockForm({ produit_id: '', quantite: '' });
-    await loadStockEntrepot(entrepot.id);
-    setShowStockModal(true);
-  };
-
-  const handleStockChange = (e) => {
-    const { name, value } = e.target;
-    setStockForm({ ...stockForm, [name]: value });
-  };
-
-  const handleUpdateStock = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    setFormLoading(true);
-
+  const handleDelete = async () => {
     try {
-      await API.put(`/entrepots/${selectedEntrepot.id}/stock`, {
-        produit_id: parseInt(stockForm.produit_id),
-        quantite: parseInt(stockForm.quantite)
-      });
-      setSuccess('Stock mis à jour avec succès');
-      setStockForm({ produit_id: '', quantite: '' });
-      await loadStockEntrepot(selectedEntrepot.id);
+      await API.delete(`/entrepots/${deleteModal.id}`);
+      setSuccess(t('entrepot_supprime_succes'));
+      setDeleteModal({ open: false, id: null, nom: '' });
       loadEntrepots();
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur');
-    } finally {
-      setFormLoading(false);
-    }
-  };
-
-  const handleDeleteStock = async (produitId) => {
-    if (!window.confirm('Supprimer ce produit du stock ?')) return;
-    try {
-      await API.put(`/entrepots/${selectedEntrepot.id}/stock`, {
-        produit_id: produitId,
-        quantite: 0
-      });
-      setSuccess('Produit retiré du stock');
-      await loadStockEntrepot(selectedEntrepot.id);
-      loadEntrepots();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Erreur');
+      setError('Erreur');
     }
   };
 
   const columns = [
-    { key: 'nom', label: t('nom') },
-    { key: 'adresse', label: t('adresse') },
-    { key: 'responsable', label: 'Responsable' },
+    { key: 'nom', label: t('nom_entrepot') },
+    { key: 'adresse', label: t('adresse_entrepot') },
+    { key: 'capacite', label: t('capacite_stock') },
+    { key: 'gerant', label: t('gerant_entrepot') },
     {
       key: 'actif',
       label: t('statut'),
       render: (row) => (
         <Badge variant={row.actif ? 'success' : 'danger'}>
-          {row.actif ? t('actif') : t('inactif')}
+          {row.actif ? t('actif_entrepot') : t('inactif_entrepot')}
         </Badge>
       )
     }
   ];
 
-  const actions = [];
-  if (peutModifier) {
-    actions.push({
-      label: t('stock') || 'Stock',
+  const actions = [
+    {
+      label: t('voir_stock_entrepot'),
       variant: 'primary',
-      onClick: (row) => handleOpenStockModal(row)
-    });
-    actions.push({
+      onClick: (row) => navigate(`/entrepots/${row.id}/stock`)
+    },
+    ...(peutModifier ? [{
       label: t('modifier'),
-      variant: 'primary',
-      onClick: (row) => handleEdit(row)
-    });
-  }
-  if (peutSupprimer) {
-    actions.push({
+      variant: 'secondary',
+      onClick: (row) => handleOpenModal(row)
+    }] : []),
+    ...(peutModifier ? [{
+      label: row => row.actif ? t('inactif_entrepot') : t('actif_entrepot'),
+      variant: 'warning',
+      onClick: (row) => handleToggleActif(row.id, row.actif)
+    }] : []),
+    ...(peutSupprimer ? [{
       label: t('supprimer'),
       variant: 'danger',
-      onClick: (row) => handleDelete(row.id)
-    });
+      onClick: (row) => setDeleteModal({ open: true, id: row.id, nom: row.nom })
+    }] : [])
+  ];
+
+  if (loading && entrepots.length === 0) {
+    return <LoadingSpinner size="lg" text={t('chargement')} />;
   }
 
   return (
     <div>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>{t('gestion_entrepots') || 'Gestion des Entrepôts'}</h1>
-          <p style={styles.subtitle}>{t('gerer_entrepots') || 'Gérez vos entrepôts et leur stock'}</p>
+          <h1 style={styles.title}>{t('gestion_entrepots')}</h1>
+          <p style={styles.subtitle}>{t('entrepots_gerer')}</p>
         </div>
         <div style={styles.headerActions}>
           <Button variant="secondary" onClick={() => navigate('/dashboard')} icon="←">
             {t('retour')}
           </Button>
-          {peutCreer && (
-            <Button
-              variant="primary"
-              icon={showForm ? '✕' : '+'}
-              onClick={() => {
-                setShowForm(!showForm);
-                setEditingId(null);
-                setForm({ nom: '', adresse: '', responsable: '', actif: true });
-              }}
-            >
-              {showForm ? t('fermer') || 'Fermer' : t('nouvel_entrepot') || 'Nouvel entrepôt'}
+          {peutModifier && (
+            <Button variant="primary" onClick={() => handleOpenModal()} icon="+">
+              {t('ajouter_entrepot')}
             </Button>
           )}
         </div>
@@ -244,7 +177,7 @@ export default function Entrepots() {
 
       {error && (
         <div style={styles.errorContainer}>
-          <span>❌</span>
+          <span>X</span>
           <span style={styles.errorText}>{error}</span>
         </div>
       )}
@@ -255,143 +188,117 @@ export default function Entrepots() {
         </div>
       )}
 
-      {showForm && (
-        <Card title={editingId ? t('modifier_entrepot') || 'Modifier l\'entrepôt' : t('nouvel_entrepot') || 'Nouvel entrepôt'} variant="primary" style={{ marginBottom: '24px' }}>
-          <form onSubmit={handleSubmit}>
-            <div style={styles.formGrid}>
-              <Input
-                label={t('nom') + ' *'}
-                name="nom"
-                value={form.nom}
-                onChange={handleChange}
-                required
-                disabled={formLoading}
-              />
-              <Input
-                label={t('adresse')}
-                name="adresse"
-                value={form.adresse}
-                onChange={handleChange}
-                disabled={formLoading}
-              />
-              <Input
-                label="Responsable"
-                name="responsable"
-                value={form.responsable}
-                onChange={handleChange}
-                disabled={formLoading}
-              />
-              <div style={styles.checkboxGroup}>
-                <label style={styles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    name="actif"
-                    checked={form.actif}
-                    onChange={handleChange}
-                    disabled={formLoading}
-                  />
-                  <span>{t('actif')}</span>
-                </label>
-              </div>
-            </div>
-            <Button type="submit" variant="primary" loading={formLoading} fullWidth>
-              {editingId ? t('modifier') : t('creer')}
-            </Button>
-          </form>
+      {entrepots.length === 0 ? (
+        <EmptyState
+          title={t('aucun_entrepot')}
+          description={t('entrepots_gerer')}
+          action={peutModifier ? {
+            label: t('ajouter_entrepot'),
+            onClick: () => handleOpenModal()
+          } : null}
+        />
+      ) : (
+        <Card title={t('liste_entrepots')} variant="primary">
+          <Table columns={columns} data={entrepots} actions={actions} />
         </Card>
       )}
 
-      <Card title={t('liste_entrepots') || 'Liste des entrepôts'} variant="primary">
-        <Table columns={columns} data={entrepots} loading={loading} actions={actions} />
-      </Card>
-
-      {showStockModal && selectedEntrepot && (
-        <div style={styles.modalOverlay} onClick={() => setShowStockModal(false)}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h3 style={styles.modalTitle}>{t('gestion_stock')} - {selectedEntrepot.nom}</h3>
-
-            <form onSubmit={handleUpdateStock} style={styles.stockForm}>
-              <div style={styles.stockFormGrid}>
-                <select
-                  style={styles.select}
-                  name="produit_id"
-                  value={stockForm.produit_id}
-                  onChange={handleStockChange}
-                  required
-                  disabled={formLoading}
-                >
-                  <option value="">-- {t('choisir_produit') || 'Choisir un produit'} --</option>
-                  {produits.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.nom} ({t('prix')}: {p.prix} DT)
-                    </option>
-                  ))}
-                </select>
-                <input
-                  style={styles.input}
-                  type="number"
-                  name="quantite"
-                  placeholder={t('quantite')}
-                  value={stockForm.quantite}
-                  onChange={handleStockChange}
-                  required
-                  min="0"
-                  disabled={formLoading}
-                />
-                <Button type="submit" variant="success" loading={formLoading}>
-                  + {t('ajouter') || 'Ajouter'}
-                </Button>
-              </div>
-            </form>
-
-            <hr style={styles.modalHr} />
-
-            <h4>{t('stock_actuel') || 'Stock actuel'}</h4>
-            {loadingStock ? (
-              <LoadingSpinner size="md" text={t('chargement')} />
-            ) : stockList.length === 0 ? (
-              <EmptyState icon="📭" title={t('aucune_donnee')} description={t('stock_vide') || 'Cet entrepôt est vide.'} />
-            ) : (
-              <table style={styles.modalTable}>
-                <thead>
-                  <tr>
-                    <th>{t('produits')}</th>
-                    <th>{t('quantite')}</th>
-                    <th>{t('prix')}</th>
-                    <th>{t('actions')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stockList.map((item) => (
-                    <tr key={item.produit_id}>
-                      <td>{item.produit_nom}</td>
-                      <td style={{ fontWeight: 'bold', color: item.quantite > 0 ? '#065F46' : '#DC2626' }}>
-                        {item.quantite}
-                      </td>
-                      <td>{item.prix} DT</td>
-                      <td>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          onClick={() => handleDeleteStock(item.produit_id)}
-                        >
-                          {t('supprimer')}
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-
-            <div style={styles.modalActions}>
-              <Button variant="secondary" onClick={() => setShowStockModal(false)}>
-                {t('fermer') || 'Fermer'}
-              </Button>
+      {/* Modal Création/Modification */}
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editId ? t('modifier_entrepot_titre') : t('creer_entrepot_titre')}
+      >
+        <form onSubmit={handleSubmit}>
+          {error && (
+            <div style={styles.modalError}>
+              <span style={styles.errorText}>{error}</span>
+            </div>
+          )}
+          <div style={styles.modalGrid}>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>{t('nom_entrepot')} *</label>
+              <input
+                style={styles.input}
+                value={formData.nom}
+                onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                required
+                disabled={formLoading}
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>{t('adresse_entrepot')}</label>
+              <input
+                style={styles.input}
+                value={formData.adresse}
+                onChange={(e) => setFormData({ ...formData, adresse: e.target.value })}
+                disabled={formLoading}
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>{t('capacite_stock')}</label>
+              <input
+                style={styles.input}
+                type="number"
+                value={formData.capacite}
+                onChange={(e) => setFormData({ ...formData, capacite: e.target.value })}
+                disabled={formLoading}
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>{t('gerant_entrepot')}</label>
+              <input
+                style={styles.input}
+                value={formData.gerant}
+                onChange={(e) => setFormData({ ...formData, gerant: e.target.value })}
+                disabled={formLoading}
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>{t('statut')}</label>
+              <select
+                style={styles.select}
+                value={formData.actif ? 'true' : 'false'}
+                onChange={(e) => setFormData({ ...formData, actif: e.target.value === 'true' })}
+                disabled={formLoading}
+              >
+                <option value="true">{t('actif_entrepot')}</option>
+                <option value="false">{t('inactif_entrepot')}</option>
+              </select>
             </div>
           </div>
+          <div style={styles.modalActions}>
+            <Button variant="secondary" onClick={() => setModalOpen(false)} disabled={formLoading}>
+              {t('annuler')}
+            </Button>
+            <Button type="submit" variant="primary" loading={formLoading}>
+              {editId ? t('modifier') : t('creer')}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal Suppression */}
+      <Modal
+        open={deleteModal.open}
+        onClose={() => setDeleteModal({ open: false, id: null, nom: '' })}
+        title={t('supprimer')}
+        variant="danger"
+      >
+        <p>
+          {t('entrepot_supprime_confirmation')}
+          <br />
+          <strong>"{deleteModal.nom}"</strong>
+        </p>
+        <div style={styles.modalActions}>
+          <Button variant="secondary" onClick={() => setDeleteModal({ open: false, id: null, nom: '' })}>
+            {t('annuler')}
+          </Button>
+          <Button variant="danger" onClick={handleDelete}>
+            {t('supprimer')}
+          </Button>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }
@@ -430,15 +337,23 @@ const styles = {
     marginBottom: '16px',
   },
   successText: { color: '#065F46', fontSize: '13px', fontWeight: 500 },
-  formGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '16px' },
-  checkboxGroup: { display: 'flex', alignItems: 'center', marginBottom: '16px' },
-  checkboxLabel: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
+  modalError: {
+    backgroundColor: '#FEF2F2',
+    padding: '8px 12px',
+    borderRadius: '6px',
+    marginBottom: '12px',
+  },
+  modalGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' },
+  formGroup: { display: 'flex', flexDirection: 'column', gap: '4px' },
+  label: { fontSize: '13px', fontWeight: 600, color: '#334155' },
+  input: {
+    padding: '10px 14px',
+    borderRadius: '8px',
+    border: '2px solid #E2E8F0',
     fontSize: '14px',
-    color: '#334155',
-    cursor: 'pointer',
+    backgroundColor: '#F8FAFC',
+    outline: 'none',
+    transition: 'all 0.2s ease',
   },
   select: {
     padding: '10px 14px',
@@ -451,55 +366,10 @@ const styles = {
     outline: 'none',
     transition: 'all 0.2s ease',
   },
-  input: {
-    padding: '10px 14px',
-    borderRadius: '8px',
-    border: '2px solid #E2E8F0',
-    fontSize: '14px',
-    backgroundColor: '#F8FAFC',
-    outline: 'none',
-    transition: 'all 0.2s ease',
-  },
-  modalOverlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    backdropFilter: 'blur(4px)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-    padding: '20px',
-  },
-  modal: {
-    backgroundColor: '#FFFFFF',
-    padding: '30px',
-    borderRadius: '16px',
-    maxWidth: '700px',
-    width: '100%',
-    maxHeight: '90vh',
-    overflow: 'auto',
-  },
-  modalTitle: { margin: '0 0 16px', color: '#0F172A' },
-  modalHr: { margin: '16px 0', border: 'none', borderTop: '1px solid #E2E8F0' },
-  stockForm: { marginBottom: '16px' },
-  stockFormGrid: {
-    display: 'grid',
-    gridTemplateColumns: '2fr 1fr auto',
-    gap: '12px',
-    alignItems: 'end',
-  },
-  modalTable: {
-    width: '100%',
-    borderCollapse: 'collapse',
-  },
   modalActions: {
     display: 'flex',
-    gap: '12px',
-    marginTop: '16px',
     justifyContent: 'flex-end',
+    gap: '8px',
+    marginTop: '16px',
   },
 };

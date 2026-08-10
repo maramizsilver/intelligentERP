@@ -1,16 +1,15 @@
-// src/pages/stock/TransfertStock.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
-import Input from '../../components/common/Input';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 export default function TransfertStock() {
   const { hasPermission } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [entrepots, setEntrepots] = useState([]);
@@ -65,7 +64,7 @@ export default function TransfertStock() {
       const quantite = stock?.quantite || 0;
       setStockSource(quantite);
       if (quantite === 0) {
-        setError(' Ce produit n\'a pas de stock dans l\'entrepôt source sélectionné.');
+        setError(t('produit_sans_stock_source'));
       } else {
         setError('');
       }
@@ -83,19 +82,19 @@ export default function TransfertStock() {
 
     const quantite = Number(form.quantite);
     if (quantite <= 0) {
-      setError('La quantité doit être supérieure à 0');
+      setError(t('quantite_superieure_zero'));
       setLoading(false);
       return;
     }
     if (quantite > stockSource) {
-      setError(`Stock insuffisant. Disponible: ${stockSource}`);
+      setError(`${t('stock_insuffisant')}. ${t('stock_disponible')}: ${stockSource}`);
       setLoading(false);
       return;
     }
 
     try {
       await API.post('/entrepots/transfert', form);
-      setSuccess(' Transfert effectué avec succès');
+      setSuccess(t('transfert_effectue'));
       setForm({ produit_id: '', entrepot_source_id: '', entrepot_destination_id: '', quantite: '' });
       setStockSource(0);
       loadData();
@@ -110,11 +109,11 @@ export default function TransfertStock() {
     return (
       <div>
         <div style={styles.header}>
-          <h1 style={styles.title}> Accès refusé</h1>
-          <p style={styles.subtitle}>Vous n'avez pas la permission de transférer du stock.</p>
+          <h1 style={styles.title}>{t('acces_refuse_titre')}</h1>
+          <p style={styles.subtitle}>{t('pas_permission_transfert')}</p>
         </div>
         <Button variant="secondary" onClick={() => navigate('/dashboard')} icon="←">
-          Retour
+          {t('retour')}
         </Button>
       </div>
     );
@@ -124,32 +123,32 @@ export default function TransfertStock() {
     <div>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}> Transfert de stock</h1>
-          <p style={styles.subtitle}>Transférez du stock d'un entrepôt à un autre</p>
+          <h1 style={styles.title}>{t('transfert_stock_titre')}</h1>
+          <p style={styles.subtitle}>{t('transferer_stock_desc')}</p>
         </div>
         <Button variant="secondary" onClick={() => navigate('/dashboard')} icon="←">
-          Retour
+          {t('retour')}
         </Button>
       </div>
 
       {error && (
         <div style={styles.errorContainer}>
-          <span>❌</span>
+          <span>X</span>
           <span style={styles.errorText}>{error}</span>
         </div>
       )}
       {success && (
         <div style={styles.successContainer}>
-          <span>Done</span>
+          <span>✅</span>
           <span style={styles.successText}>{success}</span>
         </div>
       )}
 
-      <Card title=" Nouveau transfert" variant="primary">
+      <Card title={t('nouveau_transfert')} variant="primary">
         <form onSubmit={handleSubmit}>
           <div style={styles.formGrid}>
             <div style={styles.formGroup}>
-              <label style={styles.label}>Produit *</label>
+              <label style={styles.label}>{t('produits')} *</label>
               <select
                 style={styles.select}
                 name="produit_id"
@@ -158,17 +157,17 @@ export default function TransfertStock() {
                 required
                 disabled={loading}
               >
-                <option value="">-- Choisir un produit --</option>
+                <option value="">{t('choisir_produit_placeholder')}</option>
                 {produits.map(p => (
                   <option key={p.id} value={p.id}>
-                    {p.nom} (Stock total: {p.quantite_stock})
+                    {p.nom} ({t('stock')}: {p.quantite_stock})
                   </option>
                 ))}
               </select>
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Entrepôt source *</label>
+              <label style={styles.label}>{t('entrepot_source')}</label>
               <select
                 style={styles.select}
                 name="entrepot_source_id"
@@ -177,20 +176,20 @@ export default function TransfertStock() {
                 required
                 disabled={loading}
               >
-                <option value="">-- Source --</option>
+                <option value="">{t('source_placeholder')}</option>
                 {entrepots.filter(e => e.actif).map(e => (
                   <option key={e.id} value={e.id}>{e.nom}</option>
                 ))}
               </select>
               {form.entrepot_source_id && form.produit_id && (
                 <span style={{ ...styles.stockInfo, color: stockSource > 0 ? '#0EA5E9' : '#DC2626' }}>
-                  Stock disponible: {stockSource} {stockSource === 0 && ' Aucun stock'}
+                  {t('stock_disponible')}: {stockSource} {stockSource === 0 && `X ${t('aucun_stock')}`}
                 </span>
               )}
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Entrepôt destination *</label>
+              <label style={styles.label}>{t('entrepot_destination')}</label>
               <select
                 style={styles.select}
                 name="entrepot_destination_id"
@@ -199,7 +198,7 @@ export default function TransfertStock() {
                 required
                 disabled={loading}
               >
-                <option value="">-- Destination --</option>
+                <option value="">{t('destination_placeholder')}</option>
                 {entrepots
                   .filter(e => e.actif && e.id !== parseInt(form.entrepot_source_id))
                   .map(e => (
@@ -209,12 +208,12 @@ export default function TransfertStock() {
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Quantité *</label>
+              <label style={styles.label}>{t('quantite')} *</label>
               <input
                 style={styles.input}
                 type="number"
                 name="quantite"
-                placeholder="Quantité"
+                placeholder={t('quantite')}
                 value={form.quantite}
                 onChange={handleChange}
                 required
@@ -223,7 +222,7 @@ export default function TransfertStock() {
                 disabled={loading || stockSource === 0}
               />
               {stockSource === 0 && (
-                <span style={styles.warningText}>Ajoutez du stock dans l'entrepôt source d'abord</span>
+                <span style={styles.warningText}>{t('ajoutez_stock_source')}</span>
               )}
             </div>
           </div>
@@ -235,7 +234,7 @@ export default function TransfertStock() {
             disabled={stockSource === 0}
             fullWidth
           >
-            {loading ? 'Transfert en cours...' : ' Effectuer le transfert'}
+            {loading ? t('transfert_en_cours') : t('effectuer_transfert')}
           </Button>
         </form>
       </Card>
@@ -289,10 +288,6 @@ const styles = {
     boxSizing: 'border-box',
     outline: 'none',
     transition: 'all 0.2s ease',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
   },
   input: {
     padding: '10px 14px',
@@ -302,10 +297,6 @@ const styles = {
     backgroundColor: '#F8FAFC',
     outline: 'none',
     transition: 'all 0.2s ease',
-    ':focus': {
-      borderColor: '#0EA5E9',
-      boxShadow: '0 0 0 3px rgba(14, 165, 233, 0.15)',
-    },
   },
   stockInfo: { display: 'block', fontSize: '12px', marginTop: '4px' },
   warningText: { display: 'block', fontSize: '12px', color: '#DC2626', marginTop: '4px' },

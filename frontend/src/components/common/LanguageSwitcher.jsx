@@ -1,86 +1,122 @@
-import React from 'react';
+// src/components/common/LanguageSwitcher.jsx
+import React, { useState, useRef, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 
-const FLAGS = {
-  fr: '🇫🇷',
-  en: '🇬🇧',
-  ar: '🇸🇦'
-};
+const LANGUAGES = [
+  { code: 'fr', label: 'Français', flag: '🇫🇷' },
+  { code: 'en', label: 'English', flag: '🇬🇧' },
+  { code: 'ar', label: 'العربية', flag: '🇸🇦' },
+];
 
-export default function LanguageSwitcher({ variant = 'default', className = '' }) {
+export default function LanguageSwitcher({ variant = 'default' }) {
   const { language, changeLanguage } = useLanguage();
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
 
-  const languages = [
-    { code: 'fr', label: 'Français' },
-    { code: 'en', label: 'English' },
-    { code: 'ar', label: 'العربية' }
-  ];
-
-  const getStyles = () => {
-    if (variant === 'dark') {
-      return {
-        container: {
-          backgroundColor: 'rgba(255,255,255,0.05)',
-          border: '1px solid rgba(255,255,255,0.08)',
-        },
-        button: {
-          color: 'rgba(255,255,255,0.6)',
-        },
-        buttonActive: {
-          backgroundColor: 'rgba(255,255,255,0.1)',
-          color: '#FFFFFF',
-        },
-      };
-    }
-    return {
-      container: {
-        backgroundColor: '#F1F5F9',
-        border: '1px solid #E2E8F0',
-      },
-      button: {
-        color: '#64748B',
-      },
-      buttonActive: {
-        backgroundColor: '#FFFFFF',
-        color: '#0F172A',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-      },
+  useEffect(() => {
+    const onClick = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     };
-  };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, []);
 
-  const styles = getStyles();
+  const current = LANGUAGES.find((l) => l.code === language) || LANGUAGES[0];
+  const dark = variant === 'dark';
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        gap: '4px',
-        padding: '4px',
-        borderRadius: '10px',
-        transition: 'all 0.3s ease',
-        ...styles.container,
-      }}
-      className={className}
-    >
-      {languages.map(lang => (
-        <button
-          key={lang.code}
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '7px 12px',
+          borderRadius: '10px',
+          border: dark ? '1px solid rgba(255,255,255,0.12)' : '1px solid #E2E8F0',
+          backgroundColor: dark ? 'rgba(255,255,255,0.06)' : '#FFFFFF',
+          color: dark ? '#FFFFFF' : '#0F172A',
+          cursor: 'pointer',
+          fontSize: '13px',
+          fontWeight: 600,
+          transition: 'all 0.2s ease',
+          boxShadow: open ? '0 0 0 3px rgba(14,165,233,0.15)' : 'none',
+        }}
+      >
+        <span style={{ fontSize: '16px' }}>{current.flag}</span>
+        <span>{current.code.toUpperCase()}</span>
+        <span
           style={{
-            padding: '6px 12px',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '13px',
-            fontWeight: language === lang.code ? 600 : 500,
-            transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-            ...styles.button,
-            ...(language === lang.code ? styles.buttonActive : {}),
+            fontSize: '10px',
+            marginLeft: '2px',
+            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s ease',
+            color: dark ? 'rgba(255,255,255,0.5)' : '#94A3B8',
           }}
-          onClick={() => changeLanguage(lang.code)}
         >
-          {FLAGS[lang.code]} {lang.label}
-        </button>
-      ))}
+          ▼
+        </span>
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 6px)',
+            right: 0,
+            minWidth: '170px',
+            backgroundColor: '#FFFFFF',
+            borderRadius: '12px',
+            border: '1px solid #E2E8F0',
+            boxShadow: '0 10px 30px rgba(15,23,42,0.12)',
+            overflow: 'hidden',
+            zIndex: 2000,
+            animation: 'langMenuIn 0.15s ease',
+          }}
+        >
+          {LANGUAGES.map((lang) => {
+            const active = lang.code === language;
+            return (
+              <button
+                key={lang.code}
+                onClick={() => {
+                  changeLanguage(lang.code);
+                  setOpen(false);
+                }}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '10px 14px',
+                  border: 'none',
+                  background: active ? '#F0F9FF' : 'transparent',
+                  color: active ? '#0EA5E9' : '#334155',
+                  fontSize: '13px',
+                  fontWeight: active ? 600 : 500,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'background 0.15s ease',
+                }}
+                onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = '#F8FAFC'; }}
+                onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+              >
+                <span style={{ fontSize: '17px' }}>{lang.flag}</span>
+                <span style={{ flex: 1 }}>{lang.label}</span>
+                {active && <span style={{ color: '#0EA5E9' }}>✓</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <style>{`
+        @keyframes langMenuIn {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
