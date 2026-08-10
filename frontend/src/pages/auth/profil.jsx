@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 
 export default function Profil() {
   const { user, updateUser } = useAuth();
+  const { t } = useLanguage();
   const [form, setForm] = useState({
     nom: '',
     prenom: '',
@@ -49,10 +51,10 @@ export default function Profil() {
     try {
       const res = await API.put('/users/profil', form);
       updateUser(res.data.user);
-      setMessage({ type: 'success', text: 'Profil mis à jour avec succès' });
+      setMessage({ type: 'success', text: t('profil_mis_a_jour') || 'Profil mis à jour avec succès' });
       setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     } catch (err) {
-      setMessage({ type: 'error', text: err.response?.data?.message || 'Erreur lors de la mise à jour' });
+      setMessage({ type: 'error', text: err.response?.data?.message || t('erreur_mise_a_jour_profil') || 'Erreur lors de la mise à jour' });
     } finally {
       setLoading(false);
     }
@@ -63,11 +65,11 @@ export default function Profil() {
     setMessage({ type: '', text: '' });
 
     if (passwordForm.new.length < 8) {
-      setMessage({ type: 'error', text: 'Le mot de passe doit contenir au moins 8 caractères' });
+      setMessage({ type: 'error', text: t('mot_de_passe_min_8') || 'Le mot de passe doit contenir au moins 8 caractères' });
       return;
     }
     if (passwordForm.new !== passwordForm.confirm) {
-      setMessage({ type: 'error', text: 'Les mots de passe ne correspondent pas' });
+      setMessage({ type: 'error', text: t('mots_de_passe_correspondent_pas') || 'Les mots de passe ne correspondent pas' });
       return;
     }
 
@@ -77,11 +79,11 @@ export default function Profil() {
         currentPassword: passwordForm.current,
         newPassword: passwordForm.new
       });
-      setMessage({ type: 'success', text: 'Mot de passe changé avec succès' });
+      setMessage({ type: 'success', text: t('mot_de_passe_change') || 'Mot de passe changé avec succès' });
       setPasswordForm({ current: '', new: '', confirm: '' });
       setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     } catch (err) {
-      setMessage({ type: 'error', text: err.response?.data?.message || 'Erreur' });
+      setMessage({ type: 'error', text: err.response?.data?.message || t('erreur_changement_mot_de_passe') || 'Erreur' });
     } finally {
       setLoading(false);
     }
@@ -89,8 +91,8 @@ export default function Profil() {
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.title}>Mon profil</h1>
-      <p style={styles.subtitle}>{user?.entreprise_nom} · {user?.role_nom || 'Utilisateur'}</p>
+      <h1 style={styles.title}>{t('mon_profil') || 'Mon profil'}</h1>
+      <p style={styles.subtitle}>{user?.entreprise_nom} · {user?.role_nom || t('utilisateur') || 'Utilisateur'}</p>
 
       {message.text && (
         <div style={{
@@ -102,71 +104,81 @@ export default function Profil() {
         </div>
       )}
 
-      <Card title="Informations personnelles" variant="primary">
+      <Card title={t('informations_personnelles') || 'Informations personnelles'} variant="primary">
         <form onSubmit={handleSubmit}>
           <div style={styles.row}>
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Nom *</label>
+              <label style={styles.label}>{t('nom')} *</label>
               <input style={styles.input} value={form.nom} onChange={(e) => setForm({...form, nom: e.target.value})} required disabled={loading} />
             </div>
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Prénom *</label>
+              <label style={styles.label}>{t('prenom')} *</label>
               <input style={styles.input} value={form.prenom} onChange={(e) => setForm({...form, prenom: e.target.value})} required disabled={loading} />
             </div>
           </div>
 
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Email</label>
+            <label style={styles.label}>{t('email')}</label>
             <input style={{...styles.input, backgroundColor: '#F1F5F9'}} value={form.email} disabled />
-            <span style={styles.helpText}>L'email ne peut pas être modifié</span>
+            <span style={styles.helpText}>{t('email_non_modifiable') || "L'email ne peut pas être modifié"}</span>
           </div>
 
           <div style={styles.row}>
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Téléphone</label>
+              <label style={styles.label}>{t('telephone') || 'Téléphone'}</label>
               <input style={styles.input} value={form.telephone} onChange={(e) => setForm({...form, telephone: e.target.value})} placeholder="+216 XX XXX XXX" disabled={loading} />
             </div>
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Matricule</label>
-              <input style={styles.input} value={form.matricule} onChange={(e) => setForm({...form, matricule: e.target.value})} placeholder="Matricule interne" disabled={loading} />
+              <label style={styles.label}>{t('matricule') || 'Matricule'}</label>
+              <input style={styles.input} value={form.matricule} onChange={(e) => setForm({...form, matricule: e.target.value})} placeholder={t('matricule') || 'Matricule interne'} disabled={loading} />
             </div>
           </div>
 
           <div style={styles.row}>
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Fonction</label>
-              <input style={styles.input} value={form.fonction} onChange={(e) => setForm({...form, fonction: e.target.value})} placeholder="Responsable Commercial" disabled={loading} />
+              <label style={styles.label}>{t('fonction') || 'Fonction'}</label>
+              <input style={styles.input} value={form.fonction} onChange={(e) => setForm({...form, fonction: e.target.value})} placeholder={t('fonction') || 'Responsable Commercial'} disabled={loading} />
             </div>
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Service</label>
-              <input style={styles.input} value={form.service} onChange={(e) => setForm({...form, service: e.target.value})} placeholder="Commercial, RH, IT..." disabled={loading} />
+              <label style={styles.label}>{t('service') || 'Service'}</label>
+              <input style={styles.input} value={form.service} onChange={(e) => setForm({...form, service: e.target.value})} placeholder={t('service') || 'Commercial, RH, IT...'} disabled={loading} />
             </div>
           </div>
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Département</label>
-            <input style={styles.input} value={form.departement} onChange={(e) => setForm({...form, departement: e.target.value})} placeholder="Direction Commerciale" disabled={loading} />
+          <div style={styles.row}>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>{t('poste') || 'Poste'}</label>
+              <input style={styles.input} value={form.poste} onChange={(e) => setForm({...form, poste: e.target.value})} placeholder={t('poste') || 'Responsable Commercial'} disabled={loading} />
+            </div>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>{t('departement') || 'Département'}</label>
+              <input style={styles.input} value={form.departement} onChange={(e) => setForm({...form, departement: e.target.value})} placeholder={t('departement') || 'Direction Commerciale'} disabled={loading} />
+            </div>
           </div>
 
-          <Button type="submit" variant="primary" loading={loading}>Enregistrer</Button>
+          <Button type="submit" variant="primary" loading={loading}>
+            {t('enregistrer') || 'Enregistrer'}
+          </Button>
         </form>
       </Card>
 
-      <Card title="Changer mon mot de passe" variant="primary" style={{ marginTop: '24px' }}>
+      <Card title={t('changer_mot_de_passe') || 'Changer mon mot de passe'} variant="primary" style={{ marginTop: '24px' }}>
         <form onSubmit={handlePasswordSubmit}>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Mot de passe actuel</label>
+            <label style={styles.label}>{t('mot_de_passe_actuel') || 'Mot de passe actuel'}</label>
             <input style={styles.input} type="password" value={passwordForm.current} onChange={(e) => setPasswordForm({...passwordForm, current: e.target.value})} required disabled={loading} placeholder="••••••••" />
           </div>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Nouveau mot de passe</label>
-            <input style={styles.input} type="password" value={passwordForm.new} onChange={(e) => setPasswordForm({...passwordForm, new: e.target.value})} required disabled={loading} placeholder="Minimum 8 caractères" minLength={8} />
+            <label style={styles.label}>{t('nouveau_mot_de_passe') || 'Nouveau mot de passe'}</label>
+            <input style={styles.input} type="password" value={passwordForm.new} onChange={(e) => setPasswordForm({...passwordForm, new: e.target.value})} required disabled={loading} placeholder={t('mot_de_passe_min_8') || 'Minimum 8 caractères'} minLength={8} />
           </div>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Confirmer</label>
-            <input style={styles.input} type="password" value={passwordForm.confirm} onChange={(e) => setPasswordForm({...passwordForm, confirm: e.target.value})} required disabled={loading} placeholder="Confirmer le mot de passe" />
+            <label style={styles.label}>{t('confirmer_mot_de_passe') || 'Confirmer'}</label>
+            <input style={styles.input} type="password" value={passwordForm.confirm} onChange={(e) => setPasswordForm({...passwordForm, confirm: e.target.value})} required disabled={loading} placeholder={t('confirmer_mot_de_passe') || 'Confirmer le mot de passe'} />
           </div>
-          <Button type="submit" variant="danger" loading={loading}>Changer le mot de passe</Button>
+          <Button type="submit" variant="danger" loading={loading}>
+            {t('changer_mot_de_passe') || 'Changer le mot de passe'}
+          </Button>
         </form>
       </Card>
     </div>

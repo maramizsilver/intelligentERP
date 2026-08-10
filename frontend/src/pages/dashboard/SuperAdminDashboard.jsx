@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
@@ -11,14 +12,14 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 export default function SuperAdminDashboard() {
   const { user, logout } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [entreprises, setEntreprises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [busyId, setBusyId] = useState(null);
-  
-  // État pour le déverrouillage
+
   const [unlockUserId, setUnlockUserId] = useState('');
   const [unlockLoading, setUnlockLoading] = useState(false);
   const [unlockMessage, setUnlockMessage] = useState('');
@@ -30,7 +31,7 @@ export default function SuperAdminDashboard() {
       const res = await API.get('/entreprises');
       setEntreprises(res.data.entreprises || []);
     } catch (err) {
-      setError('Impossible de charger les entreprises');
+      setError(t('impossible_charger_entreprises') || 'Impossible de charger les entreprises');
     } finally {
       setLoading(false);
     }
@@ -42,33 +43,33 @@ export default function SuperAdminDashboard() {
       await API.put(`/entreprises/${id}/valider`);
       load();
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur');
+      setError(err.response?.data?.message || t('erreur_validation') || 'Erreur');
     } finally {
       setBusyId(null);
     }
   };
 
   const suspendre = async (id) => {
-    if (!window.confirm('Suspendre cette entreprise ?')) return;
+    if (!window.confirm(t('confirmation_suspension') || 'Suspendre cette entreprise ?')) return;
     setBusyId(id);
     try {
       await API.put(`/entreprises/${id}/suspendre`);
       load();
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur');
+      setError(err.response?.data?.message || t('erreur_suspension') || 'Erreur');
     } finally {
       setBusyId(null);
     }
   };
 
   const passerEnPayant = async (id) => {
-    if (!window.confirm('Faire passer cette entreprise en abonnement payant ?')) return;
+    if (!window.confirm(t('confirmation_passage_payant') || 'Faire passer cette entreprise en abonnement payant ?')) return;
     setBusyId(id);
     try {
       await API.put(`/entreprises/${id}/passer-payant`);
       load();
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur');
+      setError(err.response?.data?.message || t('erreur_passage_payant') || 'Erreur');
     } finally {
       setBusyId(null);
     }
@@ -76,38 +77,37 @@ export default function SuperAdminDashboard() {
 
   const handleDelete = async (id) => {
     const entreprise = entreprises.find(e => e.id === id);
-    if (!window.confirm(
-      `Supprimer definitivement "${entreprise?.nom}" ?\n\n` +
-      `Cette action est irreversible et supprimera :\n` +
-      `- Toutes les donnees de l'entreprise\n` +
-      `- La base de donnees complete\n` +
-      `- Tous les comptes utilisateurs\n` +
-      `- Toutes les sessions actives\n\n` +
-      `Etes-vous sur ?`
-    )) return;
+    const msg = `${t('confirmation_suppression_entreprise') || 'Supprimer définitivement'} "${entreprise?.nom}" ?\n\n` +
+      `${t('suppression_irreversible') || 'Cette action est irréversible et supprimera :'}\n` +
+      `${t('suppression_donnees_entreprise') || '- Toutes les données de l\'entreprise'}\n` +
+      `${t('suppression_base_donnees') || '- La base de données complète'}\n` +
+      `${t('suppression_comptes') || '- Tous les comptes utilisateurs'}\n` +
+      `${t('suppression_sessions') || '- Toutes les sessions actives'}\n\n` +
+      `${t('etes_vous_sur') || 'Êtes-vous sûr ?'}`;
+
+    if (!window.confirm(msg)) return;
 
     try {
       setBusyId(id);
       await API.delete(`/entreprises/${id}`);
-      setSuccess(`Entreprise "${entreprise?.nom}" supprimee`);
+      setSuccess(`${t('entreprise_supprimee') || 'Entreprise supprimée'} "${entreprise?.nom}"`);
       load();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur lors de la suppression');
+      setError(err.response?.data?.message || t('erreur_suppression_entreprise') || 'Erreur lors de la suppression');
       setTimeout(() => setError(''), 3000);
     } finally {
       setBusyId(null);
     }
   };
 
-  // Fonction de déverrouillage
   const handleUnlockAccount = async () => {
     if (!unlockUserId) {
-      setUnlockMessage('❌ Veuillez entrer un ID utilisateur');
+      setUnlockMessage(t('entrer_id_utilisateur') || 'Veuillez entrer un ID utilisateur');
       return;
     }
 
-    if (!window.confirm(`Voulez-vous déverrouiller le compte utilisateur ${unlockUserId} ?`)) {
+    if (!window.confirm(`${t('deverrouiller_compte') || 'Déverrouiller le compte'} ${unlockUserId} ?`)) {
       return;
     }
 
@@ -115,19 +115,19 @@ export default function SuperAdminDashboard() {
     setUnlockMessage('');
     try {
       await API.post(`/auth/account/unlock/${unlockUserId}`);
-      setUnlockMessage(`✅ Compte ${unlockUserId} déverrouillé avec succès`);
+      setUnlockMessage(t('compte_deverrouille') || 'Compte déverrouillé avec succès');
       setUnlockUserId('');
     } catch (err) {
-      setUnlockMessage(`❌ Erreur: ${err.response?.data?.message || err.message}`);
+      setUnlockMessage(t('erreur_deverrouillage') || 'Erreur lors du déverrouillage');
     } finally {
       setUnlockLoading(false);
     }
   };
 
   const statutInfo = {
-    en_attente: { label: 'En attente', variant: 'warning' },
-    actif: { label: 'Actif', variant: 'success' },
-    suspendu: { label: 'Suspendu', variant: 'danger' }
+    en_attente: { label: t('en_attente') || 'En attente', variant: 'warning' },
+    actif: { label: t('actif') || 'Actif', variant: 'success' },
+    suspendu: { label: t('suspendu') || 'Suspendu', variant: 'danger' }
   };
 
   const compteurs = entreprises.reduce((acc, e) => {
@@ -136,25 +136,25 @@ export default function SuperAdminDashboard() {
   }, {});
 
   const columns = [
-    { key: 'nom', label: 'Entreprise' },
-    { key: 'email', label: 'Email' },
+    { key: 'nom', label: t('entreprise') || 'Entreprise' },
+    { key: 'email', label: t('email') },
     {
       key: 'date_inscription',
-      label: 'Inscrite le',
+      label: t('date_inscription') || 'Inscrite le',
       render: (row) => new Date(row.date_inscription).toLocaleDateString('fr-FR')
     },
     {
       key: 'plan_type',
-      label: 'Plan',
+      label: t('plan') || 'Plan',
       render: (row) => (
         <Badge variant={row.plan_type === 'payant' ? 'secondary' : 'primary'}>
-          {row.plan_type === 'payant' ? 'Payant' : `Essai (${row.connexions_utilisees}/${row.limite_connexions_essai})`}
+          {row.plan_type === 'payant' ? (t('plan_payant') || 'Payant') : `${t('plan_essai') || 'Essai'} (${row.connexions_utilisees}/${row.limite_connexions_essai})`}
         </Badge>
       )
     },
     {
       key: 'statut',
-      label: 'Statut',
+      label: t('statut_entreprise') || 'Statut',
       render: (row) => {
         const info = statutInfo[row.statut] || { label: row.statut, variant: 'outline' };
         return <Badge variant={info.variant}>{info.label}</Badge>;
@@ -164,55 +164,57 @@ export default function SuperAdminDashboard() {
 
   const actions = [
     {
-      label: 'Valider',
+      label: t('valider_entreprise') || 'Valider',
       variant: 'success',
       onClick: (row) => valider(row.id),
       disabled: (row) => row.statut === 'actif' || busyId === row.id
     },
     {
-      label: 'Suspendre',
+      label: t('suspendre_entreprise') || 'Suspendre',
       variant: 'danger',
       onClick: (row) => suspendre(row.id),
       disabled: (row) => row.statut === 'suspendu' || busyId === row.id
     },
     {
-      label: 'Passer payant',
+      label: t('passer_payant') || 'Passer payant',
       variant: 'secondary',
       onClick: (row) => passerEnPayant(row.id),
       disabled: (row) => row.plan_type === 'payant' || busyId === row.id
     },
     {
-      label: 'Supprimer',
+      label: t('supprimer_entreprise') || 'Supprimer',
       variant: 'danger',
       onClick: (row) => handleDelete(row.id),
       disabled: (row) => busyId === row.id
     }
   ];
 
-  if (loading) return <LoadingSpinner size="lg" text="Chargement..." />;
+  if (loading) return <LoadingSpinner size="lg" text={t('chargement') || 'Chargement...'} />;
 
   return (
     <div>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>Plateforme SuperAdmin</h1>
-          <p style={styles.subtitle}>Bonjour {user?.prenom}, voici les entreprises inscrites.</p>
+          <h1 style={styles.title}>{t('superadmin_dashboard') || 'Plateforme SuperAdmin'}</h1>
+          <p style={styles.subtitle}>
+            {t('bonjour') || 'Bonjour'} {user?.prenom}, {t('entreprises_inscrites') || 'voici les entreprises inscrites.'}
+          </p>
         </div>
         <div style={styles.headerActions}>
           <Button variant="secondary" onClick={() => navigate('/superadmin/audit')}>
-            Audit
+            {t('audit') || 'Audit'}
           </Button>
           <Button variant="secondary" onClick={() => navigate('/superadmin/abonnements')}>
-            Abonnements
+            {t('abonnements') || 'Abonnements'}
           </Button>
           <Button variant="secondary" onClick={() => navigate('/superadmin/backup')}>
-            Sauvegarde
+            {t('sauvegarde') || 'Sauvegarde'}
           </Button>
           <Button variant="secondary" onClick={() => navigate('/superadmin/sessions')}>
-            Sessions
+            {t('sessions') || 'Sessions'}
           </Button>
           <Button variant="danger" onClick={logout}>
-            Deconnexion
+            {t('deconnexion_superadmin') || 'Déconnexion'}
           </Button>
         </div>
       </div>
@@ -231,33 +233,32 @@ export default function SuperAdminDashboard() {
       <div style={styles.statsRow}>
         <div style={{ ...styles.statCard, borderLeft: '4px solid #F59E0B' }}>
           <span style={styles.statNumber}>{compteurs.en_attente || 0}</span>
-          <span style={styles.statLabel}>En attente de validation</span>
+          <span style={styles.statLabel}>{t('en_attente_validation') || 'En attente de validation'}</span>
         </div>
         <div style={{ ...styles.statCard, borderLeft: '4px solid #22C55E' }}>
           <span style={styles.statNumber}>{compteurs.actif || 0}</span>
-          <span style={styles.statLabel}>Actives</span>
+          <span style={styles.statLabel}>{t('actives') || 'Actives'}</span>
         </div>
         <div style={{ ...styles.statCard, borderLeft: '4px solid #EF4444' }}>
           <span style={styles.statNumber}>{compteurs.suspendu || 0}</span>
-          <span style={styles.statLabel}>Suspendues</span>
+          <span style={styles.statLabel}>{t('suspendues') || 'Suspendues'}</span>
         </div>
         <div style={{ ...styles.statCard, borderLeft: '4px solid #8B5CF6' }}>
           <span style={styles.statNumber}>{entreprises.length}</span>
-          <span style={styles.statLabel}>Total entreprises</span>
+          <span style={styles.statLabel}>{t('total_entreprises') || 'Total entreprises'}</span>
         </div>
       </div>
 
-      {/* SECTION DE DÉVERROUILLAGE - AJOUTÉE */}
-      <Card title="🔓 Déverrouiller un compte" variant="primary">
+      <Card title={t('deverrouiller_compte') || 'Déverrouiller un compte'} variant="primary">
         <div style={styles.unlockContainer}>
           <div style={styles.unlockRow}>
             <div style={styles.unlockInputGroup}>
-              <label style={styles.unlockLabel}>ID Utilisateur :</label>
+              <label style={styles.unlockLabel}>{t('id_utilisateur') || 'ID Utilisateur'}</label>
               <input
                 type="number"
                 value={unlockUserId}
                 onChange={(e) => setUnlockUserId(e.target.value)}
-                placeholder="Entrez l'ID de l'utilisateur"
+                placeholder={t('entrer_id_utilisateur') || "Entrez l'ID de l'utilisateur"}
                 style={styles.unlockInput}
                 disabled={unlockLoading}
               />
@@ -271,33 +272,33 @@ export default function SuperAdminDashboard() {
                 cursor: (unlockLoading || !unlockUserId) ? 'not-allowed' : 'pointer'
               }}
             >
-              {unlockLoading ? 'Déverrouillage...' : '🔓 Déverrouiller'}
+              {unlockLoading ? (t('deverrouillage_en_cours') || 'Déverrouillage...') : (t('deverrouiller') || 'Déverrouiller')}
             </button>
           </div>
           {unlockMessage && (
             <div style={{
               ...styles.unlockMessage,
-              backgroundColor: unlockMessage.includes('✅') ? '#D1FAE5' : '#FEE2E2',
-              color: unlockMessage.includes('✅') ? '#065F46' : '#991B1B',
+              backgroundColor: unlockMessage.includes('succès') || unlockMessage.includes('success') ? '#D1FAE5' : '#FEE2E2',
+              color: unlockMessage.includes('succès') || unlockMessage.includes('success') ? '#065F46' : '#991B1B',
             }}>
               {unlockMessage}
             </div>
           )}
           <div style={styles.unlockHelp}>
             <small style={styles.unlockHelpText}>
-              💡 Astuce : Pour connaître l'ID d'un utilisateur, allez dans "Sessions" ou vérifiez dans la base de données.
+              {t('astuce_id') || '💡 Astuce : Pour connaître l\'ID d\'un utilisateur, allez dans "Sessions" ou vérifiez dans la base de données.'}
             </small>
           </div>
         </div>
       </Card>
 
-      <Card title="Liste des entreprises" variant="primary">
+      <Card title={t('liste_entreprises') || 'Liste des entreprises'} variant="primary">
         <Table
           columns={columns}
           data={entreprises}
           loading={loading}
           actions={actions}
-          emptyMessage="Aucune entreprise inscrite pour le moment."
+          emptyMessage={t('aucune_entreprise') || 'Aucune entreprise inscrite pour le moment.'}
         />
       </Card>
     </div>
@@ -383,7 +384,6 @@ const styles = {
     fontSize: '13px',
     marginTop: '4px',
   },
-  // Styles pour le déverrouillage
   unlockContainer: {
     display: 'flex',
     flexDirection: 'column',

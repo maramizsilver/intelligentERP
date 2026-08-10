@@ -1,11 +1,14 @@
 // src/pages/auth/Register.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
+import LanguageSwitcher from '../../components/common/LanguageSwitcher';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 
 export default function Register() {
+  const { t } = useLanguage();
   const [form, setForm] = useState({
     entreprise_nom: '',
     nom: '',
@@ -28,16 +31,14 @@ export default function Register() {
     setLoading(true);
 
     if (form.password.length < 8) {
-      setError('Le mot de passe doit contenir au moins 8 caractères');
+      setError(t('mot_de_passe_min_8') || 'Le mot de passe doit contenir au moins 8 caractères');
       setLoading(false);
       return;
     }
 
     try {
-      // 1. Inscription de l'entreprise
       const response = await API.post('/auth/register-entreprise', form);
 
-      // 2. Si plan payant, rediriger vers paiement
       if (form.plan_type === 'payant') {
         const paiementResponse = await API.post('/paiement/create-abonnement', {
           email: form.email,
@@ -46,22 +47,20 @@ export default function Register() {
         });
 
         if (paiementResponse.data.success) {
-          // Rediriger vers Stripe
           window.location.href = paiementResponse.data.paymentUrl;
           return;
         } else {
-          setError(paiementResponse.data.message || 'Erreur lors de la creation du paiement');
+          setError(paiementResponse.data.message || t('erreur_paiement') || 'Erreur lors de la création du paiement');
           setLoading(false);
           return;
         }
       }
 
-      // 3. Plan gratuit : succès
-      setSuccess('Inscription reussie ! Verifiez votre email pour activer votre compte.');
+      setSuccess(t('inscription_reussie') || 'Inscription réussie ! Vérifiez votre email pour activer votre compte.');
       setTimeout(() => navigate('/'), 4000);
     } catch (err) {
       const apiErrors = err.response?.data?.errors;
-      setError(apiErrors ? apiErrors.join(', ') : (err.response?.data?.message || 'Erreur lors de l\'inscription'));
+      setError(apiErrors ? apiErrors.join(', ') : (err.response?.data?.message || t('erreur_inscription') || 'Erreur lors de l\'inscription'));
     } finally {
       setLoading(false);
     }
@@ -75,12 +74,16 @@ export default function Register() {
       </div>
 
       <div style={styles.card}>
+        <div style={styles.topBar}>
+          <LanguageSwitcher />
+        </div>
+
         <div style={styles.header}>
           <div style={styles.logoWrapper}>
             <div style={styles.logoIcon}>🏢</div>
           </div>
-          <h1 style={styles.title}>Créer mon compte</h1>
-          <p style={styles.subtitle}>Inscrivez votre entreprise en quelques minutes</p>
+          <h1 style={styles.title}>{t('creer_mon_compte') || 'Créer mon compte'}</h1>
+          <p style={styles.subtitle}>{t('inscrire_entreprise') || 'Inscrivez votre entreprise en quelques minutes'}</p>
         </div>
 
         {error && (
@@ -97,10 +100,10 @@ export default function Register() {
         <form onSubmit={handleSubmit} style={styles.form}>
           <div style={styles.section}>
             <div style={styles.sectionHeader}>
-              <span style={styles.sectionTitle}>Informations de l'entreprise</span>
+              <span style={styles.sectionTitle}>{t('infos_entreprise') || "Informations de l'entreprise"}</span>
             </div>
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Nom de l'entreprise</label>
+              <label style={styles.label}>{t('nom_entreprise') || "Nom de l'entreprise"}</label>
               <input
                 style={styles.input}
                 name="entreprise_nom"
@@ -116,27 +119,27 @@ export default function Register() {
 
           <div style={styles.section}>
             <div style={styles.sectionHeader}>
-              <span style={styles.sectionTitle}>Compte administrateur</span>
+              <span style={styles.sectionTitle}>{t('compte_administrateur') || 'Compte administrateur'}</span>
             </div>
 
             <div style={styles.row}>
               <div style={{ ...styles.inputGroup, flex: 1 }}>
-                <label style={styles.label}>Nom</label>
+                <label style={styles.label}>{t('nom')}</label>
                 <input
                   style={styles.input}
                   name="nom"
-                  placeholder="Dupont"
+                  placeholder={t('nom')}
                   onChange={handleChange}
                   required
                   disabled={loading}
                 />
               </div>
               <div style={{ ...styles.inputGroup, flex: 1 }}>
-                <label style={styles.label}>Prénom</label>
+                <label style={styles.label}>{t('prenom')}</label>
                 <input
                   style={styles.input}
                   name="prenom"
-                  placeholder="Jean"
+                  placeholder={t('prenom')}
                   onChange={handleChange}
                   required
                   disabled={loading}
@@ -145,7 +148,7 @@ export default function Register() {
             </div>
 
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Email</label>
+              <label style={styles.label}>{t('email')}</label>
               <input
                 style={styles.input}
                 name="email"
@@ -158,12 +161,12 @@ export default function Register() {
             </div>
 
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Mot de passe</label>
+              <label style={styles.label}>{t('mot_de_passe')}</label>
               <input
                 style={styles.input}
                 name="password"
                 type="password"
-                placeholder="Minimum 8 caractères"
+                placeholder={t('mot_de_passe_min_8') || 'Minimum 8 caractères'}
                 onChange={handleChange}
                 required
                 minLength={8}
@@ -176,7 +179,7 @@ export default function Register() {
 
           <div style={styles.section}>
             <div style={styles.sectionHeader}>
-              <span style={styles.sectionTitle}>Choisissez votre formule</span>
+              <span style={styles.sectionTitle}>{t('choisir_formule') || 'Choisissez votre formule'}</span>
             </div>
 
             <div style={styles.planGrid}>
@@ -187,9 +190,9 @@ export default function Register() {
                 }}
                 onClick={() => setForm({ ...form, plan_type: 'essai' })}
               >
-                <div style={styles.planTitle}>Essai gratuit</div>
-                <div style={styles.planDesc}>30 connexions gratuites</div>
-                <div style={styles.planBadge}>Sans engagement</div>
+                <div style={styles.planTitle}>{t('essai_gratuit') || 'Essai gratuit'}</div>
+                <div style={styles.planDesc}>{t('connexions_gratuites') || '30 connexions gratuites'}</div>
+                <div style={styles.planBadge}>{t('sans_engagement') || 'Sans engagement'}</div>
               </div>
 
               <div
@@ -199,8 +202,8 @@ export default function Register() {
                 }}
                 onClick={() => setForm({ ...form, plan_type: 'payant' })}
               >
-                <div style={styles.planTitle}>Abonnement</div>
-                <div style={styles.planDesc}>Accès illimité</div>
+                <div style={styles.planTitle}>{t('abonnement') || 'Abonnement'}</div>
+                <div style={styles.planDesc}>{t('acces_illimite') || 'Accès illimité'}</div>
                 <div style={styles.planBadgePro}>Pro</div>
                 <div style={styles.planPrice}>100 DT / mois</div>
               </div>
@@ -215,11 +218,11 @@ export default function Register() {
             {loading ? (
               <span style={styles.buttonContent}>
                 <span style={styles.spinner} />
-                Inscription en cours...
+                {t('inscription_en_cours') || 'Inscription en cours...'}
               </span>
             ) : (
               <span style={styles.buttonContent}>
-                S'inscrire
+                {t('sinscrire') || "S'inscrire"}
                 <span style={styles.buttonArrow}>→</span>
               </span>
             )}
@@ -228,15 +231,15 @@ export default function Register() {
 
         <div style={styles.divider}>
           <span style={styles.dividerLine} />
-          <span style={styles.dividerText}>ou</span>
+          <span style={styles.dividerText}>{t('or') || 'ou'}</span>
           <span style={styles.dividerLine} />
         </div>
 
         <button style={styles.loginButton} onClick={() => navigate('/')}>
-          Déjà un compte ? Se connecter
+          {t('deja_compte') || 'Déjà un compte ? Se connecter'}
         </button>
 
-        <p style={styles.footer}>© 2026 ERP - Tous droits réservés</p>
+        <p style={styles.footer}>© 2026 ERP - {t('tous_droits_reserves') || 'Tous droits réservés'}</p>
       </div>
     </div>
   );
@@ -297,6 +300,12 @@ const styles = {
     border: '1px solid rgba(255, 255, 255, 0.5)',
     maxHeight: '90vh',
     overflowY: 'auto',
+  },
+  topBar: {
+    position: 'absolute',
+    top: '20px',
+    right: '20px',
+    zIndex: 2,
   },
   header: {
     textAlign: 'center',
@@ -426,12 +435,6 @@ const styles = {
     backgroundColor: '#F0F9FF',
     boxShadow: '0 4px 16px rgba(14, 165, 233, 0.15)',
   },
-  planRadio: {
-    position: 'absolute',
-    top: '8px',
-    right: '8px',
-  },
-  planIcon: { fontSize: '24px', marginBottom: '4px' },
   planTitle: { fontSize: '14px', fontWeight: 600, color: '#0F172A' },
   planDesc: { fontSize: '11px', color: '#64748B' },
   planBadge: {

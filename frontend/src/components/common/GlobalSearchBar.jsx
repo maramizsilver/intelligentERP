@@ -5,6 +5,7 @@
 // ---------------------------------------------------------------------------
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '../../context/LanguageContext';
 import { colors, borderRadius } from '../../styles/theme';
 import documentIntelligenceApi from '../../services/documentIntelligence.api';
 
@@ -22,6 +23,7 @@ const ROUTES_PAR_TABLE = {
 };
 
 export default function GlobalSearchBar({ isMobile = false }) {
+    const { t } = useLanguage();
     const [terme, setTerme] = useState('');
     const [resultats, setResultats] = useState([]);
     const [chargement, setChargement] = useState(false);
@@ -68,7 +70,7 @@ export default function GlobalSearchBar({ isMobile = false }) {
                 value={terme}
                 onChange={(e) => { setTerme(e.target.value); setOuvert(true); }}
                 onFocus={() => setOuvert(true)}
-                placeholder="🔍 Rechercher (nom, CIN, tél, matricule...)"
+                placeholder={t('recherche_globale') || 'Rechercher (nom, CIN, tél, matricule...)'}
                 style={{
                     width: '100%',
                     padding: '8px 12px',
@@ -89,10 +91,14 @@ export default function GlobalSearchBar({ isMobile = false }) {
                     maxHeight: 360, overflowY: 'auto', zIndex: 1200
                 }}>
                     {chargement && (
-                        <div style={{ padding: 12, fontSize: 13, color: colors.textMuted }}>Recherche en cours...</div>
+                        <div style={{ padding: 12, fontSize: 13, color: colors.textMuted }}>
+                            {t('recherche_en_cours') || 'Recherche en cours...'}
+                        </div>
                     )}
                     {!chargement && resultats.length === 0 && (
-                        <div style={{ padding: 12, fontSize: 13, color: colors.textMuted }}>Aucun résultat.</div>
+                        <div style={{ padding: 12, fontSize: 13, color: colors.textMuted }}>
+                            {t('aucun_resultat') || 'Aucun résultat.'}
+                        </div>
                     )}
                     {!chargement && resultats.map((r) => (
                         <button
@@ -108,7 +114,9 @@ export default function GlobalSearchBar({ isMobile = false }) {
                             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                         >
                             <div style={{ fontSize: 13, fontWeight: 600, color: colors.text }}>{r.libelle}</div>
-                            <div style={{ fontSize: 12, color: colors.textMuted }}>{r.module} · {r.extrait}</div>
+                            <div style={{ fontSize: 12, color: colors.textMuted }}>
+                                {r.module || t('module') || 'Module'} · {r.extrait || t('extrait') || 'Extrait'}
+                            </div>
                         </button>
                     ))}
                 </div>

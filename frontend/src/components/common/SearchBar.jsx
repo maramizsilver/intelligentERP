@@ -99,7 +99,7 @@ export default function SearchBar({
         onChange={(e) => setQuery(e.target.value)}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
-        placeholder={placeholder || t('rechercher')}
+        placeholder={placeholder || t('rechercher') || 'Rechercher'}
       />
       {query && (
         <button

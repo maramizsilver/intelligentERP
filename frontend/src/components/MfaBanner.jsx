@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import API from '../utils/api';
 
 export default function MfaBanner() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [visible, setVisible] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -17,7 +19,6 @@ export default function MfaBanner() {
         const res = await API.get('/auth/mfa/status');
         setMfaEnabled(res.data.data?.enabled || false);
       } catch (err) {
-        // En cas d'erreur, considerer que MFA est desactivee
         console.warn('[MFA] Erreur chargement statut:', err.message);
         setMfaEnabled(false);
       } finally {
@@ -28,15 +29,9 @@ export default function MfaBanner() {
     checkMFAStatus();
   }, []);
 
-  // Ne rien afficher pendant le chargement
   if (checking) return null;
-  
-  // Ne rien afficher si SuperAdmin
   if (user?.is_super_admin) return null;
-  
-  // Ne rien afficher si MFA deja active ou banner masque
   if (mfaEnabled || user?.mfa_enabled) return null;
-  
   if (!visible) return null;
 
   const dismissBanner = async () => {
@@ -56,15 +51,15 @@ export default function MfaBanner() {
       <div style={styles.content}>
         <div style={styles.icon}>🔐</div>
         <div style={styles.message}>
-          <strong>Securisez votre compte</strong>
-          <span>Activez l'authentification à deux facteurs pour proteger votre compte.</span>
+          <strong>{t('securisez_votre_compte') || 'Sécurisez votre compte'}</strong>
+          <span>{t('activer_mfa_texte') || 'Activez l\'authentification à deux facteurs pour protéger votre compte.'}</span>
         </div>
         <div style={styles.actions}>
           <button style={styles.primaryBtn} onClick={() => navigate('/securite/mfa')}>
-            Activer maintenant
+            {t('activer_maintenant') || 'Activer maintenant'}
           </button>
           <button style={styles.secondaryBtn} onClick={dismissBanner} disabled={loading}>
-            Plus tard
+            {t('plus_tard') || 'Plus tard'}
           </button>
         </div>
       </div>

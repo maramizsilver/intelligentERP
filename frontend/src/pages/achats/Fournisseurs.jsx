@@ -39,7 +39,7 @@ export default function Fournisseurs() {
       const res = await API.get('/fournisseurs');
       setFournisseurs(res.data.fournisseurs || []);
     } catch (err) {
-      setError('Impossible de charger les fournisseurs');
+      setError(t('impossible_charger_fournisseurs') || 'Impossible de charger les fournisseurs');
     } finally {
       setLoading(false);
     }
@@ -73,7 +73,7 @@ export default function Fournisseurs() {
       setEditingId(null);
       loadData();
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur');
+      setError(err.response?.data?.message || t('erreur_fournisseur') || 'Erreur');
     } finally {
       setFormLoading(false);
     }
@@ -100,7 +100,7 @@ export default function Fournisseurs() {
       setSuccess(t('fournisseur_supprime') || 'Fournisseur supprimé');
       loadData();
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur');
+      setError(err.response?.data?.message || t('erreur_suppression_fournisseur') || 'Erreur');
     }
   };
 
@@ -152,13 +152,13 @@ export default function Fournisseurs() {
 
       {error && (
         <div style={styles.errorContainer}>
-          <span>❌</span>
+          <span>X</span>
           <span style={styles.errorText}>{error}</span>
         </div>
       )}
       {success && (
         <div style={styles.successContainer}>
-          <span>✅</span>
+          <span>OK</span>
           <span style={styles.successText}>{success}</span>
         </div>
       )}
@@ -184,19 +184,19 @@ export default function Fournisseurs() {
         <form onSubmit={handleSubmit}>
           <div style={styles.formGrid}>
             <Input label={t('nom') + ' *'} name="nom" value={form.nom} onChange={handleChange} required disabled={formLoading} />
-            <Input label="Raison sociale" name="raison_sociale" value={form.raison_sociale} onChange={handleChange} disabled={formLoading} />
+            <Input label={t('raison_sociale') || 'Raison sociale'} name="raison_sociale" value={form.raison_sociale} onChange={handleChange} disabled={formLoading} />
             <Input label={t('email')} name="email" type="email" value={form.email} onChange={handleChange} disabled={formLoading} />
             <Input label={t('telephone')} name="telephone" value={form.telephone} onChange={handleChange} disabled={formLoading} />
             <Input label={t('adresse')} name="adresse" value={form.adresse} onChange={handleChange} disabled={formLoading} />
-            <Input label="Ville" name="ville" value={form.ville} onChange={handleChange} disabled={formLoading} />
-            <Input label="Code postal" name="code_postal" value={form.code_postal} onChange={handleChange} disabled={formLoading} />
-            <Input label="Pays" name="pays" value={form.pays} onChange={handleChange} disabled={formLoading} />
-            <Input label="Matricule fiscal" name="matricule_fiscal" value={form.matricule_fiscal} onChange={handleChange} disabled={formLoading} />
-            <Input label="Numéro TVA" name="numero_tva" value={form.numero_tva} onChange={handleChange} disabled={formLoading} />
-            <Input label="RIB" name="rib" value={form.rib} onChange={handleChange} disabled={formLoading} />
+            <Input label={t('ville') || 'Ville'} name="ville" value={form.ville} onChange={handleChange} disabled={formLoading} />
+            <Input label={t('code_postal') || 'Code postal'} name="code_postal" value={form.code_postal} onChange={handleChange} disabled={formLoading} />
+            <Input label={t('pays') || 'Pays'} name="pays" value={form.pays} onChange={handleChange} disabled={formLoading} />
+            <Input label={t('matricule_fiscal') || 'Matricule fiscal'} name="matricule_fiscal" value={form.matricule_fiscal} onChange={handleChange} disabled={formLoading} />
+            <Input label={t('numero_tva') || 'Numéro TVA'} name="numero_tva" value={form.numero_tva} onChange={handleChange} disabled={formLoading} />
+            <Input label={t('rib') || 'RIB'} name="rib" value={form.rib} onChange={handleChange} disabled={formLoading} />
           </div>
           <div style={styles.fullWidth}>
-            <Input label="Notes" name="notes" value={form.notes} onChange={handleChange} disabled={formLoading} />
+            <Input label={t('notes')} name="notes" value={form.notes} onChange={handleChange} disabled={formLoading} />
           </div>
         </form>
       </Modal>

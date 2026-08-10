@@ -1,12 +1,7 @@
 // frontend/src/pages/documents/GenerationDocuments.jsx
-// ---------------------------------------------------------------------------
-// Page transversale de génération de documents Word à partir de modèles.
-// Utilisable depuis n'importe quel module (bouton "Générer le devis en Word"
-// dans Devis.jsx peut simplement naviguer ici avec les bons paramètres, ou
-// appeler directement documentIntelligenceApi.genererDocument()).
-// ---------------------------------------------------------------------------
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 import documentIntelligenceApi from '../../services/documentIntelligence.api';
 
@@ -33,6 +28,7 @@ const TYPES_ENTITE_AUTOFILL = [
 ];
 
 export default function GenerationDocuments() {
+    const { t } = useLanguage();
     const navigate = useNavigate();
 
     const [typeDocument, setTypeDocument] = useState('devis');
@@ -53,7 +49,6 @@ export default function GenerationDocuments() {
     const [succes, setSucces] = useState('');
     const [documentGenereId, setDocumentGenereId] = useState(null);
 
-    // Charge les modèles disponibles à chaque changement de type de document
     useEffect(() => {
         setNomModele('');
         setTags([]);
@@ -62,7 +57,6 @@ export default function GenerationDocuments() {
             .catch(() => setModeles([]));
     }, [typeDocument]);
 
-    // Charge les balises {tag} du modèle sélectionné pour construire le formulaire
     useEffect(() => {
         if (!nomModele) { setTags([]); return; }
         documentIntelligenceApi.tagsDuModele(typeDocument, nomModele)
@@ -74,25 +68,22 @@ export default function GenerationDocuments() {
         setDonnees(prev => ({ ...prev, [tag]: valeur }));
     };
 
-    // Saisie intelligente : récupère les données déjà connues d'un client,
-    // fournisseur, produit ou de l'entreprise, et préremplit les champs
-    // correspondants du formulaire (évite la double saisie).
     const lancerAutoRemplissage = useCallback(async () => {
         if (!identifiantAutofill.trim()) return;
         setErreur('');
         try {
             const res = await documentIntelligenceApi.autoRemplir(typeEntiteAutofill, identifiantAutofill.trim());
             if (!res.data.trouve) {
-                setErreur("Aucun enregistrement trouvé pour cet identifiant.");
+                setErreur(t('aucun_enregistrement_trouve') || 'Aucun enregistrement trouvé pour cet identifiant.');
                 return;
             }
             setDonnees(prev => ({ ...prev, ...res.data.tags }));
-            setSucces('Champs préremplis automatiquement depuis la base.');
+            setSucces(t('champs_preremplis') || 'Champs préremplis automatiquement depuis la base.');
             setTimeout(() => setSucces(''), 3000);
         } catch (err) {
-            setErreur(err.response?.data?.message || "Erreur lors de l'auto-remplissage");
+            setErreur(err.response?.data?.message || t('erreur_auto_remplissage') || "Erreur lors de l'auto-remplissage");
         }
-    }, [typeEntiteAutofill, identifiantAutofill]);
+    }, [typeEntiteAutofill, identifiantAutofill, t]);
 
     const handleGenerer = async (e) => {
         e.preventDefault();
@@ -100,7 +91,10 @@ export default function GenerationDocuments() {
         setSucces('');
         setDocumentGenereId(null);
 
-        if (!nomModele) { setErreur('Veuillez sélectionner un modèle.'); return; }
+        if (!nomModele) { 
+            setErreur(t('selectionner_modele_requis') || 'Veuillez sélectionner un modèle.'); 
+            return; 
+        }
 
         setChargement(true);
         try {
@@ -120,13 +114,13 @@ export default function GenerationDocuments() {
                 deviseMontants
             };
             const res = await documentIntelligenceApi.genererDocument(payload);
-            setSucces('Document généré avec succès.');
+            setSucces(t('document_genere') || 'Document généré avec succès.');
             setDocumentGenereId(res.data.documentId);
             if (res.data.tagsManquants?.length > 0) {
-                setErreur(`Attention, champs non renseignés dans le document : ${res.data.tagsManquants.join(', ')}`);
+                setErreur(`${t('champs_manquants_document') || 'Attention, champs non renseignés dans le document'} : ${res.data.tagsManquants.join(', ')}`);
             }
         } catch (err) {
-            setErreur(err.response?.data?.message || 'Erreur lors de la génération du document');
+            setErreur(err.response?.data?.message || t('erreur_generation_document') || 'Erreur lors de la génération du document');
         } finally {
             setChargement(false);
         }
@@ -144,12 +138,10 @@ export default function GenerationDocuments() {
             link.remove();
             window.URL.revokeObjectURL(url);
         } catch {
-            setErreur('Erreur lors du téléchargement');
+            setErreur(t('erreur_telechargement_document') || 'Erreur lors du téléchargement');
         }
     };
 
-    // Champs qui ne sont pas des montants (ceux-ci ont leurs propres inputs dédiés
-    // avec calcul automatique du "en toutes lettres")
     const tagsChampsMontant = ['montantHT', 'montantTVA', 'montantTTC'];
     const tagsAffiches = tags.filter(t => !tagsChampsMontant.includes(t) && !t.endsWith('_lettres'));
 
@@ -157,34 +149,38 @@ export default function GenerationDocuments() {
         <div>
             <div style={styles.header}>
                 <div>
-                    <h1 style={styles.title}>Génération de documents Word</h1>
-                    <p style={styles.subtitle}>Devis, factures, bons de commande et contrats, remplis automatiquement</p>
+                    <h1 style={styles.title}>{t('generation_documents_titre') || 'Génération de documents Word'}</h1>
+                    <p style={styles.subtitle}>{t('generation_documents_sous_titre') || 'Devis, factures, bons de commande et contrats, remplis automatiquement'}</p>
                 </div>
-                <Button variant="secondary" icon="←" onClick={() => navigate('/documents')}>Retour</Button>
+                <Button variant="secondary" icon="←" onClick={() => navigate('/documents')}>
+                    {t('retour')}
+                </Button>
             </div>
 
             {erreur && <div style={styles.alertError}>{erreur}</div>}
             {succes && <div style={styles.alertSuccess}>{succes}</div>}
 
-            <Card title="1. Choix du modèle" variant="primary" style={{ marginBottom: 20 }}>
+            <Card title={t('choix_modele_titre') || '1. Choix du modèle'} variant="primary" style={{ marginBottom: 20 }}>
                 <div style={styles.grid2}>
                     <div style={styles.formGroup}>
-                        <label style={styles.label}>Type de document</label>
+                        <label style={styles.label}>{t('type_document_label') || 'Type de document'}</label>
                         <select style={styles.select} value={typeDocument} onChange={(e) => setTypeDocument(e.target.value)}>
                             {TYPES_DOCUMENT.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                         </select>
                     </div>
                     <div style={styles.formGroup}>
-                        <label style={styles.label}>Modèle</label>
+                        <label style={styles.label}>{t('modele_label') || 'Modèle'}</label>
                         <select style={styles.select} value={nomModele} onChange={(e) => setNomModele(e.target.value)}>
-                            <option value="">— Sélectionner un modèle —</option>
+                            <option value="">{t('modele_selectionner') || '-- Sélectionner un modèle --'}</option>
                             {modeles.map(m => (
-                                <option key={m.nom} value={m.nom}>{m.nom} {m.portee === 'commun' ? '(commun)' : '(entreprise)'}</option>
+                                <option key={m.nom} value={m.nom}>
+                                    {m.nom} {m.portee === 'commun' ? (t('modele_commun') || '(commun)') : (t('modele_entreprise') || '(entreprise)')}
+                                </option>
                             ))}
                         </select>
                         {modeles.length === 0 && nomModele === '' && (
                             <p style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>
-                                Aucun modèle pour ce type. Déposez un fichier .docx dans backend/templates/documents/.
+                                {t('aucun_modele') || 'Aucun modèle pour ce type. Déposez un fichier .docx dans backend/templates/documents/.'}
                             </p>
                         )}
                     </div>
@@ -193,29 +189,29 @@ export default function GenerationDocuments() {
 
             {nomModele && (
                 <>
-                    <Card title="2. Saisie intelligente (anti double-saisie)" variant="success" style={{ marginBottom: 20 }}>
+                    <Card title={t('saisie_intelligente_titre') || '2. Saisie intelligente (anti double-saisie)'} variant="success" style={{ marginBottom: 20 }}>
                         <div style={styles.grid3}>
                             <div style={styles.formGroup}>
-                                <label style={styles.label}>Type d'enregistrement</label>
+                                <label style={styles.label}>{t('type_enregistrement_label') || "Type d'enregistrement"}</label>
                                 <select style={styles.select} value={typeEntiteAutofill} onChange={(e) => setTypeEntiteAutofill(e.target.value)}>
                                     {TYPES_ENTITE_AUTOFILL.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                                 </select>
                             </div>
                             <Input
-                                label="Identifiant (ID, matricule, CIN, e-mail...)"
+                                label={t('identifiant_label') || "Identifiant (ID, matricule, CIN, e-mail...)"}
                                 value={identifiantAutofill}
                                 onChange={(e) => setIdentifiantAutofill(e.target.value)}
-                                placeholder="ex: 12345678 ou client@exemple.com"
+                                placeholder={t('exemple_identifiant') || "ex: 12345678 ou client@exemple.com"}
                             />
                             <div style={{ display: 'flex', alignItems: 'flex-end' }}>
                                 <Button variant="success" onClick={lancerAutoRemplissage} fullWidth>
-                                    ⚡ Auto-remplir
+                                    {t('auto_remplir_label') || 'Auto-remplir'}
                                 </Button>
                             </div>
                         </div>
                     </Card>
 
-                    <Card title="3. Informations du document" variant="primary" style={{ marginBottom: 20 }}>
+                    <Card title={t('informations_document_titre') || '3. Informations du document'} variant="primary" style={{ marginBottom: 20 }}>
                         <div style={styles.grid2}>
                             {tagsAffiches.map(tag => (
                                 tag.toLowerCase().includes('date') ? (
@@ -245,23 +241,23 @@ export default function GenerationDocuments() {
                         </div>
                     </Card>
 
-                    <Card title="4. Montants (calcul automatique en toutes lettres)" variant="warning" style={{ marginBottom: 20 }}>
+                    <Card title={t('montants_calcul_auto_titre') || '4. Montants (calcul automatique en toutes lettres)'} variant="warning" style={{ marginBottom: 20 }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, fontSize: 13, fontWeight: 600 }}>
                             <input type="checkbox" checked={estDocumentFinancier}
                                 onChange={(e) => setEstDocumentFinancier(e.target.checked)} />
-                            Ce document comporte des montants HT / TVA / TTC
+                            {t('ce_document_comporte_montants') || 'Ce document comporte des montants HT / TVA / TTC'}
                         </label>
 
                         {estDocumentFinancier && (
                             <div style={styles.grid3}>
-                                <Input label="Montant HT" type="number" step="0.001"
+                                <Input label={t('montant_ht') || 'Montant HT'} type="number" step="0.001"
                                     value={donnees.montantHT || ''} onChange={(e) => handleChampChange('montantHT', e.target.value)} />
-                                <Input label="Montant TVA" type="number" step="0.001"
+                                <Input label={t('montant_tva') || 'Montant TVA'} type="number" step="0.001"
                                     value={donnees.montantTVA || ''} onChange={(e) => handleChampChange('montantTVA', e.target.value)} />
-                                <Input label="Montant TTC" type="number" step="0.001"
+                                <Input label={t('montant_ttc') || 'Montant TTC'} type="number" step="0.001"
                                     value={donnees.montantTTC || ''} onChange={(e) => handleChampChange('montantTTC', e.target.value)} />
                                 <div style={styles.formGroup}>
-                                    <label style={styles.label}>Langue des montants en lettres</label>
+                                    <label style={styles.label}>{t('langue_montants') || 'Langue des montants en lettres'}</label>
                                     <select style={styles.select} value={langueMontants} onChange={(e) => setLangueMontants(e.target.value)}>
                                         <option value="fr">Français</option>
                                         <option value="en">Anglais</option>
@@ -269,7 +265,7 @@ export default function GenerationDocuments() {
                                     </select>
                                 </div>
                                 <div style={styles.formGroup}>
-                                    <label style={styles.label}>Devise</label>
+                                    <label style={styles.label}>{t('devise_montants') || 'Devise'}</label>
                                     <select style={styles.select} value={deviseMontants} onChange={(e) => setDeviseMontants(e.target.value)}>
                                         <option value="TND">Dinar tunisien (TND)</option>
                                         <option value="EUR">Euro (EUR)</option>
@@ -282,11 +278,11 @@ export default function GenerationDocuments() {
 
                     <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                         <Button variant="primary" size="lg" loading={chargement} onClick={handleGenerer}>
-                            📄 Générer le document Word
+                            {t('generer_document_label') || 'Générer le document Word'}
                         </Button>
                         {documentGenereId && (
                             <Button variant="success" size="lg" onClick={telechargerDocumentGenere}>
-                                ⬇️ Télécharger
+                                {t('telecharger_document_label') || 'Télécharger'}
                             </Button>
                         )}
                     </div>

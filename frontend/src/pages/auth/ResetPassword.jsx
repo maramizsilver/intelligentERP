@@ -1,6 +1,7 @@
 // frontend/src/pages/auth/ResetPassword.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 import Button from '../../components/common/Button';
 import Card from '../../components/common/Card';
@@ -8,6 +9,7 @@ import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 export default function ResetPassword() {
+    const { t } = useLanguage();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     
@@ -28,7 +30,7 @@ export default function ResetPassword() {
         if (!token) {
             console.log('[ResetPassword] Token manquant');
             setValid(false);
-            setError('Token manquant');
+            setError(t('token_manquant') || 'Token manquant');
             setValidating(false);
             return;
         }
@@ -44,30 +46,30 @@ export default function ResetPassword() {
                     setValid(true);
                 } else {
                     console.log('[ResetPassword] Token invalide:', res.data.message);
-                    setError(res.data.message || 'Token invalide');
+                    setError(res.data.message || t('token_invalide') || 'Token invalide');
                 }
             } catch (err) {
                 console.error('[ResetPassword] Erreur:', err);
-                setError('Erreur lors de la validation');
+                setError(t('erreur_validation_token') || 'Erreur lors de la validation');
             } finally {
                 setValidating(false);
             }
         };
 
         validate();
-    }, [token]);
+    }, [token, t]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
         if (password.length < 8) {
-            setError('Le mot de passe doit contenir au moins 8 caracteres');
+            setError(t('mot_de_passe_min_8') || 'Le mot de passe doit contenir au moins 8 caractères');
             return;
         }
 
         if (password !== confirmPassword) {
-            setError('Les mots de passe ne correspondent pas');
+            setError(t('mots_de_passe_correspondent_pas') || 'Les mots de passe ne correspondent pas');
             return;
         }
 
@@ -76,19 +78,18 @@ export default function ResetPassword() {
             await API.post('/reset/reset', { token, password });
             setSuccess(true);
         } catch (err) {
-            setError(err.response?.data?.message || 'Erreur');
+            setError(err.response?.data?.message || t('erreur_reinitialisation_mot_passe') || 'Erreur');
         } finally {
             setLoading(false);
         }
     };
 
-    // AFFICHER LE TOKEN SUR LA PAGE POUR DÉBOGUER
     if (validating) {
         return (
             <div style={styles.container}>
-                <LoadingSpinner size="lg" text="Verification du token..." />
+                <LoadingSpinner size="lg" text={t('verification_token') || 'Vérification du token...'} />
                 <p style={{ marginTop: '20px', fontSize: '12px', color: '#64748B' }}>
-                    Token: {token ? token.substring(0, 20) + '...' : 'Aucun token'}
+                    Token: {token ? token.substring(0, 20) + '...' : t('aucun_token') || 'Aucun token'}
                 </p>
             </div>
         );
@@ -97,13 +98,13 @@ export default function ResetPassword() {
     if (!valid) {
         return (
             <div style={styles.container}>
-                <Card title="Lien invalide" variant="danger">
-                    <p style={styles.errorText}>{error || 'Ce lien de reinitialisation est invalide ou a expire.'}</p>
+                <Card title={t('lien_invalide') || 'Lien invalide'} variant="danger">
+                    <p style={styles.errorText}>{error || t('lien_reinitialisation_invalide') || 'Ce lien de réinitialisation est invalide ou a expiré.'}</p>
                     <p style={{ fontSize: '12px', color: '#94A3B8', marginTop: '8px' }}>
-                        Token: {token ? token.substring(0, 20) + '...' : 'Aucun token'}
+                        Token: {token ? token.substring(0, 20) + '...' : t('aucun_token') || 'Aucun token'}
                     </p>
                     <Button variant="primary" onClick={() => navigate('/')}>
-                        Retour a la connexion
+                        {t('retour_connexion') || 'Retour à la connexion'}
                     </Button>
                 </Card>
             </div>
@@ -113,11 +114,11 @@ export default function ResetPassword() {
     if (success) {
         return (
             <div style={styles.container}>
-                <Card title="Mot de passe reinitialise" variant="success">
-                    <p style={styles.text}>Votre mot de passe a ete reinitialise avec succes.</p>
-                    <p style={styles.subText}>Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.</p>
+                <Card title={t('mot_de_passe_reinitialise') || 'Mot de passe réinitialisé'} variant="success">
+                    <p style={styles.text}>{t('mot_de_passe_reinitialise_succes') || 'Votre mot de passe a été réinitialisé avec succès.'}</p>
+                    <p style={styles.subText}>{t('connecter_nouveau_mot_de_passe') || 'Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.'}</p>
                     <Button variant="primary" onClick={() => navigate('/')}>
-                        Se connecter
+                        {t('se_connecter') || 'Se connecter'}
                     </Button>
                 </Card>
             </div>
@@ -126,8 +127,8 @@ export default function ResetPassword() {
 
     return (
         <div style={styles.container}>
-            <Card title="Nouveau mot de passe" variant="primary">
-                <p style={styles.infoText}>Creez un nouveau mot de passe pour votre compte.</p>
+            <Card title={t('nouveau_mot_de_passe_titre') || 'Nouveau mot de passe'} variant="primary">
+                <p style={styles.infoText}>{t('creer_nouveau_mot_de_passe') || 'Créez un nouveau mot de passe pour votre compte.'}</p>
 
                 {error && (
                     <div style={styles.errorContainer}>
@@ -137,30 +138,30 @@ export default function ResetPassword() {
 
                 <form onSubmit={handleSubmit}>
                     <Input
-                        label="Nouveau mot de passe"
+                        label={t('nouveau_mot_de_passe') || 'Nouveau mot de passe'}
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Minimum 8 caracteres"
+                        placeholder={t('mot_de_passe_min_8') || 'Minimum 8 caractères'}
                         required
                         minLength={8}
                         disabled={loading}
                     />
                     <Input
-                        label="Confirmer le mot de passe"
+                        label={t('confirmer_mot_de_passe') || 'Confirmer le mot de passe'}
                         type="password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Confirmer le mot de passe"
+                        placeholder={t('confirmer_mot_de_passe') || 'Confirmer le mot de passe'}
                         required
                         disabled={loading}
                     />
                     <div style={styles.actions}>
                         <Button type="button" variant="secondary" onClick={() => navigate('/')}>
-                            Annuler
+                            {t('annuler')}
                         </Button>
                         <Button type="submit" variant="primary" loading={loading}>
-                            Reinitialiser
+                            {t('reinitialiser') || 'Réinitialiser'}
                         </Button>
                     </div>
                 </form>

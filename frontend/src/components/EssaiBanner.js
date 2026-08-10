@@ -1,10 +1,12 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 // Affichée en haut des pages internes tant que l'entreprise est en plan "essai"
 // et n'a pas encore épuisé ses 30 connexions.
 export default function EssaiBanner() {
   const { user } = useAuth();
+  const { t } = useLanguage();
 
   if (!user || user.is_super_admin || user.is_external) return null;
   if (user.plan_type !== 'essai') return null;
@@ -14,8 +16,8 @@ export default function EssaiBanner() {
 
   return (
     <div style={{ ...styles.banner, ...(critique ? styles.bannerCritique : {}) }}>
-       Période d'essai gratuite — <strong>{user.connexions_restantes} connexion(s)</strong> restante(s) avant expiration.
-      {critique && ' Pensez à souscrire un abonnement pour ne pas perdre l’accès.'}
+      {t('periode_essai_gratuite') || 'Période d\'essai gratuite'} — <strong>{user.connexions_restantes}</strong> {t('connexions_restantes') || 'connexion(s) restante(s) avant expiration'}
+      {critique && ` ${t('pensez_souscrire') || 'Pensez à souscrire un abonnement pour ne pas perdre l\'accès.'}`}
     </div>
   );
 }

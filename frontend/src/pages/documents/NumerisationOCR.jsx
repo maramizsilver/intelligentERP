@@ -6,6 +6,7 @@
 // ---------------------------------------------------------------------------
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '../../context/LanguageContext';
 import documentIntelligenceApi from '../../services/documentIntelligence.api';
 
 import Card from '../../components/common/Card';
@@ -22,6 +23,7 @@ const CHAMPS_LABELS = {
 };
 
 export default function NumerisationOCR() {
+    const { t } = useLanguage();
     const navigate = useNavigate();
 
     const [fichier, setFichier] = useState(null);
@@ -44,21 +46,22 @@ export default function NumerisationOCR() {
     };
 
     const lancerNumerisation = async () => {
-        if (!fichier) { setErreur('Veuillez sélectionner un fichier à numériser.'); return; }
+        if (!fichier) { 
+            setErreur(t('fichier_requis') || 'Veuillez sélectionner un fichier à numériser.'); 
+            return; 
+        }
         setChargement(true);
         setErreur('');
         try {
             const res = await documentIntelligenceApi.numeriser(fichier, langue);
             setResultat(res.data);
         } catch (err) {
-            setErreur(err.response?.data?.message || "Erreur lors de l'analyse OCR");
+            setErreur(err.response?.data?.message || t('erreur_analyse_ocr') || "Erreur lors de l'analyse OCR");
         } finally {
             setChargement(false);
         }
     };
 
-    // Redirige vers la création de fiche client en préremplissant via l'URL
-    // (à adapter selon la manière dont Clients.jsx lit les paramètres de départ).
     const creerFicheAvecDonnees = (type) => {
         const params = new URLSearchParams();
         Object.entries(resultat.champsDetectes).forEach(([cle, valeur]) => params.set(cle, valeur));
@@ -69,25 +72,27 @@ export default function NumerisationOCR() {
         <div>
             <div style={styles.header}>
                 <div>
-                    <h1 style={styles.title}>Numérisation intelligente (OCR)</h1>
-                    <p style={styles.subtitle}>Scannez une pièce d'identité ou un document papier pour en extraire automatiquement les données</p>
+                    <h1 style={styles.title}>{t('numerisation_ocr_titre') || 'Numérisation intelligente (OCR)'}</h1>
+                    <p style={styles.subtitle}>{t('numerisation_ocr_sous_titre') || 'Scannez une pièce d\'identité ou un document papier pour en extraire automatiquement les données'}</p>
                 </div>
-                <Button variant="secondary" icon="←" onClick={() => navigate('/documents')}>Retour</Button>
+                <Button variant="secondary" icon="←" onClick={() => navigate('/documents')}>
+                    {t('retour')}
+                </Button>
             </div>
 
             {erreur && <div style={styles.alertError}>{erreur}</div>}
 
-            <Card title="Document à numériser" variant="primary" style={{ marginBottom: 20 }}>
+            <Card title={t('document_numeriser_titre') || 'Document à numériser'} variant="primary" style={{ marginBottom: 20 }}>
                 <div style={styles.grid}>
                     <div>
                         <label style={styles.fileLabel}>
-                            📎 Choisir une image ou un PDF
+                            {t('choisir_fichier_label') || 'Choisir une image ou un PDF'}
                             <input type="file" accept="image/*,application/pdf" onChange={handleFichierChange} style={{ display: 'none' }} />
                         </label>
                         {fichier && <p style={{ fontSize: 13, color: colors.textSecondary, marginTop: 8 }}>{fichier.name}</p>}
 
                         <div style={{ marginTop: 16 }}>
-                            <label style={styles.label}>Langue du document</label>
+                            <label style={styles.label}>{t('langue_document_label') || 'Langue du document'}</label>
                             <select style={styles.select} value={langue} onChange={(e) => setLangue(e.target.value)}>
                                 <option value="fr">Français</option>
                                 <option value="en">Anglais</option>
@@ -96,31 +101,33 @@ export default function NumerisationOCR() {
                         </div>
 
                         <Button variant="primary" onClick={lancerNumerisation} loading={chargement} style={{ marginTop: 16 }}>
-                            🔍 Analyser le document
+                            {t('analyser_document_label') || 'Analyser le document'}
                         </Button>
                     </div>
 
                     {apercu && (
                         <div>
-                            <img src={apercu} alt="Aperçu du document" style={{ maxWidth: '100%', borderRadius: 8, border: `1px solid ${colors.border}` }} />
+                            <img src={apercu} alt={t('apercu_document') || 'Aperçu du document'} style={{ maxWidth: '100%', borderRadius: 8, border: `1px solid ${colors.border}` }} />
                         </div>
                     )}
                 </div>
             </Card>
 
-            {chargement && <LoadingSpinner text="Analyse OCR en cours (cela peut prendre quelques secondes)..." />}
+            {chargement && <LoadingSpinner text={t('analyse_ocr') || 'Analyse OCR en cours (cela peut prendre quelques secondes)...'} />}
 
             {resultat && (
-                <Card title="Résultat de la numérisation" variant="success">
+                <Card title={t('resultat_numerisation_titre') || 'Résultat de la numérisation'} variant="success">
                     <div style={{ marginBottom: 16 }}>
                         <span style={styles.confianceBadge}>
-                            Confiance OCR : {Math.round(resultat.confiance)}%
+                            {t('confiance_ocr_label') || 'Confiance OCR'} : {Math.round(resultat.confiance)}%
                         </span>
                     </div>
 
-                    <h4 style={styles.sousTitre}>Champs détectés</h4>
+                    <h4 style={styles.sousTitre}>{t('champs_detectes_label') || 'Champs détectés'}</h4>
                     {Object.keys(resultat.champsDetectes).length === 0 ? (
-                        <p style={{ fontSize: 13, color: colors.textMuted }}>Aucun champ structuré détecté automatiquement.</p>
+                        <p style={{ fontSize: 13, color: colors.textMuted }}>
+                            {t('aucun_champ_detecte_ocr') || 'Aucun champ structuré détecté automatiquement.'}
+                        </p>
                     ) : (
                         <div style={styles.grid2}>
                             {Object.entries(resultat.champsDetectes).map(([cle, valeur]) => (
@@ -135,17 +142,17 @@ export default function NumerisationOCR() {
                     {Object.keys(resultat.champsDetectes).length > 0 && (
                         <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
                             <Button variant="success" size="sm" onClick={() => creerFicheAvecDonnees('clients')}>
-                                Créer une fiche client avec ces données
+                                {t('creer_fiche_client_label') || 'Créer une fiche client avec ces données'}
                             </Button>
                             <Button variant="secondary" size="sm" onClick={() => creerFicheAvecDonnees('fournisseurs')}>
-                                Créer une fiche fournisseur avec ces données
+                                {t('creer_fiche_fournisseur_label') || 'Créer une fiche fournisseur avec ces données'}
                             </Button>
                         </div>
                     )}
 
                     <details style={{ marginTop: 20 }}>
                         <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600, color: colors.primary }}>
-                            Voir le texte brut extrait
+                            {t('texte_brut_extrait_label') || 'Voir le texte brut extrait'}
                         </summary>
                         <pre style={styles.textePre}>{resultat.texte}</pre>
                     </details>

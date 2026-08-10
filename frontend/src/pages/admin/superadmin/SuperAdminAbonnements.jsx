@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
+import { useLanguage } from '../../../context/LanguageContext';
 import API from '../../../utils/api';
 import Card from '../../../components/common/Card';
 import Button from '../../../components/common/Button';
@@ -11,6 +12,7 @@ import EmptyState from '../../../components/common/EmptyState';
 
 export default function SuperAdminAbonnements() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [abonnements, setAbonnements] = useState([]);
@@ -68,39 +70,39 @@ export default function SuperAdminAbonnements() {
 
   const getStatutBadge = (statut) => {
     const statuses = {
-      en_attente: { label: 'En attente', variant: 'warning' },
-      paye: { label: 'Payé', variant: 'success' },
-      echoue: { label: 'Échoué', variant: 'danger' },
-      rembourse: { label: 'Remboursé', variant: 'outline' }
+      en_attente: { label: t('statut_en_attente') || 'En attente', variant: 'warning' },
+      paye: { label: t('statut_paye') || 'Payé', variant: 'success' },
+      echoue: { label: t('statut_echoue') || 'Échoué', variant: 'danger' },
+      rembourse: { label: t('statut_rembourse') || 'Remboursé', variant: 'outline' }
     };
     return statuses[statut] || { label: statut, variant: 'outline' };
   };
 
   const getEntrepriseStatutBadge = (statut) => {
     const statuses = {
-      en_attente: { label: 'En attente', variant: 'warning' },
-      actif: { label: 'Actif', variant: 'success' },
-      suspendu: { label: 'Suspendu', variant: 'danger' }
+      en_attente: { label: t('en_attente') || 'En attente', variant: 'warning' },
+      actif: { label: t('entreprise_statut_actif') || 'Actif', variant: 'success' },
+      suspendu: { label: t('entreprise_statut_suspendu') || 'Suspendu', variant: 'danger' }
     };
-    return statuses[statut] || { label: statut, variant: 'outline' };
+    return statuses[statut] || { label: t('entreprise_statut_inconnu') || 'Inconnu', variant: 'outline' };
   };
 
   const columns = [
     {
       key: 'created_at',
-      label: 'Date',
+      label: t('date'),
       render: (row) => new Date(row.created_at).toLocaleString('fr-FR')
     },
-    { key: 'entreprise_nom', label: 'Entreprise' },
-    { key: 'email', label: 'Email' },
+    { key: 'entreprise_nom', label: t('entreprise') || 'Entreprise' },
+    { key: 'email', label: t('email') },
     {
       key: 'montant',
-      label: 'Montant',
+      label: t('montant'),
       render: (row) => `${row.montant} DT`
     },
     {
       key: 'statut',
-      label: 'Statut paiement',
+      label: t('statut_paiement') || 'Statut paiement',
       render: (row) => {
         const s = getStatutBadge(row.statut);
         return <Badge variant={s.variant}>{s.label}</Badge>;
@@ -108,9 +110,9 @@ export default function SuperAdminAbonnements() {
     },
     {
       key: 'entreprise_statut',
-      label: 'Statut entreprise',
+      label: t('statut_entreprise') || 'Statut entreprise',
       render: (row) => {
-        if (!row.entreprise_statut) return <Badge variant="outline">Inconnu</Badge>;
+        if (!row.entreprise_statut) return <Badge variant="outline">{t('inconnu') || 'Inconnu'}</Badge>;
         const s = getEntrepriseStatutBadge(row.entreprise_statut);
         return <Badge variant={s.variant}>{s.label}</Badge>;
       }
@@ -121,12 +123,12 @@ export default function SuperAdminAbonnements() {
     <div>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>Gestion des Abonnements</h1>
-          <p style={styles.subtitle}>Consultez tous les paiements d'abonnement</p>
+          <h1 style={styles.title}>{t('gestion_abonnements') || 'Gestion des Abonnements'}</h1>
+          <p style={styles.subtitle}>{t('consulter_paiements') || 'Consultez tous les paiements d\'abonnement'}</p>
         </div>
         <div style={styles.headerActions}>
           <Button variant="secondary" onClick={() => navigate('/superadmin/dashboard')}>
-            Retour
+            {t('retour')}
           </Button>
         </div>
       </div>
@@ -135,42 +137,42 @@ export default function SuperAdminAbonnements() {
         <div style={styles.statsGrid}>
           <div style={{ ...styles.statCard, borderLeft: '4px solid #22C55E' }}>
             <span style={styles.statNumber}>{stats.total_paye || 0} DT</span>
-            <span style={styles.statLabel}>Total payé</span>
+            <span style={styles.statLabel}>{t('total_paye') || 'Total payé'}</span>
           </div>
           <div style={{ ...styles.statCard, borderLeft: '4px solid #F59E0B' }}>
             <span style={styles.statNumber}>{stats.total_attente || 0} DT</span>
-            <span style={styles.statLabel}>En attente</span>
+            <span style={styles.statLabel}>{t('total_attente') || 'En attente'}</span>
           </div>
           <div style={{ ...styles.statCard, borderLeft: '4px solid #EF4444' }}>
             <span style={styles.statNumber}>{stats.total_echoue || 0} DT</span>
-            <span style={styles.statLabel}>Échoués</span>
+            <span style={styles.statLabel}>{t('total_echoue') || 'Échoués'}</span>
           </div>
           <div style={{ ...styles.statCard, borderLeft: '4px solid #0EA5E9' }}>
             <span style={styles.statNumber}>{stats.count_paye || 0}</span>
-            <span style={styles.statLabel}>Abonnements actifs</span>
+            <span style={styles.statLabel}>{t('abonnements_actifs') || 'Abonnements actifs'}</span>
           </div>
         </div>
       )}
 
-      <Card title="Filtres" variant="primary" style={{ marginBottom: '20px' }}>
+      <Card title={t('filtres') || 'Filtres'} variant="primary" style={{ marginBottom: '20px' }}>
         <div style={styles.filterGrid}>
           <div style={styles.formGroup}>
-            <label style={styles.label}>Statut</label>
+            <label style={styles.label}>{t('statut_paiement') || 'Statut'}</label>
             <select
               style={styles.select}
               name="statut"
               value={filters.statut}
               onChange={handleFilterChange}
             >
-              <option value="">Tous</option>
-              <option value="en_attente">En attente</option>
-              <option value="paye">Payé</option>
-              <option value="echoue">Échoué</option>
-              <option value="rembourse">Remboursé</option>
+              <option value="">{t('tous') || 'Tous'}</option>
+              <option value="en_attente">{t('statut_en_attente') || 'En attente'}</option>
+              <option value="paye">{t('statut_paye') || 'Payé'}</option>
+              <option value="echoue">{t('statut_echoue') || 'Échoué'}</option>
+              <option value="rembourse">{t('statut_rembourse') || 'Remboursé'}</option>
             </select>
           </div>
           <div style={styles.formGroup}>
-            <label style={styles.label}>Date début</label>
+            <label style={styles.label}>{t('date_debut') || 'Date début'}</label>
             <input
               style={styles.input}
               type="date"
@@ -180,7 +182,7 @@ export default function SuperAdminAbonnements() {
             />
           </div>
           <div style={styles.formGroup}>
-            <label style={styles.label}>Date fin</label>
+            <label style={styles.label}>{t('date_fin') || 'Date fin'}</label>
             <input
               style={styles.input}
               type="date"
@@ -194,13 +196,13 @@ export default function SuperAdminAbonnements() {
               variant="secondary"
               onClick={() => setFilters({ statut: '', date_debut: '', date_fin: '', limit: 50, offset: 0 })}
             >
-              Réinitialiser
+              {t('reinitialiser_filtres') || 'Réinitialiser'}
             </Button>
           </div>
         </div>
       </Card>
 
-      <Card title="Liste des abonnements" variant="primary">
+      <Card title={t('liste_abonnements') || 'Liste des abonnements'} variant="primary">
         <Table columns={columns} data={abonnements} loading={loading} />
       </Card>
     </div>

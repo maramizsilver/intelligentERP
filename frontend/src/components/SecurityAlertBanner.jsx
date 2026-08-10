@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import API from '../utils/api';
 import Button from './common/Button';
 
 export default function SecurityAlertBanner() {
     const { user } = useAuth();
+    const { t } = useLanguage();
     const [alerts, setAlerts] = useState([]);
     const [show, setShow] = useState(false);
 
@@ -39,7 +41,7 @@ export default function SecurityAlertBanner() {
             <div style={styles.content}>
                 <span style={styles.icon}>⚠</span>
                 <div style={styles.message}>
-                    <strong>Alertes de securite ({alerts.length})</strong>
+                    <strong>{t('alertes_securite') || 'Alertes de sécurité'} ({alerts.length})</strong>
                     <span style={styles.detail}>
                         {alerts.slice(0, 2).map((a, i) => (
                             <span key={i}>
@@ -47,7 +49,7 @@ export default function SecurityAlertBanner() {
                             </span>
                         ))}
                         {alerts.length > 2 && (
-                            <span>+{alerts.length - 2} autres</span>
+                            <span>+{alerts.length - 2} {t('autres_alertes') || 'autres'}</span>
                         )}
                     </span>
                 </div>
@@ -57,7 +59,7 @@ export default function SecurityAlertBanner() {
                 size="sm" 
                 onClick={() => window.location.href = '/superadmin/sessions'}
             >
-                Voir les alertes
+                {t('voir_alertes') || 'Voir les alertes'}
             </Button>
         </div>
     );

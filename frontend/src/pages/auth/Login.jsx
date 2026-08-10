@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 import { collectDeviceInfo } from '../../utils/deviceFingerprint';
+import LanguageSwitcher from '../../components/common/LanguageSwitcher';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -10,6 +12,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -36,9 +39,9 @@ export default function Login() {
       navigate(redirectPath);
     } catch (err) {
       if (err.response?.status === 423 || err.response?.data?.code === 'ACCOUNT_LOCKED') {
-        setError(err.response?.data?.message || 'Compte verrouille pour raisons de securite.');
+        setError(err.response?.data?.message || t('compte_verrouille') || 'Compte verrouillé pour raisons de sécurité.');
       } else {
-        setError(err.response?.data?.message || 'Erreur de connexion');
+        setError(err.response?.data?.message || t('erreur_connexion') || 'Erreur de connexion');
       }
     } finally {
       setLoading(false);
@@ -54,12 +57,16 @@ export default function Login() {
       </div>
 
       <div style={styles.card}>
+        <div style={styles.topBar}>
+          <LanguageSwitcher />
+        </div>
+
         <div style={styles.header}>
           <div style={styles.logoWrapper}>
             <div style={styles.logoIcon}>🏢</div>
           </div>
           <h1 style={styles.title}>ERP</h1>
-          <p style={styles.subtitle}>Plateforme de gestion d'entreprise</p>
+          <p style={styles.subtitle}>{t('login_titre') || 'Plateforme de gestion d\'entreprise'}</p>
         </div>
 
         {error && (
@@ -70,7 +77,7 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} style={styles.form}>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Email professionnel</label>
+            <label style={styles.label}>{t('email_professionnel') || 'Email professionnel'}</label>
             <div style={styles.inputWrapper}>
               <input
                 style={styles.input}
@@ -85,7 +92,7 @@ export default function Login() {
           </div>
 
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Mot de passe</label>
+            <label style={styles.label}>{t('mot_de_passe') || 'Mot de passe'}</label>
             <div style={styles.inputWrapper}>
               <input
                 style={styles.input}
@@ -107,11 +114,11 @@ export default function Login() {
             {loading ? (
               <span style={styles.buttonContent}>
                 <span style={styles.spinner} />
-                Connexion en cours...
+                {t('connexion_en_cours') || 'Connexion en cours...'}
               </span>
             ) : (
               <span style={styles.buttonContent}>
-                Se connecter
+                {t('se_connecter') || 'Se connecter'}
                 <span style={styles.buttonArrow}>→</span>
               </span>
             )}
@@ -120,22 +127,22 @@ export default function Login() {
 
         <div style={styles.links}>
           <span style={styles.link} onClick={() => navigate('/request-reset')}>
-            Mot de passe oublié ?
+            {t('mot_de_passe_oublie') || 'Mot de passe oublié ?'}
           </span>
         </div>
 
         <div style={styles.divider}>
           <span style={styles.dividerLine} />
-          <span style={styles.dividerText}>ou</span>
+          <span style={styles.dividerText}>{t('or') || 'ou'}</span>
           <span style={styles.dividerLine} />
         </div>
 
         <button style={styles.registerButton} onClick={() => navigate('/register')}>
           <span style={styles.registerIcon}>✨</span>
-          Créer un compte entreprise
+          {t('creer_compte_entreprise') || 'Créer un compte entreprise'}
         </button>
 
-        <p style={styles.footer}>© 2026 ERP - Tous droits réservés</p>
+        <p style={styles.footer}>© 2026 ERP - {t('tous_droits_reserves') || 'Tous droits réservés'}</p>
       </div>
     </div>
   );
@@ -201,6 +208,12 @@ const styles = {
     width: '420px',
     maxWidth: '92%',
     border: '1px solid rgba(255, 255, 255, 0.5)',
+  },
+  topBar: {
+    position: 'absolute',
+    top: '20px',
+    right: '20px',
+    zIndex: 2,
   },
   header: {
     textAlign: 'center',
