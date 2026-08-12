@@ -42,7 +42,6 @@ export default function Sidebar() {
             { path: '/superadmin/audit', label: t('audit') || 'Audit', icon: '📋' },
             { path: '/superadmin/abonnements', label: t('abonnements') || 'Abonnements', icon: '💳' },
             { path: '/superadmin/backup', label: t('backup') || 'Backup', icon: '💾' },
-            { path: '/notifications', label: t('notifications'), icon: '🔔' },
             { path: '/profil', label: t('mon_profil') || 'Mon profil', icon: '🙍' }
           ]
         }

@@ -12,7 +12,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 export default function SuperAdminDashboard() {
   const { user, logout } = useAuth();
-  const { t } = useLanguage();
+  const { t, dir } = useLanguage();
   const navigate = useNavigate();
   const [entreprises, setEntreprises] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +60,7 @@ export default function SuperAdminDashboard() {
       const res = await API.get('/entreprises');
       setEntreprises(res.data.entreprises || []);
     } catch (err) {
-      setError(t('impossible_charger_entreprises') || 'Impossible de charger les entreprises');
+      setError(t('impossible_charger_entreprises'));
     } finally {
       setLoading(false);
     }
@@ -72,33 +72,33 @@ export default function SuperAdminDashboard() {
       await API.put(`/entreprises/${id}/valider`);
       load();
     } catch (err) {
-      setError(err.response?.data?.message || t('erreur_validation') || 'Erreur');
+      setError(err.response?.data?.message || t('erreur_validation'));
     } finally {
       setBusyId(null);
     }
   };
 
   const suspendre = async (id) => {
-    if (!window.confirm(t('confirmation_suspension') || 'Suspendre cette entreprise ?')) return;
+    if (!window.confirm(t('confirmation_suspension'))) return;
     setBusyId(id);
     try {
       await API.put(`/entreprises/${id}/suspendre`);
       load();
     } catch (err) {
-      setError(err.response?.data?.message || t('erreur_suspension') || 'Erreur');
+      setError(err.response?.data?.message || t('erreur_suspension'));
     } finally {
       setBusyId(null);
     }
   };
 
   const passerEnPayant = async (id) => {
-    if (!window.confirm(t('confirmation_passage_payant') || 'Faire passer cette entreprise en abonnement payant ?')) return;
+    if (!window.confirm(t('confirmation_passage_payant'))) return;
     setBusyId(id);
     try {
       await API.put(`/entreprises/${id}/passer-payant`);
       load();
     } catch (err) {
-      setError(err.response?.data?.message || t('erreur_passage_payant') || 'Erreur');
+      setError(err.response?.data?.message || t('erreur_passage_payant'));
     } finally {
       setBusyId(null);
     }
@@ -106,24 +106,24 @@ export default function SuperAdminDashboard() {
 
   const handleDelete = async (id) => {
     const entreprise = entreprises.find(e => e.id === id);
-    const msg = `${t('confirmation_suppression_entreprise') || 'Supprimer definitivement'} "${entreprise?.nom}" ?\n\n` +
-      `${t('suppression_irreversible') || 'Cette action est irreversible et supprimera :'}\n` +
-      `${t('suppression_donnees_entreprise') || '- Toutes les donnees de l\'entreprise'}\n` +
-      `${t('suppression_base_donnees') || '- La base de donnees complete'}\n` +
-      `${t('suppression_comptes') || '- Tous les comptes utilisateurs'}\n` +
-      `${t('suppression_sessions') || '- Toutes les sessions actives'}\n\n` +
-      `${t('etes_vous_sur') || 'Etes-vous sur ?'}`;
+    const msg = `${t('confirmation_suppression_entreprise')} "${entreprise?.nom}" ?\n\n` +
+      `${t('suppression_irreversible')}\n` +
+      `${t('suppression_donnees_entreprise')}\n` +
+      `${t('suppression_base_donnees')}\n` +
+      `${t('suppression_comptes')}\n` +
+      `${t('suppression_sessions')}\n\n` +
+      `${t('etes_vous_sur')}`;
 
     if (!window.confirm(msg)) return;
 
     try {
       setBusyId(id);
       await API.delete(`/entreprises/${id}`);
-      setSuccess(`${t('entreprise_supprimee') || 'Entreprise supprimee'} "${entreprise?.nom}"`);
+      setSuccess(`${t('entreprise_supprimee')} "${entreprise?.nom}"`);
       load();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError(err.response?.data?.message || t('erreur_suppression_entreprise') || 'Erreur lors de la suppression');
+      setError(err.response?.data?.message || t('erreur_suppression_entreprise'));
       setTimeout(() => setError(''), 3000);
     } finally {
       setBusyId(null);
@@ -134,20 +134,20 @@ export default function SuperAdminDashboard() {
     if (!compteSelectionne) return;
 
     if (!window.confirm(
-      `Deverrouiller le compte de ${compteSelectionne.prenom} ${compteSelectionne.nom} (${compteSelectionne.email}) - entreprise "${compteSelectionne.entreprise_nom || 'N/A'}" ?`
+      `${t('deverrouiller_compte_confirm')} ${compteSelectionne.prenom} ${compteSelectionne.nom} (${compteSelectionne.email}) - ${t('entreprise')} "${compteSelectionne.entreprise_nom || t('non_disponible')}" ?`
     )) return;
 
     setUnlockLoading(true);
     setUnlockMessage('');
     try {
       await API.post(`/auth/account/unlock/${compteSelectionne.id}`);
-      setUnlockMessage('Compte deverrouille avec succes');
+      setUnlockMessage(t('compte_deverrouille_succes'));
       setCompteSelectionne(null);
       setRechercheKyc('');
       setResultatsKyc([]);
       load();
     } catch (err) {
-      setUnlockMessage(err.response?.data?.message || 'Erreur lors du deverrouillage');
+      setUnlockMessage(err.response?.data?.message || t('erreur_deverrouillage'));
     } finally {
       setUnlockLoading(false);
     }
@@ -164,13 +164,13 @@ export default function SuperAdminDashboard() {
     if (!lockTarget) return;
     
     if (!lockReason || lockReason.trim().length < 3) {
-      alert('Veuillez entrer une raison valide (minimum 3 caracteres)');
+      alert(t('raison_min_3_caracteres'));
       return;
     }
     
     if (!window.confirm(
-      `Verrouiller le compte de ${lockTarget.prenom} ${lockTarget.nom} (${lockTarget.email}) ?\n\n` +
-      `Raison : ${lockReason.trim()}`
+      `${t('verrouiller_compte_confirm')} ${lockTarget.prenom} ${lockTarget.nom} (${lockTarget.email}) ?\n\n` +
+      `${t('raison')} : ${lockReason.trim()}`
     )) return;
     
     setLockLoading(true);
@@ -178,23 +178,28 @@ export default function SuperAdminDashboard() {
       await API.post(`/auth/account/lock/${lockTarget.id}`, { 
         reason: lockReason.trim() 
       });
-      setUnlockMessage(`Compte ${lockTarget.prenom} ${lockTarget.nom} verrouille avec succes`);
+      setUnlockMessage(`${t('compte_verrouille_succes')} ${lockTarget.prenom} ${lockTarget.nom}`);
       setShowLockModal(false);
       setLockTarget(null);
       setLockReason('');
       setRechercheKyc(rechercheKyc);
       load();
     } catch (err) {
-      setUnlockMessage(err.response?.data?.message || 'Erreur lors du verrouillage');
+      setUnlockMessage(err.response?.data?.message || t('erreur_verrouillage'));
     } finally {
       setLockLoading(false);
     }
   };
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
   const statutInfo = {
-    en_attente: { label: t('en_attente') || 'En attente', variant: 'warning' },
-    actif: { label: t('actif') || 'Actif', variant: 'success' },
-    suspendu: { label: t('suspendu') || 'Suspendu', variant: 'danger' }
+    en_attente: { label: t('statut_en_attente'), variant: 'warning' },
+    actif: { label: t('statut_actif'), variant: 'success' },
+    suspendu: { label: t('statut_suspendu'), variant: 'danger' }
   };
 
   const compteurs = entreprises.reduce((acc, e) => {
@@ -203,25 +208,25 @@ export default function SuperAdminDashboard() {
   }, {});
 
   const columns = [
-    { key: 'nom', label: t('entreprise') || 'Entreprise' },
-    { key: 'email', label: t('email') },
+    { key: 'nom', label: t('colonne_entreprise') },
+    { key: 'email', label: t('colonne_email') },
     {
       key: 'date_inscription',
-      label: t('date_inscription') || 'Inscrite le',
+      label: t('colonne_date_inscription'),
       render: (row) => new Date(row.date_inscription).toLocaleDateString('fr-FR')
     },
     {
       key: 'plan_type',
-      label: t('plan') || 'Plan',
+      label: t('colonne_plan'),
       render: (row) => (
         <Badge variant={row.plan_type === 'payant' ? 'secondary' : 'primary'}>
-          {row.plan_type === 'payant' ? (t('plan_payant') || 'Payant') : `${t('plan_essai') || 'Essai'} (${row.connexions_utilisees}/${row.limite_connexions_essai})`}
+          {row.plan_type === 'payant' ? t('plan_payant') : `${t('plan_essai')} (${row.connexions_utilisees}/${row.limite_connexions_essai})`}
         </Badge>
       )
     },
     {
       key: 'statut',
-      label: t('statut_entreprise') || 'Statut',
+      label: t('colonne_statut_entreprise'),
       render: (row) => {
         const info = statutInfo[row.statut] || { label: row.statut, variant: 'outline' };
         return <Badge variant={info.variant}>{info.label}</Badge>;
@@ -231,57 +236,57 @@ export default function SuperAdminDashboard() {
 
   const actions = [
     {
-      label: t('valider_entreprise') || 'Valider',
+      label: t('action_valider'),
       variant: 'success',
       onClick: (row) => valider(row.id),
       disabled: (row) => row.statut === 'actif' || busyId === row.id
     },
     {
-      label: t('suspendre_entreprise') || 'Suspendre',
+      label: t('action_suspendre'),
       variant: 'danger',
       onClick: (row) => suspendre(row.id),
       disabled: (row) => row.statut === 'suspendu' || busyId === row.id
     },
     {
-      label: t('passer_payant') || 'Passer payant',
+      label: t('action_passer_payant'),
       variant: 'secondary',
       onClick: (row) => passerEnPayant(row.id),
       disabled: (row) => row.plan_type === 'payant' || busyId === row.id
     },
     {
-      label: t('supprimer_entreprise') || 'Supprimer',
+      label: t('action_supprimer'),
       variant: 'danger',
       onClick: (row) => handleDelete(row.id),
       disabled: (row) => busyId === row.id
     }
   ];
 
-  if (loading) return <LoadingSpinner size="lg" text={t('chargement') || 'Chargement...'} />;
+  if (loading) return <LoadingSpinner size="lg" text={t('chargement')} />;
 
   return (
-    <div>
+    <div style={{ textAlign: dir === 'rtl' ? 'right' : 'left' }}>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>{t('superadmin_dashboard') || 'Plateforme SuperAdmin'}</h1>
+          <h1 style={styles.title}>{t('superadmin_dashboard')}</h1>
           <p style={styles.subtitle}>
-            {t('bonjour') || 'Bonjour'} {user?.prenom}, {t('entreprises_inscrites') || 'voici les entreprises inscrites.'}
+            {t('bonjour')} {user?.prenom}, {t('entreprises_inscrites')}
           </p>
         </div>
         <div style={styles.headerActions}>
           <Button variant="secondary" onClick={() => navigate('/superadmin/audit')}>
-            {t('audit') || 'Audit'}
+            {t('menu_audit')}
           </Button>
           <Button variant="secondary" onClick={() => navigate('/superadmin/abonnements')}>
-            {t('abonnements') || 'Abonnements'}
+            {t('menu_abonnements')}
           </Button>
           <Button variant="secondary" onClick={() => navigate('/superadmin/backup')}>
-            {t('sauvegarde') || 'Sauvegarde'}
+            {t('menu_sauvegarde')}
           </Button>
           <Button variant="secondary" onClick={() => navigate('/superadmin/sessions')}>
-            {t('sessions') || 'Sessions'}
+            {t('menu_sessions')}
           </Button>
-          <Button variant="danger" onClick={logout}>
-            {t('deconnexion_superadmin') || 'Deconnexion'}
+          <Button variant="danger" onClick={handleLogout}>
+            {t('deconnexion')}
           </Button>
         </div>
       </div>
@@ -300,26 +305,26 @@ export default function SuperAdminDashboard() {
       <div style={styles.statsRow}>
         <div style={{ ...styles.statCard, borderLeft: '4px solid #F59E0B' }}>
           <span style={styles.statNumber}>{compteurs.en_attente || 0}</span>
-          <span style={styles.statLabel}>{t('en_attente_validation') || 'En attente de validation'}</span>
+          <span style={styles.statLabel}>{t('statut_en_attente')}</span>
         </div>
         <div style={{ ...styles.statCard, borderLeft: '4px solid #22C55E' }}>
           <span style={styles.statNumber}>{compteurs.actif || 0}</span>
-          <span style={styles.statLabel}>{t('actives') || 'Actives'}</span>
+          <span style={styles.statLabel}>{t('statut_actif')}</span>
         </div>
         <div style={{ ...styles.statCard, borderLeft: '4px solid #EF4444' }}>
           <span style={styles.statNumber}>{compteurs.suspendu || 0}</span>
-          <span style={styles.statLabel}>{t('suspendues') || 'Suspendues'}</span>
+          <span style={styles.statLabel}>{t('statut_suspendu')}</span>
         </div>
         <div style={{ ...styles.statCard, borderLeft: '4px solid #8B5CF6' }}>
           <span style={styles.statNumber}>{entreprises.length}</span>
-          <span style={styles.statLabel}>{t('total_entreprises') || 'Total entreprises'}</span>
+          <span style={styles.statLabel}>{t('total_entreprises')}</span>
         </div>
       </div>
 
-      <Card title={t('deverrouiller_compte') || 'Deverrouiller un compte'} variant="primary">
+      <Card title={t('deverrouiller_compte')} variant="primary">
         <div style={styles.unlockContainer}>
           <div style={styles.unlockInputGroup}>
-            <label style={styles.unlockLabel}>Rechercher par nom, prenom, email ou ID</label>
+            <label style={styles.unlockLabel}>{t('rechercher_par_nom_prenom_email_id')}</label>
             <input
               type="text"
               value={rechercheKyc}
@@ -327,14 +332,14 @@ export default function SuperAdminDashboard() {
                 setRechercheKyc(e.target.value); 
                 setCompteSelectionne(null); 
               }}
-              placeholder="Ex: Ben Amor, jean@entreprise.com, 42..."
-              style={styles.unlockInput}
+              placeholder={t('exemple_recherche_utilisateur')}
+              style={{...styles.unlockInput, textAlign: dir === 'rtl' ? 'right' : 'left'}}
               disabled={unlockLoading}
             />
           </div>
 
           {rechercheEnCours && (
-            <div style={{ fontSize: '13px', color: '#94A3B8' }}>Recherche...</div>
+            <div style={{ fontSize: '13px', color: '#94A3B8' }}>{t('recherche_en_cours')}</div>
           )}
 
           {!rechercheEnCours && resultatsKyc.length > 0 && !compteSelectionne && (
@@ -361,11 +366,11 @@ export default function SuperAdminDashboard() {
                       {u.prenom} {u.nom} <span style={{ color: '#94A3B8', fontWeight: 400 }}>#{u.id}</span>
                     </div>
                     <div style={{ fontSize: '12px', color: '#64748B' }}>
-                      {u.email} · {u.entreprise_nom || 'Sans entreprise'}
+                      {u.email} · {u.entreprise_nom || t('sans_entreprise')}
                     </div>
                   </div>
                   <Badge variant={u.is_account_locked ? 'danger' : 'success'}>
-                    {u.is_account_locked ? 'Verrouille' : 'Actif'}
+                    {u.is_account_locked ? t('statut_verrouille') : t('statut_actif')}
                   </Badge>
                 </div>
               ))}
@@ -380,24 +385,24 @@ export default function SuperAdminDashboard() {
               backgroundColor: '#F0F9FF'
             }}>
               <div style={{ fontSize: '11px', fontWeight: 700, color: '#0EA5E9', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
-                Fiche d'identite (KYC)
+                {t('fiche_identite_kyc')}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: '13px', marginBottom: '14px' }}>
-                <div><strong>Nom :</strong> {compteSelectionne.prenom} {compteSelectionne.nom}</div>
-                <div><strong>ID :</strong> #{compteSelectionne.id}</div>
-                <div><strong>Email :</strong> {compteSelectionne.email}</div>
-                <div><strong>Telephone :</strong> {compteSelectionne.telephone || '—'}</div>
-                <div><strong>Entreprise :</strong> {compteSelectionne.entreprise_nom || '—'}</div>
-                <div><strong>Statut entreprise :</strong> {compteSelectionne.entreprise_statut || '—'}</div>
+                <div><strong>{t('nom')} :</strong> {compteSelectionne.prenom} {compteSelectionne.nom}</div>
+                <div><strong>{t('id')} :</strong> #{compteSelectionne.id}</div>
+                <div><strong>{t('email')} :</strong> {compteSelectionne.email}</div>
+                <div><strong>{t('telephone')} :</strong> {compteSelectionne.telephone || '—'}</div>
+                <div><strong>{t('entreprise')} :</strong> {compteSelectionne.entreprise_nom || '—'}</div>
+                <div><strong>{t('statut_entreprise')} :</strong> {compteSelectionne.entreprise_statut || '—'}</div>
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <strong>Statut compte :</strong>{' '}
+                  <strong>{t('statut_compte')} :</strong>{' '}
                   <Badge variant={compteSelectionne.is_account_locked ? 'danger' : 'success'}>
-                    {compteSelectionne.is_account_locked ? 'Verrouille' : 'Actif'}
+                    {compteSelectionne.is_account_locked ? t('statut_verrouille') : t('statut_actif')}
                   </Badge>
                 </div>
                 {compteSelectionne.is_account_locked && (
                   <div style={{ gridColumn: '1 / -1' }}>
-                    <strong>Raison :</strong> {compteSelectionne.account_lock_reason || 'Non precisee'}
+                    <strong>{t('raison')} :</strong> {compteSelectionne.account_lock_reason || t('non_precisee')}
                   </div>
                 )}
               </div>
@@ -410,7 +415,7 @@ export default function SuperAdminDashboard() {
                       backgroundColor: '#F59E0B'
                     }}
                   >
-                    Verrouiller ce compte
+                    {t('verrouiller_compte')}
                   </button>
                 ) : (
                   <button
@@ -421,7 +426,7 @@ export default function SuperAdminDashboard() {
                       backgroundColor: '#EF4444'
                     }}
                   >
-                    {unlockLoading ? 'Deverrouillage...' : 'Deverrouiller ce compte'}
+                    {unlockLoading ? t('deverrouillage_en_cours') : t('deverrouiller_compte')}
                   </button>
                 )}
                 <button
@@ -437,7 +442,7 @@ export default function SuperAdminDashboard() {
                     cursor: 'pointer'
                   }}
                 >
-                  Annuler
+                  {t('annuler')}
                 </button>
               </div>
             </div>
@@ -446,8 +451,8 @@ export default function SuperAdminDashboard() {
           {unlockMessage && (
             <div style={{
               ...styles.unlockMessage,
-              backgroundColor: unlockMessage.includes('succes') ? '#D1FAE5' : '#FEE2E2',
-              color: unlockMessage.includes('succes') ? '#065F46' : '#991B1B',
+              backgroundColor: unlockMessage.includes('succes') || unlockMessage.includes('avec succès') ? '#D1FAE5' : '#FEE2E2',
+              color: unlockMessage.includes('succes') || unlockMessage.includes('avec succès') ? '#065F46' : '#991B1B',
             }}>
               {unlockMessage}
             </div>
@@ -455,27 +460,27 @@ export default function SuperAdminDashboard() {
 
           <div style={styles.unlockHelp}>
             <small style={styles.unlockHelpText}>
-              La recherche affiche l'identite complete du compte avant toute action de deverrouillage.
+              {t('recherche_affiche_identite_complete')}
             </small>
           </div>
         </div>
       </Card>
 
-      <Card title={t('liste_entreprises') || 'Liste des entreprises'} variant="primary">
+      <Card title={t('liste_entreprises')} variant="primary">
         <Table
           columns={columns}
           data={entreprises}
           loading={loading}
           actions={actions}
-          emptyMessage={t('aucune_entreprise') || 'Aucune entreprise inscrite pour le moment.'}
+          emptyMessage={t('aucune_entreprise')}
         />
       </Card>
 
       {showLockModal && lockTarget && (
         <div style={styles.modalOverlay}>
-          <div style={styles.modal}>
+          <div style={{...styles.modal, textAlign: dir === 'rtl' ? 'right' : 'left'}}>
             <div style={styles.modalHeader}>
-              <h3 style={styles.modalTitle}>Verrouiller le compte</h3>
+              <h3 style={styles.modalTitle}>{t('verrouiller_compte_titre')}</h3>
               <button 
                 onClick={() => { setShowLockModal(false); setLockTarget(null); setLockReason(''); }}
                 style={styles.modalClose}
@@ -485,23 +490,23 @@ export default function SuperAdminDashboard() {
             </div>
             <div style={styles.modalBody}>
               <div style={styles.modalUserInfo}>
-                <div><strong>Utilisateur :</strong> {lockTarget.prenom} {lockTarget.nom}</div>
-                <div><strong>Email :</strong> {lockTarget.email}</div>
-                <div><strong>Entreprise :</strong> {lockTarget.entreprise_nom || 'Sans entreprise'}</div>
-                <div><strong>Statut actuel :</strong> <Badge variant="success">Actif</Badge></div>
+                <div><strong>{t('utilisateur')} :</strong> {lockTarget.prenom} {lockTarget.nom}</div>
+                <div><strong>{t('email')} :</strong> {lockTarget.email}</div>
+                <div><strong>{t('entreprise')} :</strong> {lockTarget.entreprise_nom || t('sans_entreprise')}</div>
+                <div><strong>{t('statut_actuel')} :</strong> <Badge variant="success">{t('statut_actif')}</Badge></div>
               </div>
               <div style={styles.modalFormGroup}>
-                <label style={styles.modalLabel}>Raison du verrouillage *</label>
+                <label style={styles.modalLabel}>{t('raison_verrouillage')} *</label>
                 <textarea
                   value={lockReason}
                   onChange={(e) => setLockReason(e.target.value)}
-                  placeholder="Ex: Comportement suspect, activite frauduleuse, demande de l'utilisateur..."
-                  style={styles.modalTextarea}
+                  placeholder={t('exemple_raison_verrouillage')}
+                  style={{...styles.modalTextarea, textAlign: dir === 'rtl' ? 'right' : 'left'}}
                   rows={4}
                   disabled={lockLoading}
                 />
                 <small style={styles.modalHelper}>
-                  Cette raison sera visible par l'utilisateur et dans l'audit.
+                  {t('raison_visible_par_utilisateur')}
                 </small>
               </div>
             </div>
@@ -511,7 +516,7 @@ export default function SuperAdminDashboard() {
                 style={styles.modalCancelBtn}
                 disabled={lockLoading}
               >
-                Annuler
+                {t('annuler')}
               </button>
               <button
                 onClick={confirmLockAccount}
@@ -522,7 +527,7 @@ export default function SuperAdminDashboard() {
                   cursor: (lockLoading || lockReason.trim().length < 3) ? 'not-allowed' : 'pointer'
                 }}
               >
-                {lockLoading ? 'Verrouillage...' : 'Verrouiller le compte'}
+                {lockLoading ? t('verrouillage_en_cours') : t('verrouiller_compte')}
               </button>
             </div>
           </div>

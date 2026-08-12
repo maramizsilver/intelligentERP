@@ -76,10 +76,10 @@ export default function SuperAdminAudit() {
 
   const getStatusBadge = (status) => {
     const statuses = {
-      success: { label: t('status_succes') || 'Succès', variant: 'success' },
-      failed: { label: t('status_echec') || 'Échec', variant: 'danger' },
-      locked: { label: t('status_bloque') || 'Bloqué', variant: 'warning' },
-      error: { label: t('status_erreur') || 'Erreur', variant: 'danger' }
+      success: { label: t('status_succes'), variant: 'success' },
+      failed: { label: t('status_echec'), variant: 'danger' },
+      locked: { label: t('status_bloque'), variant: 'warning' },
+      error: { label: t('status_erreur'), variant: 'danger' }
     };
     return statuses[status] || { label: status, variant: 'outline' };
   };
@@ -90,10 +90,10 @@ export default function SuperAdminAudit() {
       label: t('date'),
       render: (row) => new Date(row.created_at).toLocaleString('fr-FR')
     },
-    { key: 'entreprise_nom', label: t('entreprise') || 'Entreprise' },
-    { key: 'nom', label: t('utilisateur') || 'Utilisateur', render: (row) => `${row.prenom || ''} ${row.nom || ''}` },
-    { key: 'action', label: t('action') || 'Action' },
-    { key: 'module', label: t('module') || 'Module' },
+    { key: 'entreprise_nom', label: t('entreprise') },
+    { key: 'nom', label: t('utilisateur'), render: (row) => `${row.prenom || ''} ${row.nom || ''}` },
+    { key: 'action', label: t('action') },
+    { key: 'module', label: t('module') },
     {
       key: 'status',
       label: t('statut'),
@@ -111,8 +111,8 @@ export default function SuperAdminAudit() {
       label: t('date'),
       render: (row) => new Date(row.created_at).toLocaleString('fr-FR')
     },
-    { key: 'entreprise_nom', label: t('entreprise') || 'Entreprise' },
-    { key: 'nom', label: t('utilisateur') || 'Utilisateur', render: (row) => `${row.prenom || ''} ${row.nom || ''}` },
+    { key: 'entreprise_nom', label: t('entreprise') },
+    { key: 'nom', label: t('utilisateur'), render: (row) => `${row.prenom || ''} ${row.nom || ''}` },
     { key: 'email', label: t('email') },
     {
       key: 'status',
@@ -129,8 +129,8 @@ export default function SuperAdminAudit() {
     <div>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>{t('audit_global') || 'Audit Global'}</h1>
-          <p style={styles.subtitle}>{t('consulter_logs') || 'Consultez tous les logs de la plateforme'}</p>
+          <h1 style={styles.title}>{t('audit_global')}</h1>
+          <p style={styles.subtitle}>{t('consulter_logs_plateforme')}</p>
         </div>
         <div style={styles.headerActions}>
           <Button variant="secondary" onClick={() => navigate('/superadmin/dashboard')}>
@@ -143,15 +143,15 @@ export default function SuperAdminAudit() {
         <div style={styles.statsGrid}>
           <div style={{ ...styles.statCard, borderLeft: '4px solid #0EA5E9' }}>
             <span style={styles.statNumber}>{stats.logs_by_entreprise?.length || 0}</span>
-            <span style={styles.statLabel}>{t('entreprises_avec_logs') || 'Entreprises avec logs'}</span>
+            <span style={styles.statLabel}>{t('entreprises_avec_logs')}</span>
           </div>
           <div style={{ ...styles.statCard, borderLeft: '4px solid #22C55E' }}>
             <span style={styles.statNumber}>{stats.top_actions?.length || 0}</span>
-            <span style={styles.statLabel}>{t('actions_distinctes') || 'Actions distinctes'}</span>
+            <span style={styles.statLabel}>{t('actions_distinctes')}</span>
           </div>
           <div style={{ ...styles.statCard, borderLeft: '4px solid #F59E0B' }}>
             <span style={styles.statNumber}>{stats.top_modules?.length || 0}</span>
-            <span style={styles.statLabel}>{t('modules_utilises') || 'Modules utilisés'}</span>
+            <span style={styles.statLabel}>{t('modules_utilises')}</span>
           </div>
         </div>
       )}
@@ -161,53 +161,53 @@ export default function SuperAdminAudit() {
           style={{ ...styles.tab, ...(activeTab === 'logs' ? styles.tabActive : {}) }}
           onClick={() => setActiveTab('logs')}
         >
-          {t('logs_actions') || "Logs d'actions"} ({total})
+          {t('logs_actions')} ({total})
         </button>
         <button
           style={{ ...styles.tab, ...(activeTab === 'connexions' ? styles.tabActive : {}) }}
           onClick={() => setActiveTab('connexions')}
         >
-          {t('logs_connexion') || 'Logs de connexion'}
+          {t('logs_connexion')}
         </button>
       </div>
 
-      <Card title={t('filtres') || 'Filtres'} variant="primary" style={{ marginBottom: '20px' }}>
+      <Card title={t('filtres')} variant="primary" style={{ marginBottom: '20px' }}>
         <div style={styles.filterGrid}>
           <div style={styles.formGroup}>
-            <label style={styles.label}>{t('entreprise_id') || 'Entreprise ID'}</label>
+            <label style={styles.label}>{t('entreprise_id')}</label>
             <input
               style={styles.input}
               type="text"
               name="entreprise_id"
-              placeholder={t('entreprise_id') || 'ID entreprise'}
+              placeholder={t('entreprise_id')}
               value={filters.entreprise_id}
               onChange={handleFilterChange}
             />
           </div>
           <div style={styles.formGroup}>
-            <label style={styles.label}>{t('action') || 'Action'}</label>
+            <label style={styles.label}>{t('action')}</label>
             <input
               style={styles.input}
               type="text"
               name="action"
-              placeholder={t('rechercher_action') || 'Rechercher une action'}
+              placeholder={t('rechercher_action')}
               value={filters.action}
               onChange={handleFilterChange}
             />
           </div>
           <div style={styles.formGroup}>
-            <label style={styles.label}>{t('module') || 'Module'}</label>
+            <label style={styles.label}>{t('module')}</label>
             <input
               style={styles.input}
               type="text"
               name="module"
-              placeholder={t('module') || 'Module'}
+              placeholder={t('module')}
               value={filters.module}
               onChange={handleFilterChange}
             />
           </div>
           <div style={styles.formGroup}>
-            <label style={styles.label}>{t('date_debut') || 'Date début'}</label>
+            <label style={styles.label}>{t('date_debut')}</label>
             <input
               style={styles.input}
               type="date"
@@ -217,7 +217,7 @@ export default function SuperAdminAudit() {
             />
           </div>
           <div style={styles.formGroup}>
-            <label style={styles.label}>{t('date_fin') || 'Date fin'}</label>
+            <label style={styles.label}>{t('date_fin')}</label>
             <input
               style={styles.input}
               type="date"
@@ -241,13 +241,13 @@ export default function SuperAdminAudit() {
                 });
               }}
             >
-              {t('reinitialiser_filtres') || 'Réinitialiser'}
+              {t('reinitialiser_filtres')}
             </Button>
           </div>
         </div>
       </Card>
 
-      <Card title={activeTab === 'logs' ? (t('logs_actions') || "Logs d'actions") : (t('logs_connexion') || 'Logs de connexion')} variant="primary">
+      <Card title={activeTab === 'logs' ? t('logs_actions') : t('logs_connexion')} variant="primary">
         <Table
           columns={activeTab === 'logs' ? logsColumns : connexionsColumns}
           data={logs}
@@ -260,7 +260,7 @@ export default function SuperAdminAudit() {
               disabled={filters.offset === 0}
               onClick={() => setFilters({ ...filters, offset: filters.offset - filters.limit })}
             >
-              {t('precedent') || 'Précédent'}
+              {t('precedent')}
             </Button>
             <span style={styles.paginationInfo}>
               {filters.offset + 1} - {Math.min(filters.offset + filters.limit, total)} sur {total}
@@ -270,7 +270,7 @@ export default function SuperAdminAudit() {
               disabled={filters.offset + filters.limit >= total}
               onClick={() => setFilters({ ...filters, offset: filters.offset + filters.limit })}
             >
-              {t('suivant') || 'Suivant'}
+              {t('suivant')}
             </Button>
           </div>
         )}

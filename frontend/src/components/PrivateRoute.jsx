@@ -10,6 +10,7 @@ export default function PrivateRoute({
   superAdminOnly = false,
   externalOnly = false,
   allowEssaiExpire = false,
+  allowSuperAdmin = false, 
 }) {
   const { user, loading } = useAuth();
   const { t } = useLanguage();
@@ -22,17 +23,23 @@ export default function PrivateRoute({
     return <Navigate to="/" />;
   }
 
+  // Si la route est réservée aux SuperAdmin
   if (superAdminOnly && !user.is_super_admin) {
     return <Navigate to={user.is_external ? '/client/dashboard' : '/dashboard'} />;
   }
 
+  // Si la route est réservée aux clients externes
   if (externalOnly && !user.is_external) {
     return <Navigate to={user.is_super_admin ? '/superadmin/dashboard' : '/dashboard'} />;
   }
 
   if (!superAdminOnly && !externalOnly) {
-    if (user.is_super_admin) return <Navigate to="/superadmin/dashboard" />;
-    if (user.is_external) return <Navigate to="/client/dashboard" />;
+    if (user.is_super_admin && !allowSuperAdmin) {
+      return <Navigate to="/superadmin/dashboard" />;
+    }
+    if (user.is_external) {
+      return <Navigate to="/client/dashboard" />;
+    }
     if (user.essai_expire && !allowEssaiExpire) {
       return <Navigate to="/essai-expire" />;
     }
