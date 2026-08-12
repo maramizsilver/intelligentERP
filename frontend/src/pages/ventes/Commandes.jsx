@@ -1,5 +1,4 @@
-// frontend/src/pages/ventes/Commandes.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -23,6 +22,7 @@ export default function Commandes() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [showForm, setShowForm] = useState(false);
   const [clientId, setClientId] = useState('');
@@ -54,6 +54,17 @@ export default function Commandes() {
   useEffect(() => {
     loadData();
   }, []);
+
+ const commandesFiltrees = useMemo(() => {
+  if (!searchTerm.trim()) return commandes;
+  const terme = searchTerm.trim().toLowerCase();
+  return commandes.filter(c =>
+    (c.client_nom || '').toLowerCase().startsWith(terme) ||
+    (c.numero_commande || '').toLowerCase().startsWith(terme) ||
+    (c.reference || '').toLowerCase().startsWith(terme) ||
+    String(c.id).startsWith(terme)
+  );
+}, [commandes, searchTerm]);
 
   const handleLigneChange = (index, field, value) => {
     const newLignes = [...lignes];
@@ -286,7 +297,19 @@ export default function Commandes() {
       )}
 
       <Card title={t('liste_commandes') || 'Liste des commandes'} variant="primary">
-        <Table columns={columns} data={commandes} loading={loading} actions={actions} />
+        {searchTerm && (
+          <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '8px' }}>
+            {commandesFiltrees.length} résultat(s) sur {commandes.length}
+          </p>
+        )}
+        <Table
+          columns={columns}
+          data={commandesFiltrees}
+          loading={loading}
+          actions={actions}
+          searchable
+          onSearch={setSearchTerm}
+        />
       </Card>
     </div>
   );

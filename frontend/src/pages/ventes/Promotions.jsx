@@ -1,5 +1,4 @@
-// frontend/src/pages/ventes/Promotions.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -21,6 +20,7 @@ export default function Promotions() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -58,6 +58,16 @@ export default function Promotions() {
       setLoading(false);
     }
   };
+
+ const promotionsFiltrees = useMemo(() => {
+  if (!searchTerm.trim()) return promotions;
+  const terme = searchTerm.trim().toLowerCase();
+  return promotions.filter(p =>
+    (p.code || '').toLowerCase().startsWith(terme) ||
+    (p.nom || '').toLowerCase().startsWith(terme) ||
+    (p.description || '').toLowerCase().startsWith(terme)
+  );
+}, [promotions, searchTerm]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -278,7 +288,19 @@ export default function Promotions() {
       )}
 
       <Card title={t('liste_promotions') || 'Liste des promotions'} variant="primary">
-        <Table columns={columns} data={promotions} loading={loading} actions={actions} />
+        {searchTerm && (
+          <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '8px' }}>
+            {promotionsFiltrees.length} résultat(s) sur {promotions.length}
+          </p>
+        )}
+        <Table
+          columns={columns}
+          data={promotionsFiltrees}
+          loading={loading}
+          actions={actions}
+          searchable
+          onSearch={setSearchTerm}
+        />
       </Card>
 
       <Modal

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -21,6 +21,7 @@ export default function MouvementsStock() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [showAjustement, setShowAjustement] = useState(false);
   const [formAjustement, setFormAjustement] = useState({
@@ -66,6 +67,19 @@ export default function MouvementsStock() {
       loadMouvements();
     }
   }, [produitId]);
+
+  const mouvementsFiltres = useMemo(() => {
+    if (!searchTerm.trim()) return mouvements;
+    const terme = searchTerm.trim().toLowerCase();
+    return mouvements.filter(m =>
+      (m.produit_nom || '').toLowerCase().startsWith(terme) ||
+      (m.type || '').toLowerCase().startsWith(terme) ||
+      (m.motif || '').toLowerCase().startsWith(terme) ||
+      String(m.quantite).startsWith(terme) ||
+      String(m.ancien_stock).startsWith(terme) ||
+      String(m.nouveau_stock).startsWith(terme)
+    );
+  }, [mouvements, searchTerm]);
 
   const handleAjustement = async (e) => {
     e.preventDefault();
@@ -255,7 +269,18 @@ export default function MouvementsStock() {
           subtitle={`${t('stock_actuel_label')}: ${produitSelectionne?.quantite_stock || 0}`}
           variant="primary"
         >
-          <Table columns={columns} data={mouvements} loading={loading} />
+          {searchTerm && (
+            <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '8px' }}>
+              {mouvementsFiltres.length} résultat(s) sur {mouvements.length}
+            </p>
+          )}
+          <Table
+            columns={columns}
+            data={mouvementsFiltres}
+            loading={loading}
+            searchable
+            onSearch={setSearchTerm}
+          />
         </Card>
       )}
     </div>

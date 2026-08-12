@@ -1,5 +1,4 @@
-// frontend/src/pages/ventes/Devis.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -23,6 +22,7 @@ export default function Devis() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
@@ -59,6 +59,16 @@ export default function Devis() {
       setLoading(false);
     }
   };
+
+ const devisFiltres = useMemo(() => {
+  if (!searchTerm.trim()) return devis;
+  const terme = searchTerm.trim().toLowerCase();
+  return devis.filter(d =>
+    (d.client_nom || '').toLowerCase().startsWith(terme) ||
+    (d.numero_devis || '').toLowerCase().startsWith(terme) ||
+    String(d.id).startsWith(terme)
+  );
+}, [devis, searchTerm]);
 
   const handleLigneChange = (index, field, value) => {
     const newLignes = [...form.lignes];
@@ -351,7 +361,19 @@ export default function Devis() {
       )}
 
       <Card title={t('liste_devis') || 'Liste des devis'} variant="primary">
-        <Table columns={columns} data={devis} loading={loading} actions={actions} />
+        {searchTerm && (
+          <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '8px' }}>
+            {devisFiltres.length} résultat(s) sur {devis.length}
+          </p>
+        )}
+        <Table
+          columns={columns}
+          data={devisFiltres}
+          loading={loading}
+          actions={actions}
+          searchable
+          onSearch={setSearchTerm}
+        />
       </Card>
     </div>
   );

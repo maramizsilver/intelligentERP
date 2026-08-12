@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -19,6 +19,7 @@ export default function Clients() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -48,6 +49,20 @@ export default function Clients() {
   useEffect(() => {
     loadClients();
   }, []);
+
+ const clientsFiltres = useMemo(() => {
+  if (!searchTerm.trim()) return clients;
+  const terme = searchTerm.trim().toLowerCase();
+  return clients.filter(c =>
+    (c.nom || '').toLowerCase().startsWith(terme) ||
+    (c.prenom || '').toLowerCase().startsWith(terme) ||
+    (c.raison_sociale || '').toLowerCase().startsWith(terme) ||
+    (c.email || '').toLowerCase().startsWith(terme) ||
+    (c.telephone || '').toLowerCase().startsWith(terme) ||
+    (c.matricule_fiscal || '').toLowerCase().startsWith(terme) ||
+    (c.numero_cin || '').toLowerCase().startsWith(terme)
+  );
+}, [clients, searchTerm]);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -163,7 +178,20 @@ export default function Clients() {
       )}
 
       <Card variant="primary">
-        <Table columns={columns} data={clients} loading={loading} actions={actions} />
+        {searchTerm && (
+          <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '8px' }}>
+            {clientsFiltres.length} résultat(s) sur {clients.length}
+          </p>
+        )}
+        <Table
+          columns={columns}
+          data={clientsFiltres}
+          loading={loading}
+          actions={actions}
+          searchable
+          onSearch={setSearchTerm}
+          emptyMessage={searchTerm ? `Aucun client ne correspond à "${searchTerm}"` : undefined}
+        />
       </Card>
 
       <Modal

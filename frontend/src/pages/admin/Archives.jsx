@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -19,6 +19,7 @@ export default function Archives() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
@@ -50,6 +51,17 @@ export default function Archives() {
       setLoading(false);
     }
   };
+
+  const archivesFiltres = useMemo(() => {
+    if (!searchTerm.trim()) return archives;
+    const terme = searchTerm.trim().toLowerCase();
+    return archives.filter(a =>
+      (a.type_entite || '').toLowerCase().startsWith(terme) ||
+      (a.motif || '').toLowerCase().startsWith(terme) ||
+      (a.archived_by || '').toLowerCase().startsWith(terme) ||
+      String(a.entite_id).startsWith(terme)
+    );
+  }, [archives, searchTerm]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -279,7 +291,19 @@ export default function Archives() {
       )}
 
       <Card title={t('liste_archives') || 'Liste des archives'} variant="primary">
-        <Table columns={columns} data={archives} loading={loading} actions={actions} />
+        {searchTerm && (
+          <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '8px' }}>
+            {archivesFiltres.length} résultat(s) sur {archives.length}
+          </p>
+        )}
+        <Table
+          columns={columns}
+          data={archivesFiltres}
+          loading={loading}
+          actions={actions}
+          searchable
+          onSearch={setSearchTerm}
+        />
       </Card>
 
       {showDetail && detailArchive && (

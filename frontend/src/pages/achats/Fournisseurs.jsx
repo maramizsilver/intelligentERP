@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -19,6 +19,7 @@ export default function Fournisseurs() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -48,6 +49,19 @@ export default function Fournisseurs() {
   useEffect(() => {
     loadData();
   }, []);
+
+const fournisseursFiltres = useMemo(() => {
+  if (!searchTerm.trim()) return fournisseurs;
+  const terme = searchTerm.trim().toLowerCase();
+  return fournisseurs.filter(f =>
+    (f.nom || '').toLowerCase().startsWith(terme) ||
+    (f.raison_sociale || '').toLowerCase().startsWith(terme) ||
+    (f.email || '').toLowerCase().startsWith(terme) ||
+    (f.telephone || '').toLowerCase().startsWith(terme) ||
+    (f.matricule_fiscal || '').toLowerCase().startsWith(terme) ||
+    (f.numero_tva || '').toLowerCase().startsWith(terme)
+  );
+}, [fournisseurs, searchTerm]);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -164,7 +178,19 @@ export default function Fournisseurs() {
       )}
 
       <Card title={t('liste_fournisseurs') || 'Liste des fournisseurs'} variant="primary">
-        <Table columns={columns} data={fournisseurs} loading={loading} actions={actions} />
+        {searchTerm && (
+          <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '8px' }}>
+            {fournisseursFiltres.length} résultat(s) sur {fournisseurs.length}
+          </p>
+        )}
+        <Table
+          columns={columns}
+          data={fournisseursFiltres}
+          loading={loading}
+          actions={actions}
+          searchable
+          onSearch={setSearchTerm}
+        />
       </Card>
 
       <Modal

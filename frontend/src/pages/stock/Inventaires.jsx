@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -22,6 +22,7 @@ export default function Inventaires() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState(null);
   const [formData, setFormData] = useState({
@@ -56,6 +57,16 @@ export default function Inventaires() {
       setLoading(false);
     }
   };
+
+  const inventairesFiltres = useMemo(() => {
+    if (!searchTerm.trim()) return inventaires;
+    const terme = searchTerm.trim().toLowerCase();
+    return inventaires.filter(i =>
+      (i.entrepot_nom || '').toLowerCase().startsWith(terme) ||
+      (i.statut || '').toLowerCase().startsWith(terme) ||
+      String(i.id).startsWith(terme)
+    );
+  }, [inventaires, searchTerm]);
 
   const handleOpenModal = (inventaire = null) => {
     if (inventaire) {
@@ -203,7 +214,6 @@ export default function Inventaires() {
     }
   ];
 
-  // Actions de modification (si permission)
   if (peutModifier) {
     actions.push({
       label: t('modifier'),
@@ -238,7 +248,6 @@ export default function Inventaires() {
     });
   }
 
-  // Actions de suppression (si permission)
   if (peutSupprimer) {
     actions.push({
       label: t('supprimer'),
@@ -297,11 +306,21 @@ export default function Inventaires() {
         />
       ) : (
         <Card title={t('liste_inventaires')} variant="primary">
-          <Table columns={columns} data={inventaires} actions={actions} />
+          {searchTerm && (
+            <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '8px' }}>
+              {inventairesFiltres.length} résultat(s) sur {inventaires.length}
+            </p>
+          )}
+          <Table
+            columns={columns}
+            data={inventairesFiltres}
+            actions={actions}
+            searchable
+            onSearch={setSearchTerm}
+          />
         </Card>
       )}
 
-      {/* Modal Création/Modification */}
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -352,7 +371,6 @@ export default function Inventaires() {
         </form>
       </Modal>
 
-      {/* Modal Détails des écarts */}
       <Modal
         open={detailsModal.open}
         onClose={() => setDetailsModal({ open: false, inventaire: null, ecarts: [] })}

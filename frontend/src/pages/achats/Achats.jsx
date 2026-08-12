@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import API from '../../utils/api';
@@ -22,6 +22,7 @@ export default function Achats() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [receivingId, setReceivingId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [showReceptionModal, setShowReceptionModal] = useState(false);
   const [receptionData, setReceptionData] = useState({
@@ -76,6 +77,16 @@ export default function Achats() {
       setLoading(false);
     }
   };
+
+const achatsFiltres = useMemo(() => {
+  if (!searchTerm.trim()) return achats;
+  const terme = searchTerm.trim().toLowerCase();
+  return achats.filter(a =>
+    (a.fournisseur_nom || '').toLowerCase().startsWith(terme) ||
+    (a.numero_bc || '').toLowerCase().startsWith(terme) ||
+    String(a.id).startsWith(terme)
+  );
+}, [achats, searchTerm]);
 
   const handleLigneChange = (index, field, value) => {
     const newLignes = [...form.lignes];
@@ -409,7 +420,19 @@ export default function Achats() {
       )}
 
       <Card title="Liste des bons de commande" variant="primary">
-        <Table columns={columns} data={achats} loading={loading} actions={actions} />
+        {searchTerm && (
+          <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '8px' }}>
+            {achatsFiltres.length} résultat(s) sur {achats.length}
+          </p>
+        )}
+        <Table
+          columns={columns}
+          data={achatsFiltres}
+          loading={loading}
+          actions={actions}
+          searchable
+          onSearch={setSearchTerm}
+        />
       </Card>
 
       {showReceptionModal && (

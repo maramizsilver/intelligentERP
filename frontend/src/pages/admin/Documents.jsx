@@ -1,5 +1,4 @@
-// src/pages/admin/Documents.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -23,6 +22,7 @@ export default function Documents() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
@@ -52,6 +52,17 @@ export default function Documents() {
       setLoading(false);
     }
   };
+
+  const documentsFiltres = useMemo(() => {
+    if (!searchTerm.trim()) return documents;
+    const terme = searchTerm.trim().toLowerCase();
+    return documents.filter(d =>
+      (d.nom || '').toLowerCase().startsWith(terme) ||
+      (d.type_document || '').toLowerCase().startsWith(terme) ||
+      (d.reference_type || '').toLowerCase().startsWith(terme) ||
+      String(d.reference_id).startsWith(terme)
+    );
+  }, [documents, searchTerm]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -332,7 +343,19 @@ export default function Documents() {
       )}
 
       <Card title={t('liste_documents') || 'Liste des documents'} variant="primary">
-        <Table columns={columns} data={documents} loading={loading} actions={actions} />
+        {searchTerm && (
+          <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '8px' }}>
+            {documentsFiltres.length} résultat(s) sur {documents.length}
+          </p>
+        )}
+        <Table
+          columns={columns}
+          data={documentsFiltres}
+          loading={loading}
+          actions={actions}
+          searchable
+          onSearch={setSearchTerm}
+        />
       </Card>
     </div>
   );

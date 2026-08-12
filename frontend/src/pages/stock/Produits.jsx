@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -21,6 +21,7 @@ export default function Produits() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -61,6 +62,17 @@ export default function Produits() {
     loadData();
     loadFournisseurs();
   }, []);
+const produitsFiltres = useMemo(() => {
+  if (!searchTerm.trim()) return produits;
+  const terme = searchTerm.trim().toLowerCase();
+  return produits.filter(p =>
+    (p.nom || '').toLowerCase().startsWith(terme) ||
+    (p.reference || '').toLowerCase().startsWith(terme) ||
+    (p.code_barre || '').toLowerCase().startsWith(terme) ||
+    (p.categorie || '').toLowerCase().startsWith(terme) ||
+    (p.description || '').toLowerCase().startsWith(terme)
+  );
+}, [produits, searchTerm]);
 
   const handleChange = (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
@@ -202,7 +214,19 @@ export default function Produits() {
       )}
 
       <Card title={t('catalogue_produits') || 'Catalogue des produits'} variant="primary">
-        <Table columns={columns} data={produits} loading={loading} actions={actions} />
+        {searchTerm && (
+          <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '8px' }}>
+            {produitsFiltres.length} résultat(s) sur {produits.length}
+          </p>
+        )}
+        <Table
+          columns={columns}
+          data={produitsFiltres}
+          loading={loading}
+          actions={actions}
+          searchable
+          onSearch={setSearchTerm}
+        />
       </Card>
 
       <Modal
