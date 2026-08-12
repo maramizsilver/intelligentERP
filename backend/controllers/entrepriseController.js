@@ -7,13 +7,9 @@ exports.getAllEntreprises = async (req, res) => {
   try {
     const [rows] = await db.promisePoolMaster.query(`
       SELECT e.*, 
-             COUNT(DISTINCT u.id) as nb_users,
-             COUNT(DISTINCT c.id) as nb_clients,
-             COUNT(DISTINCT p.id) as nb_produits
+             COUNT(DISTINCT u.id) as nb_users
       FROM entreprises e
       LEFT JOIN users u ON e.id = u.entreprise_id
-      LEFT JOIN clients c ON e.id = c.entreprise_id
-      LEFT JOIN produits p ON e.id = p.entreprise_id
       GROUP BY e.id
     `);
     res.json({ entreprises: rows });

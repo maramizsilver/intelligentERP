@@ -154,6 +154,38 @@ exports.registerEntreprise = async (req, res) => {
         res.status(500).json({ message: 'Erreur serveur' });
     }
 };
+ //Recherche de comptes pour déverrouillage (KYC)
+exports.searchUsersForUnlock = async (req, res) => {
+    try {
+        const { q } = req.query;
+        if (!q || q.trim().length < 2) {
+            return res.json({ users: [] });
+        }
+
+        const terme = q.trim();
+        const like = `%${terme}%`;
+        const idRecherche = /^\d+$/.test(terme) ? Number(terme) : 0;
+
+        const [rows] = await db.promisePoolMaster.query(
+            `SELECT u.id, u.nom, u.prenom, u.email, u.telephone,
+                    u.is_account_locked, u.account_lock_reason, u.lock_expires_at,
+                    u.last_login, u.created_at,
+                    e.id AS entreprise_id, e.nom AS entreprise_nom, e.statut AS entreprise_statut
+             FROM users u
+             LEFT JOIN entreprises e ON u.entreprise_id = e.id
+             WHERE u.is_super_admin = 0
+               AND (u.nom LIKE ? OR u.prenom LIKE ? OR u.email LIKE ? OR u.id = ?)
+             ORDER BY u.is_account_locked DESC, u.nom ASC, u.prenom ASC
+             LIMIT 20`,
+            [like, like, like, idRecherche]
+        );
+
+        res.json({ users: rows });
+    } catch (err) {
+        console.error('Erreur searchUsersForUnlock:', err);
+        res.status(500).json({ message: 'Erreur serveur' });
+    }
+};
 
 // exports.login - Récupération du vrai nom du rôle
 exports.login = async (req, res) => {
@@ -1052,6 +1084,89 @@ exports.revokeOtherSessionsExtended = async (req, res) => {
         res.status(500).json({ message: 'Erreur lors de la revocation des sessions' });
     }
 };
+// Verrouiller un compte utilisateur (SuperAdmin uniquement)
+exports.lockUserAccount = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { reason } = req.body;
+        
+        if (!userId) {
+            return res.status(400).json({ message: 'ID utilisateur requis' });
+        }
+        
+        if (!reason || reason.trim().length < 3) {
+            return res.status(400).json({ message: 'Une raison est requise (minimum 3 caracteres)' });
+        }
+        
+        // Vérifier que l'utilisateur existe et n'est pas un SuperAdmin
+        const [users] = await db.promisePoolMaster.query(
+            `SELECT id, is_super_admin, is_account_locked, email, nom, prenom 
+             FROM users 
+             WHERE id = ?`,
+            [userId]
+        );
+        
+        if (users.length === 0) {
+            return res.status(404).json({ message: 'Utilisateur non trouve' });
+        }
+        
+        const user = users[0];
+        
+        if (user.is_super_admin) {
+            return res.status(403).json({ message: 'Impossible de verrouiller un SuperAdmin' });
+        }
+        
+        if (user.is_account_locked) {
+            return res.status(400).json({ message: 'Ce compte est deja verrouille' });
+        }
+        
+        // Verrouiller le compte
+        await db.promisePoolMaster.query(
+            `UPDATE users 
+             SET is_account_locked = 1, 
+                 account_lock_reason = ?,
+                 lock_expires_at = DATE_ADD(NOW(), INTERVAL 24 HOUR),
+                 login_attempts = 0
+             WHERE id = ?`,
+            [reason.trim(), userId]
+        );
+        
+        // Journaliser l'action dans l'audit
+        await db.promisePoolMaster.query(
+            `INSERT INTO audit_logs (utilisateur_id, action, module, details, ip, status, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+            [
+                req.user.id,
+                'LOCK_USER_ACCOUNT',
+                'Administration',
+                JSON.stringify({ 
+                    target_user_id: userId, 
+                    target_email: user.email,
+                    target_name: `${user.prenom} ${user.nom}`,
+                    reason: reason.trim(),
+                    locked_by: req.user.id
+                }),
+                req.ip,
+                'success'
+            ]
+        );
+        
+        res.json({ 
+            message: 'Compte verrouille avec succes',
+            user: {
+                id: user.id,
+                email: user.email,
+                nom: user.nom,
+                prenom: user.prenom,
+                is_account_locked: true,
+                account_lock_reason: reason.trim()
+            }
+        });
+    } catch (err) {
+        console.error('Erreur lockUserAccount:', err);
+        res.status(500).json({ message: 'Erreur serveur' });
+    }
+};
 
 module.exports = {
     registerEntreprise: exports.registerEntreprise,
@@ -1072,5 +1187,7 @@ module.exports = {
     lockMyAccount: exports.lockMyAccount,
     unlockAccount: exports.unlockAccount,
     getActiveSessionsDetailed: exports.getActiveSessionsDetailed,
-    revokeOtherSessionsExtended: exports.revokeOtherSessionsExtended
+    searchUsersForUnlock: exports.searchUsersForUnlock,
+    revokeOtherSessionsExtended: exports.revokeOtherSessionsExtended,
+    lockUserAccount: exports.lockUserAccount
 };

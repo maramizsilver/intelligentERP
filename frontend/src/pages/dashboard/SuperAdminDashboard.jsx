@@ -19,12 +19,41 @@ export default function SuperAdminDashboard() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [busyId, setBusyId] = useState(null);
-
-  const [unlockUserId, setUnlockUserId] = useState('');
+  
+  const [rechercheKyc, setRechercheKyc] = useState('');
+  const [resultatsKyc, setResultatsKyc] = useState([]);
+  const [rechercheEnCours, setRechercheEnCours] = useState(false);
+  const [compteSelectionne, setCompteSelectionne] = useState(null);
   const [unlockLoading, setUnlockLoading] = useState(false);
   const [unlockMessage, setUnlockMessage] = useState('');
+  
+  const [showLockModal, setShowLockModal] = useState(false);
+  const [lockReason, setLockReason] = useState('');
+  const [lockTarget, setLockTarget] = useState(null);
+  const [lockLoading, setLockLoading] = useState(false);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { 
+    load(); 
+  }, []);
+
+  useEffect(() => {
+    if (rechercheKyc.trim().length < 2) {
+      setResultatsKyc([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setRechercheEnCours(true);
+      try {
+        const res = await API.get('/auth/users/search-lock', { params: { q: rechercheKyc.trim() } });
+        setResultatsKyc(res.data.users || []);
+      } catch (err) {
+        setResultatsKyc([]);
+      } finally {
+        setRechercheEnCours(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [rechercheKyc]);
 
   const load = async () => {
     try {
@@ -77,20 +106,20 @@ export default function SuperAdminDashboard() {
 
   const handleDelete = async (id) => {
     const entreprise = entreprises.find(e => e.id === id);
-    const msg = `${t('confirmation_suppression_entreprise') || 'Supprimer définitivement'} "${entreprise?.nom}" ?\n\n` +
-      `${t('suppression_irreversible') || 'Cette action est irréversible et supprimera :'}\n` +
-      `${t('suppression_donnees_entreprise') || '- Toutes les données de l\'entreprise'}\n` +
-      `${t('suppression_base_donnees') || '- La base de données complète'}\n` +
+    const msg = `${t('confirmation_suppression_entreprise') || 'Supprimer definitivement'} "${entreprise?.nom}" ?\n\n` +
+      `${t('suppression_irreversible') || 'Cette action est irreversible et supprimera :'}\n` +
+      `${t('suppression_donnees_entreprise') || '- Toutes les donnees de l\'entreprise'}\n` +
+      `${t('suppression_base_donnees') || '- La base de donnees complete'}\n` +
       `${t('suppression_comptes') || '- Tous les comptes utilisateurs'}\n` +
       `${t('suppression_sessions') || '- Toutes les sessions actives'}\n\n` +
-      `${t('etes_vous_sur') || 'Êtes-vous sûr ?'}`;
+      `${t('etes_vous_sur') || 'Etes-vous sur ?'}`;
 
     if (!window.confirm(msg)) return;
 
     try {
       setBusyId(id);
       await API.delete(`/entreprises/${id}`);
-      setSuccess(`${t('entreprise_supprimee') || 'Entreprise supprimée'} "${entreprise?.nom}"`);
+      setSuccess(`${t('entreprise_supprimee') || 'Entreprise supprimee'} "${entreprise?.nom}"`);
       load();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
@@ -102,25 +131,63 @@ export default function SuperAdminDashboard() {
   };
 
   const handleUnlockAccount = async () => {
-    if (!unlockUserId) {
-      setUnlockMessage(t('entrer_id_utilisateur') || 'Veuillez entrer un ID utilisateur');
-      return;
-    }
+    if (!compteSelectionne) return;
 
-    if (!window.confirm(`${t('deverrouiller_compte') || 'Déverrouiller le compte'} ${unlockUserId} ?`)) {
-      return;
-    }
+    if (!window.confirm(
+      `Deverrouiller le compte de ${compteSelectionne.prenom} ${compteSelectionne.nom} (${compteSelectionne.email}) - entreprise "${compteSelectionne.entreprise_nom || 'N/A'}" ?`
+    )) return;
 
     setUnlockLoading(true);
     setUnlockMessage('');
     try {
-      await API.post(`/auth/account/unlock/${unlockUserId}`);
-      setUnlockMessage(t('compte_deverrouille') || 'Compte déverrouillé avec succès');
-      setUnlockUserId('');
+      await API.post(`/auth/account/unlock/${compteSelectionne.id}`);
+      setUnlockMessage('Compte deverrouille avec succes');
+      setCompteSelectionne(null);
+      setRechercheKyc('');
+      setResultatsKyc([]);
+      load();
     } catch (err) {
-      setUnlockMessage(t('erreur_deverrouillage') || 'Erreur lors du déverrouillage');
+      setUnlockMessage(err.response?.data?.message || 'Erreur lors du deverrouillage');
     } finally {
       setUnlockLoading(false);
+    }
+  };
+
+  const handleLockAccount = async (user) => {
+    if (!user) return;
+    setLockTarget(user);
+    setLockReason('');
+    setShowLockModal(true);
+  };
+
+  const confirmLockAccount = async () => {
+    if (!lockTarget) return;
+    
+    if (!lockReason || lockReason.trim().length < 3) {
+      alert('Veuillez entrer une raison valide (minimum 3 caracteres)');
+      return;
+    }
+    
+    if (!window.confirm(
+      `Verrouiller le compte de ${lockTarget.prenom} ${lockTarget.nom} (${lockTarget.email}) ?\n\n` +
+      `Raison : ${lockReason.trim()}`
+    )) return;
+    
+    setLockLoading(true);
+    try {
+      await API.post(`/auth/account/lock/${lockTarget.id}`, { 
+        reason: lockReason.trim() 
+      });
+      setUnlockMessage(`Compte ${lockTarget.prenom} ${lockTarget.nom} verrouille avec succes`);
+      setShowLockModal(false);
+      setLockTarget(null);
+      setLockReason('');
+      setRechercheKyc(rechercheKyc);
+      load();
+    } catch (err) {
+      setUnlockMessage(err.response?.data?.message || 'Erreur lors du verrouillage');
+    } finally {
+      setLockLoading(false);
     }
   };
 
@@ -214,7 +281,7 @@ export default function SuperAdminDashboard() {
             {t('sessions') || 'Sessions'}
           </Button>
           <Button variant="danger" onClick={logout}>
-            {t('deconnexion_superadmin') || 'Déconnexion'}
+            {t('deconnexion_superadmin') || 'Deconnexion'}
           </Button>
         </div>
       </div>
@@ -249,44 +316,146 @@ export default function SuperAdminDashboard() {
         </div>
       </div>
 
-      <Card title={t('deverrouiller_compte') || 'Déverrouiller un compte'} variant="primary">
+      <Card title={t('deverrouiller_compte') || 'Deverrouiller un compte'} variant="primary">
         <div style={styles.unlockContainer}>
-          <div style={styles.unlockRow}>
-            <div style={styles.unlockInputGroup}>
-              <label style={styles.unlockLabel}>{t('id_utilisateur') || 'ID Utilisateur'}</label>
-              <input
-                type="number"
-                value={unlockUserId}
-                onChange={(e) => setUnlockUserId(e.target.value)}
-                placeholder={t('entrer_id_utilisateur') || "Entrez l'ID de l'utilisateur"}
-                style={styles.unlockInput}
-                disabled={unlockLoading}
-              />
-            </div>
-            <button
-              onClick={handleUnlockAccount}
-              disabled={unlockLoading || !unlockUserId}
-              style={{
-                ...styles.unlockButton,
-                opacity: (unlockLoading || !unlockUserId) ? 0.6 : 1,
-                cursor: (unlockLoading || !unlockUserId) ? 'not-allowed' : 'pointer'
+          <div style={styles.unlockInputGroup}>
+            <label style={styles.unlockLabel}>Rechercher par nom, prenom, email ou ID</label>
+            <input
+              type="text"
+              value={rechercheKyc}
+              onChange={(e) => { 
+                setRechercheKyc(e.target.value); 
+                setCompteSelectionne(null); 
               }}
-            >
-              {unlockLoading ? (t('deverrouillage_en_cours') || 'Déverrouillage...') : (t('deverrouiller') || 'Déverrouiller')}
-            </button>
+              placeholder="Ex: Ben Amor, jean@entreprise.com, 42..."
+              style={styles.unlockInput}
+              disabled={unlockLoading}
+            />
           </div>
+
+          {rechercheEnCours && (
+            <div style={{ fontSize: '13px', color: '#94A3B8' }}>Recherche...</div>
+          )}
+
+          {!rechercheEnCours && resultatsKyc.length > 0 && !compteSelectionne && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '260px', overflowY: 'auto' }}>
+              {resultatsKyc.map((u) => (
+                <div
+                  key={u.id}
+                  onClick={() => setCompteSelectionne(u)}
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: `1px solid ${u.is_account_locked ? '#FECACA' : '#E2E8F0'}`,
+                    backgroundColor: u.is_account_locked ? '#FEF2F2' : '#F8FAFC',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '6px'
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '14px', color: '#0F172A' }}>
+                      {u.prenom} {u.nom} <span style={{ color: '#94A3B8', fontWeight: 400 }}>#{u.id}</span>
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#64748B' }}>
+                      {u.email} · {u.entreprise_nom || 'Sans entreprise'}
+                    </div>
+                  </div>
+                  <Badge variant={u.is_account_locked ? 'danger' : 'success'}>
+                    {u.is_account_locked ? 'Verrouille' : 'Actif'}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {compteSelectionne && (
+            <div style={{
+              padding: '16px',
+              borderRadius: '12px',
+              border: '2px solid #0EA5E9',
+              backgroundColor: '#F0F9FF'
+            }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#0EA5E9', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
+                Fiche d'identite (KYC)
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: '13px', marginBottom: '14px' }}>
+                <div><strong>Nom :</strong> {compteSelectionne.prenom} {compteSelectionne.nom}</div>
+                <div><strong>ID :</strong> #{compteSelectionne.id}</div>
+                <div><strong>Email :</strong> {compteSelectionne.email}</div>
+                <div><strong>Telephone :</strong> {compteSelectionne.telephone || '—'}</div>
+                <div><strong>Entreprise :</strong> {compteSelectionne.entreprise_nom || '—'}</div>
+                <div><strong>Statut entreprise :</strong> {compteSelectionne.entreprise_statut || '—'}</div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <strong>Statut compte :</strong>{' '}
+                  <Badge variant={compteSelectionne.is_account_locked ? 'danger' : 'success'}>
+                    {compteSelectionne.is_account_locked ? 'Verrouille' : 'Actif'}
+                  </Badge>
+                </div>
+                {compteSelectionne.is_account_locked && (
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <strong>Raison :</strong> {compteSelectionne.account_lock_reason || 'Non precisee'}
+                  </div>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {!compteSelectionne.is_account_locked ? (
+                  <button
+                    onClick={() => handleLockAccount(compteSelectionne)}
+                    style={{
+                      ...styles.unlockButton,
+                      backgroundColor: '#F59E0B'
+                    }}
+                  >
+                    Verrouiller ce compte
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleUnlockAccount}
+                    disabled={unlockLoading}
+                    style={{
+                      ...styles.unlockButton,
+                      backgroundColor: '#EF4444'
+                    }}
+                  >
+                    {unlockLoading ? 'Deverrouillage...' : 'Deverrouiller ce compte'}
+                  </button>
+                )}
+                <button
+                  onClick={() => setCompteSelectionne(null)}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#E2E8F0',
+                    color: '#334155',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          )}
+
           {unlockMessage && (
             <div style={{
               ...styles.unlockMessage,
-              backgroundColor: unlockMessage.includes('succès') || unlockMessage.includes('success') ? '#D1FAE5' : '#FEE2E2',
-              color: unlockMessage.includes('succès') || unlockMessage.includes('success') ? '#065F46' : '#991B1B',
+              backgroundColor: unlockMessage.includes('succes') ? '#D1FAE5' : '#FEE2E2',
+              color: unlockMessage.includes('succes') ? '#065F46' : '#991B1B',
             }}>
               {unlockMessage}
             </div>
           )}
+
           <div style={styles.unlockHelp}>
             <small style={styles.unlockHelpText}>
-              {t('astuce_id') || '💡 Astuce : Pour connaître l\'ID d\'un utilisateur, allez dans "Sessions" ou vérifiez dans la base de données.'}
+              La recherche affiche l'identite complete du compte avant toute action de deverrouillage.
             </small>
           </div>
         </div>
@@ -301,6 +470,64 @@ export default function SuperAdminDashboard() {
           emptyMessage={t('aucune_entreprise') || 'Aucune entreprise inscrite pour le moment.'}
         />
       </Card>
+
+      {showLockModal && lockTarget && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modal}>
+            <div style={styles.modalHeader}>
+              <h3 style={styles.modalTitle}>Verrouiller le compte</h3>
+              <button 
+                onClick={() => { setShowLockModal(false); setLockTarget(null); setLockReason(''); }}
+                style={styles.modalClose}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={styles.modalBody}>
+              <div style={styles.modalUserInfo}>
+                <div><strong>Utilisateur :</strong> {lockTarget.prenom} {lockTarget.nom}</div>
+                <div><strong>Email :</strong> {lockTarget.email}</div>
+                <div><strong>Entreprise :</strong> {lockTarget.entreprise_nom || 'Sans entreprise'}</div>
+                <div><strong>Statut actuel :</strong> <Badge variant="success">Actif</Badge></div>
+              </div>
+              <div style={styles.modalFormGroup}>
+                <label style={styles.modalLabel}>Raison du verrouillage *</label>
+                <textarea
+                  value={lockReason}
+                  onChange={(e) => setLockReason(e.target.value)}
+                  placeholder="Ex: Comportement suspect, activite frauduleuse, demande de l'utilisateur..."
+                  style={styles.modalTextarea}
+                  rows={4}
+                  disabled={lockLoading}
+                />
+                <small style={styles.modalHelper}>
+                  Cette raison sera visible par l'utilisateur et dans l'audit.
+                </small>
+              </div>
+            </div>
+            <div style={styles.modalFooter}>
+              <button
+                onClick={() => { setShowLockModal(false); setLockTarget(null); setLockReason(''); }}
+                style={styles.modalCancelBtn}
+                disabled={lockLoading}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={confirmLockAccount}
+                disabled={lockLoading || lockReason.trim().length < 3}
+                style={{
+                  ...styles.modalLockBtn,
+                  opacity: (lockLoading || lockReason.trim().length < 3) ? 0.6 : 1,
+                  cursor: (lockLoading || lockReason.trim().length < 3) ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {lockLoading ? 'Verrouillage...' : 'Verrouiller le compte'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -389,18 +616,11 @@ const styles = {
     flexDirection: 'column',
     gap: '12px',
   },
-  unlockRow: {
-    display: 'flex',
-    gap: '12px',
-    alignItems: 'flex-end',
-    flexWrap: 'wrap',
-  },
   unlockInputGroup: {
     display: 'flex',
     flexDirection: 'column',
     gap: '4px',
     flex: 1,
-    minWidth: '200px',
   },
   unlockLabel: {
     fontSize: '13px',
@@ -419,7 +639,6 @@ const styles = {
   },
   unlockButton: {
     padding: '8px 20px',
-    backgroundColor: '#0EA5E9',
     color: 'white',
     border: 'none',
     borderRadius: '6px',
@@ -441,5 +660,111 @@ const styles = {
   unlockHelpText: {
     color: '#94A3B8',
     fontSize: '12px',
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  },
+  modal: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: '12px',
+    maxWidth: '500px',
+    width: '90%',
+    maxHeight: '80vh',
+    overflow: 'auto',
+    boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+  },
+  modalHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '16px 20px',
+    borderBottom: '1px solid #E2E8F0',
+  },
+  modalTitle: {
+    margin: 0,
+    fontSize: '18px',
+    fontWeight: 600,
+    color: '#0F172A',
+  },
+  modalClose: {
+    background: 'none',
+    border: 'none',
+    fontSize: '20px',
+    cursor: 'pointer',
+    color: '#94A3B8',
+    padding: '0 4px',
+  },
+  modalBody: {
+    padding: '20px',
+  },
+  modalUserInfo: {
+    backgroundColor: '#F8FAFC',
+    padding: '12px 16px',
+    borderRadius: '8px',
+    marginBottom: '16px',
+    fontSize: '14px',
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '4px 16px',
+  },
+  modalFormGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  modalLabel: {
+    fontSize: '14px',
+    fontWeight: 500,
+    color: '#334155',
+  },
+  modalTextarea: {
+    padding: '10px 12px',
+    borderRadius: '6px',
+    border: '1px solid #E2E8F0',
+    fontSize: '14px',
+    fontFamily: 'inherit',
+    resize: 'vertical',
+    outline: 'none',
+    minHeight: '80px',
+  },
+  modalHelper: {
+    fontSize: '12px',
+    color: '#94A3B8',
+  },
+  modalFooter: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: '8px',
+    padding: '16px 20px',
+    borderTop: '1px solid #E2E8F0',
+  },
+  modalCancelBtn: {
+    padding: '8px 16px',
+    backgroundColor: '#E2E8F0',
+    color: '#334155',
+    border: 'none',
+    borderRadius: '6px',
+    fontSize: '14px',
+    fontWeight: 500,
+    cursor: 'pointer',
+  },
+  modalLockBtn: {
+    padding: '8px 20px',
+    backgroundColor: '#EF4444',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    fontSize: '14px',
+    fontWeight: 500,
+    cursor: 'pointer',
   },
 };

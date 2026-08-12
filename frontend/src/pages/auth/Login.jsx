@@ -138,7 +138,6 @@ export default function Login() {
         </div>
 
         <button style={styles.registerButton} onClick={() => navigate('/register')}>
-          <span style={styles.registerIcon}>✨</span>
           {t('creer_compte_entreprise') || 'Créer un compte entreprise'}
         </button>
 
