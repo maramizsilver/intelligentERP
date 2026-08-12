@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -11,6 +11,7 @@ import Input from '../../components/common/Input';
 import Modal from '../../components/common/Modal';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
+import SearchBar from '../../components/common/SearchBar';
 
 const ACTIONS = [
   { key: 'consultation', label: 'Voir' },
@@ -53,6 +54,7 @@ export default function Utilisateurs() {
     nom: '', prenom: '', email: '', password: '', role_id: '', client_id: '',
     telephone: '', matricule: '', fonction: '', service: ''
   });
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -89,6 +91,18 @@ export default function Utilisateurs() {
       flashError(err.response?.data?.message || t('impossible_charger_comptes') || 'Impossible de charger les comptes');
     }
   };
+
+  const usersFiltres = useMemo(() => {
+    if (!searchTerm.trim()) return users;
+    const terme = searchTerm.trim().toLowerCase();
+    return users.filter(u =>
+      (u.nom || '').toLowerCase().startsWith(terme) ||
+      (u.prenom || '').toLowerCase().startsWith(terme) ||
+      (u.email || '').toLowerCase().startsWith(terme) ||
+      (u.fonction || '').toLowerCase().startsWith(terme) ||
+      (u.service || '').toLowerCase().startsWith(terme)
+    );
+  }, [users, searchTerm]);
 
   const selectionnerRole = async (roleId) => {
     setSelectedRoleId(roleId);
@@ -520,56 +534,66 @@ export default function Utilisateurs() {
               description={t('creer_premier_compte') || 'Créez votre premier compte utilisateur.'} 
             />
           ) : (
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={styles.th}>{t('nom')}</th>
-                  <th style={styles.th}>{t('email')}</th>
-                  <th style={styles.th}>{t('type_utilisateur') || 'Type'}</th>
-                  <th style={styles.th}>{t('role') || 'Rôle'}</th>
-                  <th style={styles.th}>{t('actions_utilisateur') || 'Actions'}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map(u => (
-                  <tr key={u.id}>
-                    <td style={styles.td}>{u.prenom} {u.nom}</td>
-                    <td style={styles.td}>{u.email}</td>
-                    <td style={styles.td}>
-                      <Badge variant={u.is_external ? 'secondary' : 'primary'}>
-                        {u.is_external ? t('externe') || 'Externe' : t('interne') || 'Interne'}
-                      </Badge>
-                    </td>
-                    <td style={styles.td}>
-                      {u.is_external ? (
-                        <span style={styles.mutedText}>{t('portail_client') || 'Portail client'}</span>
-                      ) : peutModifier ? (
-                        <select
-                          style={styles.selectInline}
-                          value={u.role_id || ''}
-                          onChange={(e) => changerRoleUtilisateur(u.id, e.target.value)}
-                        >
-                          {roles.map(r => <option key={r.id} value={r.id}>{r.nom}</option>)}
-                        </select>
-                      ) : (
-                        u.role_nom || '—'
-                      )}
-                    </td>
-                    <td style={styles.td}>
-                      {u.id !== user?.id && (
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={() => supprimerUtilisateur(u.id)}
-                        >
-                          {t('supprimer')}
-                        </Button>
-                      )}
-                    </td>
+            <>
+              <div style={{ marginBottom: '16px' }}>
+                <SearchBar onSearch={setSearchTerm} placeholder="Rechercher un utilisateur..." />
+              </div>
+              {searchTerm && (
+                <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '8px' }}>
+                  {usersFiltres.length} résultat(s) sur {users.length}
+                </p>
+              )}
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>{t('nom')}</th>
+                    <th style={styles.th}>{t('email')}</th>
+                    <th style={styles.th}>{t('type_utilisateur') || 'Type'}</th>
+                    <th style={styles.th}>{t('role') || 'Rôle'}</th>
+                    <th style={styles.th}>{t('actions_utilisateur') || 'Actions'}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {usersFiltres.map(u => (
+                    <tr key={u.id}>
+                      <td style={styles.td}>{u.prenom} {u.nom}</td>
+                      <td style={styles.td}>{u.email}</td>
+                      <td style={styles.td}>
+                        <Badge variant={u.is_external ? 'secondary' : 'primary'}>
+                          {u.is_external ? t('externe') || 'Externe' : t('interne') || 'Interne'}
+                        </Badge>
+                      </td>
+                      <td style={styles.td}>
+                        {u.is_external ? (
+                          <span style={styles.mutedText}>{t('portail_client') || 'Portail client'}</span>
+                        ) : peutModifier ? (
+                          <select
+                            style={styles.selectInline}
+                            value={u.role_id || ''}
+                            onChange={(e) => changerRoleUtilisateur(u.id, e.target.value)}
+                          >
+                            {roles.map(r => <option key={r.id} value={r.id}>{r.nom}</option>)}
+                          </select>
+                        ) : (
+                          u.role_nom || '—'
+                        )}
+                      </td>
+                      <td style={styles.td}>
+                        {u.id !== user?.id && (
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => supprimerUtilisateur(u.id)}
+                          >
+                            {t('supprimer')}
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
           )}
         </Card>
       )}

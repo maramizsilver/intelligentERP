@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -19,6 +19,7 @@ export default function AlertesStock() {
   const [alertes, setAlertes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     loadAlertes();
@@ -35,6 +36,16 @@ export default function AlertesStock() {
       setLoading(false);
     }
   };
+
+  const alertesFiltres = useMemo(() => {
+    if (!searchTerm.trim()) return alertes;
+    const terme = searchTerm.trim().toLowerCase();
+    return alertes.filter(a =>
+      (a.nom || '').toLowerCase().startsWith(terme) ||
+      String(a.quantite_stock).startsWith(terme) ||
+      (a.categorie || '').toLowerCase().startsWith(terme)
+    );
+  }, [alertes, searchTerm]);
 
   const getLevelBadge = (stock) => {
     if (stock === 0) return { label: t('rupture_totale'), variant: 'danger' };
@@ -121,7 +132,18 @@ export default function AlertesStock() {
         />
       ) : (
         <Card title={t('produits_en_alerte')} variant="danger">
-          <Table columns={columns} data={alertes} actions={actions} />
+          {searchTerm && (
+            <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '8px' }}>
+              {alertesFiltres.length} résultat(s) sur {alertes.length}
+            </p>
+          )}
+          <Table
+            columns={columns}
+            data={alertesFiltres}
+            actions={actions}
+            searchable
+            onSearch={setSearchTerm}
+          />
         </Card>
       )}
     </div>

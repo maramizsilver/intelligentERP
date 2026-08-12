@@ -13,8 +13,14 @@ export default function SearchBar({
   const [query, setQuery] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const timeoutRef = useRef(null);
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
