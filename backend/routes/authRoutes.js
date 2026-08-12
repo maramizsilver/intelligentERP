@@ -22,7 +22,9 @@ const {
   lockMyAccount,
   unlockAccount,
   getActiveSessionsDetailed,
-  revokeOtherSessionsExtended
+  revokeOtherSessionsExtended,
+  searchUsersForUnlock,
+  lockUserAccount
 } = require('../controllers/authController');
 
 const {
@@ -39,6 +41,7 @@ const {
 const authMiddleware = require('../middleware/authMiddleware');
 const tenantMiddleware = require('../middleware/tenant.middleware');
 const checkPermission = require('../middleware/permissionMiddleware');
+const superAdminMiddleware = require('../middleware/superAdminMiddleware');
 const {
   loginLimiter,
   registerLimiter,
@@ -47,14 +50,17 @@ const {
 } = require('../middleware/rateLimit.middleware');
 const { csrfProtection } = require('../middleware/security.middleware');
 
+// ==================== AUTHENTIFICATION ====================
 router.post('/register-entreprise', registerLimiter, csrfProtection, registerEntreprise);
 router.post('/login', loginLimiter, csrfProtection, login);
 router.post('/logout', authMiddleware, logout);
 
+// ==================== UTILISATEUR CONNECTE ====================
 router.get('/me', authMiddleware, tenantMiddleware, getMe);
 router.put('/me', authMiddleware, tenantMiddleware, updateMe);
 router.get('/mes-permissions', authMiddleware, tenantMiddleware, getMesPermissions);
 
+// ==================== GESTION DES UTILISATEURS (TENANT) ====================
 router.get('/users/stats',
   authMiddleware,
   tenantMiddleware,
@@ -97,6 +103,7 @@ router.delete('/users/:id',
   deleteUser
 );
 
+// ==================== MFA (Multi-Factor Authentication) ====================
 router.get('/mfa/status',
   authMiddleware,
   tenantMiddleware,
@@ -152,6 +159,7 @@ router.post('/mfa/dismiss-banner',
   dismissMFABanner
 );
 
+// ==================== SESSIONS ====================
 router.get('/sessions/active',
   authMiddleware,
   getActiveSessions
@@ -172,14 +180,33 @@ router.post('/sessions/:sessionId/report',
   reportUnknownSession
 );
 
+// ==================== VERROUILLAGE / DEVERROUILLAGE ====================
+
+// Verrouillage du compte de l'utilisateur connecte (lui-meme)
 router.post('/account/lock',
   authMiddleware,
   lockMyAccount
 );
 
+// Deverrouillage d'un compte (SuperAdmin uniquement)
 router.post('/account/unlock/:userId',
   authMiddleware,
+  superAdminMiddleware,
   unlockAccount
+);
+
+// Verrouillage d'un compte par le SuperAdmin 
+router.post('/account/lock/:userId',
+  authMiddleware,
+  superAdminMiddleware,
+  lockUserAccount
+);
+
+// Recherche de comptes pour verrouillage/deverrouillage (SuperAdmin uniquement)
+router.get('/users/search-lock',
+  authMiddleware,
+  superAdminMiddleware,
+  searchUsersForUnlock
 );
 
 module.exports = router;
