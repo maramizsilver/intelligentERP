@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
+import { useLanguage } from '../../../context/LanguageContext';
 import API from '../../../utils/api';
 import Card from '../../../components/common/Card';
 import Button from '../../../components/common/Button';
@@ -11,6 +12,7 @@ import EmptyState from '../../../components/common/EmptyState';
 
 export default function SuperAdminSessions() {
     const { user } = useAuth();
+    const { t } = useLanguage();
     const navigate = useNavigate();
     const [sessions, setSessions] = useState([]);
     const [stats, setStats] = useState({});
@@ -43,7 +45,7 @@ export default function SuperAdminSessions() {
             setStats(statsRes.data || {});
             setAlerts(alertsRes.data.alerts || []);
         } catch (err) {
-            setError('Impossible de charger les donnees');
+            setError(t('erreur_chargement_donnees'));
             console.error(err);
         } finally {
             setLoading(false);
@@ -51,28 +53,28 @@ export default function SuperAdminSessions() {
     };
 
     const handleRevoke = async (sessionId) => {
-        if (!window.confirm('Déconnecter cet utilisateur ?')) return;
+        if (!window.confirm(t('confirmation_deconnexion_session'))) return;
         try {
             await API.post(`/superadmin/sessions/${sessionId}/revoke`);
-            setSuccess('Session déconnectée avec succès');
+            setSuccess(t('session_deconnectee'));
             loadData();
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
-            setError('Erreur lors de la déconnexion');
+            setError(t('erreur_deconnexion'));
             setTimeout(() => setError(''), 3000);
         }
     };
 
     const handleBlockDevice = async (deviceId) => {
-        const reason = prompt('Raison du blocage de l\'appareil :');
+        const reason = prompt(t('raison_blocage') + ' :');
         if (reason === null) return;
         try {
             await API.post(`/superadmin/devices/${deviceId}/block`, { reason });
-            setSuccess('Appareil bloqué avec succès');
+            setSuccess(t('appareil_bloque'));
             loadData();
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
-            setError('Erreur lors du blocage');
+            setError(t('erreur_blocage'));
             setTimeout(() => setError(''), 3000);
         }
     };
@@ -80,21 +82,21 @@ export default function SuperAdminSessions() {
     const handleResolveAlert = async (alertId) => {
         try {
             await API.post(`/superadmin/alerts/${alertId}/resolve`);
-            setSuccess('Alerte résolue');
+            setSuccess(t('alerte_resolue'));
             loadData();
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
-            setError('Erreur lors de la résolution');
+            setError(t('erreur_resolution'));
             setTimeout(() => setError(''), 3000);
         }
     };
 
     const getSeverityBadge = (severity) => {
         const severities = {
-            critical: { label: 'Critique', variant: 'danger' },
-            high: { label: 'Élevée', variant: 'danger' },
-            medium: { label: 'Moyenne', variant: 'warning' },
-            low: { label: 'Basse', variant: 'primary' }
+            critical: { label: t('critique'), variant: 'danger' },
+            high: { label: t('elevee'), variant: 'danger' },
+            medium: { label: t('moyenne'), variant: 'warning' },
+            low: { label: t('basse'), variant: 'primary' }
         };
         return severities[severity] || severities.low;
     };
@@ -102,51 +104,51 @@ export default function SuperAdminSessions() {
     const sessionColumns = [
         { 
             key: 'id', 
-            label: 'ID',
+            label: t('id'),
             render: (row) => `#${row.id}`
         },
         { 
             key: 'entreprise_nom', 
-            label: 'Entreprise',
+            label: t('entreprise'),
             render: (row) => (
                 <span style={{ fontWeight: 500, color: '#0F172A' }}>{row.entreprise_nom}</span>
             )
         },
         { 
             key: 'nom', 
-            label: 'Utilisateur',
+            label: t('utilisateur'),
             render: (row) => `${row.prenom} ${row.nom}`
         },
-        { key: 'email', label: 'Email' },
+        { key: 'email', label: t('email') },
         { 
             key: 'device_type', 
-            label: 'Appareil',
+            label: t('appareil'),
             render: (row) => (
                 <Badge variant="secondary">
-                    {row.device_type || 'Inconnu'}
+                    {row.device_type || t('inconnu')}
                 </Badge>
             )
         },
-        { key: 'os', label: 'Systeme' },
-        { key: 'browser', label: 'Navigateur' },
+        { key: 'os', label: t('systeme') },
+        { key: 'browser', label: t('navigateur') },
         { 
             key: 'country', 
-            label: 'Localisation',
+            label: t('localisation'),
             render: (row) => (
                 <span>
-                    {row.country || 'Inconnu'}
+                    {row.country || t('inconnu')}
                     {row.city && ` (${row.city})`}
                 </span>
             )
         },
         { 
             key: 'last_activity', 
-            label: 'Derniere activite',
+            label: t('derniere_activite'),
             render: (row) => new Date(row.last_activity).toLocaleString('fr-FR')
         },
         { 
             key: 'user_session_count', 
-            label: 'Sessions',
+            label: t('sessions'),
             render: (row) => (
                 <Badge variant={row.user_session_count > 1 ? 'warning' : 'success'}>
                     {row.user_session_count}
@@ -158,41 +160,41 @@ export default function SuperAdminSessions() {
     const alertColumns = [
         { 
             key: 'alert_type', 
-            label: 'Type',
+            label: t('type_alerte'),
             render: (row) => {
                 const types = {
-                    new_country: 'Nouveau pays',
-                    multiple_sessions: 'Multiples sessions',
-                    new_device: 'Nouvel appareil'
+                    new_country: t('nouveau_pays'),
+                    multiple_sessions: t('multiples_sessions'),
+                    new_device: t('nouvel_appareil')
                 };
                 return types[row.alert_type] || row.alert_type;
             }
         },
         { 
             key: 'severity', 
-            label: 'Severite',
+            label: t('severite'),
             render: (row) => {
                 const severity = getSeverityBadge(row.severity);
                 return <Badge variant={severity.variant}>{severity.label}</Badge>;
             }
         },
-        { key: 'message', label: 'Message' },
+        { key: 'message', label: t('message') },
         { 
             key: 'entreprise_nom', 
-            label: 'Entreprise',
+            label: t('entreprise'),
             render: (row) => row.entreprise_nom || '—'
         },
         { 
             key: 'created_at', 
-            label: 'Date',
+            label: t('date'),
             render: (row) => new Date(row.created_at).toLocaleString('fr-FR')
         },
         {
             key: 'is_resolved',
-            label: 'Resolue',
+            label: t('resolue'),
             render: (row) => (
                 <Badge variant={row.is_resolved ? 'success' : 'danger'}>
-                    {row.is_resolved ? 'Oui' : 'Non'}
+                    {row.is_resolved ? t('oui') : t('non')}
                 </Badge>
             )
         }
@@ -200,7 +202,7 @@ export default function SuperAdminSessions() {
 
     const sessionActions = [
         {
-            label: 'Déconnecter',
+            label: t('deconnecter'),
             variant: 'danger',
             onClick: (row) => handleRevoke(row.id)
         }
@@ -208,7 +210,7 @@ export default function SuperAdminSessions() {
 
     const alertActions = [
         {
-            label: 'Résoudre',
+            label: t('resoudre_alerte'),
             variant: 'success',
             onClick: (row) => handleResolveAlert(row.id),
             disabled: (row) => row.is_resolved
@@ -216,40 +218,36 @@ export default function SuperAdminSessions() {
     ];
 
     if (loading) {
-        return <LoadingSpinner size="lg" text="Chargement des donnees..." />;
+        return <LoadingSpinner size="lg" text={t('chargement')} />;
     }
 
     return (
         <div>
             <div style={styles.header}>
                 <div>
-                    <h1 style={styles.title}>Supervision des Sessions</h1>
-                    <p style={styles.subtitle}>
-                        Consultez et gerez toutes les sessions actives sur la plateforme
-                    </p>
+                    <h1 style={styles.title}>{t('supervision_sessions')}</h1>
+                    <p style={styles.subtitle}>{t('consulter_gerer_sessions')}</p>
                 </div>
                 <div style={styles.headerActions}>
                     <Button variant="secondary" onClick={loadData}>
-                        Actualiser
+                        {t('actualiser')}
                     </Button>
                     <Button 
                         variant="outline" 
                         onClick={() => navigate('/superadmin/dashboard')}
                     >
-                        Retour
+                        {t('retour')}
                     </Button>
                 </div>
             </div>
 
             {error && (
                 <div style={styles.errorContainer}>
-                    <span style={styles.errorIcon}>X</span>
                     <span style={styles.errorText}>{error}</span>
                 </div>
             )}
             {success && (
                 <div style={styles.successContainer}>
-                    <span style={styles.successIcon}>V</span>
                     <span style={styles.successText}>{success}</span>
                 </div>
             )}
@@ -257,15 +255,15 @@ export default function SuperAdminSessions() {
             <div style={styles.statsGrid}>
                 <div style={styles.statCard}>
                     <span style={styles.statNumber}>{stats.active_sessions || 0}</span>
-                    <span style={styles.statLabel}>Sessions actives</span>
+                    <span style={styles.statLabel}>{t('sessions_actives')}</span>
                 </div>
                 <div style={styles.statCard}>
                     <span style={styles.statNumber}>{stats.blocked_devices || 0}</span>
-                    <span style={styles.statLabel}>Appareils bloques</span>
+                    <span style={styles.statLabel}>{t('appareils_bloques')}</span>
                 </div>
                 <div style={styles.statCard}>
                     <span style={styles.statNumber}>{stats.total_alerts || 0}</span>
-                    <span style={styles.statLabel}>Alertes de securite</span>
+                    <span style={styles.statLabel}>{t('alertes_securite')}</span>
                 </div>
             </div>
 
@@ -274,22 +272,22 @@ export default function SuperAdminSessions() {
                     style={{ ...styles.tab, ...(activeTab === 'sessions' ? styles.tabActive : {}) }}
                     onClick={() => setActiveTab('sessions')}
                 >
-                    Sessions actives ({sessions.length})
+                    {t('sessions_actives')} ({sessions.length})
                 </button>
                 <button
                     style={{ ...styles.tab, ...(activeTab === 'alerts' ? styles.tabActive : {}) }}
                     onClick={() => setActiveTab('alerts')}
                 >
-                    Alertes ({alerts.filter(a => !a.is_resolved).length})
+                    {t('alertes_securite')} ({alerts.filter(a => !a.is_resolved).length})
                 </button>
             </div>
 
             {activeTab === 'sessions' ? (
-                <Card title="Sessions actives" variant="primary">
+                <Card title={t('sessions_actives')} variant="primary">
                     {sessions.length === 0 ? (
                         <EmptyState
-                            title="Aucune session active"
-                            description="Tous les utilisateurs sont deconnectes."
+                            title={t('aucune_session_active')}
+                            description={t('aucune_session_active_description')}
                         />
                     ) : (
                         <Table 
@@ -300,11 +298,11 @@ export default function SuperAdminSessions() {
                     )}
                 </Card>
             ) : (
-                <Card title="Alertes de securite" variant="danger">
+                <Card title={t('alertes_securite')} variant="danger">
                     {alerts.length === 0 ? (
                         <EmptyState
-                            title="Aucune alerte"
-                            description="Toutes les alertes ont ete resolues."
+                            title={t('aucune_alerte')}
+                            description={t('aucune_alerte_description')}
                         />
                     ) : (
                         <Table 
@@ -354,11 +352,6 @@ const styles = {
         padding: '12px 16px',
         marginBottom: '16px',
     },
-    errorIcon: {
-        color: '#991B1B',
-        fontSize: '16px',
-        fontWeight: 'bold',
-    },
     errorText: {
         color: '#991B1B',
         fontSize: '13px',
@@ -373,11 +366,6 @@ const styles = {
         borderRadius: '8px',
         padding: '12px 16px',
         marginBottom: '16px',
-    },
-    successIcon: {
-        color: '#065F46',
-        fontSize: '16px',
-        fontWeight: 'bold',
     },
     successText: {
         color: '#065F46',

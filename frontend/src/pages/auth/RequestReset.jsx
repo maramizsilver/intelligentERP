@@ -24,9 +24,9 @@ export default function RequestReset() {
         try {
             await API.post('/reset/request', { email });
             setSent(true);
-            setMessage(t('email_reinitialisation_envoye') || 'Un email de réinitialisation a été envoyé');
+            setMessage(t('email_reinitialisation_envoye'));
         } catch (err) {
-            setError(err.response?.data?.message || t('erreur_reinitialisation') || 'Erreur');
+            setError(err.response?.data?.message || t('erreur_reinitialisation'));
         } finally {
             setLoading(false);
         }
@@ -35,11 +35,11 @@ export default function RequestReset() {
     if (sent) {
         return (
             <div style={styles.container}>
-                <Card title={t('email_envoye') || 'Email envoyé'} variant="success">
+                <Card title={t('email_envoye')} variant="success">
                     <p style={styles.text}>{message}</p>
-                    <p style={styles.subText}>{t('verifiez_email_instructions') || 'Vérifiez votre boîte mail et suivez les instructions.'}</p>
+                    <p style={styles.subText}>{t('verifiez_email_instructions')}</p>
                     <Button variant="primary" onClick={() => navigate('/')}>
-                        {t('retour_connexion') || 'Retour à la connexion'}
+                        {t('retour_connexion')}
                     </Button>
                 </Card>
             </div>
@@ -48,9 +48,9 @@ export default function RequestReset() {
 
     return (
         <div style={styles.container}>
-            <Card title={t('reinitialiser_mot_de_passe') || 'Réinitialiser mon mot de passe'} variant="primary">
+            <Card title={t('reinitialiser_mot_de_passe')} variant="primary">
                 <p style={styles.infoText}>
-                    {t('saisissez_email_professionnel') || 'Saisissez votre email professionnel. Vous recevrez un lien pour créer un nouveau mot de passe.'}
+                    {t('saisissez_email_professionnel')}
                 </p>
 
                 {error && (
@@ -74,7 +74,7 @@ export default function RequestReset() {
                             {t('retour')}
                         </Button>
                         <Button type="submit" variant="primary" loading={loading}>
-                            {t('envoyer') || 'Envoyer'}
+                            {t('envoyer')}
                         </Button>
                     </div>
                 </form>

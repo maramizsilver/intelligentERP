@@ -1,4 +1,3 @@
-// frontend/src/pages/auth/ResetPassword.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
@@ -23,34 +22,25 @@ export default function ResetPassword() {
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
 
-    console.log('[ResetPassword] Token reçu:', token);
-    console.log('[ResetPassword] searchParams:', searchParams.toString());
-
     useEffect(() => {
         if (!token) {
-            console.log('[ResetPassword] Token manquant');
             setValid(false);
-            setError(t('token_manquant') || 'Token manquant');
+            setError(t('token_manquant'));
             setValidating(false);
             return;
         }
 
         const validate = async () => {
             try {
-                console.log('[ResetPassword] Envoi requête de validation...');
                 const res = await API.get('/reset/validate', { params: { token } });
-                console.log('[ResetPassword] Réponse reçue:', res.data);
 
                 if (res.data.valid) {
-                    console.log('[ResetPassword] Token valide !');
                     setValid(true);
                 } else {
-                    console.log('[ResetPassword] Token invalide:', res.data.message);
-                    setError(res.data.message || t('token_invalide') || 'Token invalide');
+                    setError(res.data.message || t('token_invalide'));
                 }
             } catch (err) {
-                console.error('[ResetPassword] Erreur:', err);
-                setError(t('erreur_validation_token') || 'Erreur lors de la validation');
+                setError(t('erreur_validation_token'));
             } finally {
                 setValidating(false);
             }
@@ -64,12 +54,12 @@ export default function ResetPassword() {
         setError('');
 
         if (password.length < 8) {
-            setError(t('mot_de_passe_min_8') || 'Le mot de passe doit contenir au moins 8 caractères');
+            setError(t('mot_de_passe_min_8'));
             return;
         }
 
         if (password !== confirmPassword) {
-            setError(t('mots_de_passe_correspondent_pas') || 'Les mots de passe ne correspondent pas');
+            setError(t('mots_de_passe_correspondent_pas'));
             return;
         }
 
@@ -78,7 +68,7 @@ export default function ResetPassword() {
             await API.post('/reset/reset', { token, password });
             setSuccess(true);
         } catch (err) {
-            setError(err.response?.data?.message || t('erreur_reinitialisation_mot_passe') || 'Erreur');
+            setError(err.response?.data?.message || t('erreur_reinitialisation_mot_passe'));
         } finally {
             setLoading(false);
         }
@@ -87,10 +77,7 @@ export default function ResetPassword() {
     if (validating) {
         return (
             <div style={styles.container}>
-                <LoadingSpinner size="lg" text={t('verification_token') || 'Vérification du token...'} />
-                <p style={{ marginTop: '20px', fontSize: '12px', color: '#64748B' }}>
-                    Token: {token ? token.substring(0, 20) + '...' : t('aucun_token') || 'Aucun token'}
-                </p>
+                <LoadingSpinner size="lg" text={t('verification_token')} />
             </div>
         );
     }
@@ -98,13 +85,10 @@ export default function ResetPassword() {
     if (!valid) {
         return (
             <div style={styles.container}>
-                <Card title={t('lien_invalide') || 'Lien invalide'} variant="danger">
-                    <p style={styles.errorText}>{error || t('lien_reinitialisation_invalide') || 'Ce lien de réinitialisation est invalide ou a expiré.'}</p>
-                    <p style={{ fontSize: '12px', color: '#94A3B8', marginTop: '8px' }}>
-                        Token: {token ? token.substring(0, 20) + '...' : t('aucun_token') || 'Aucun token'}
-                    </p>
+                <Card title={t('lien_invalide')} variant="danger">
+                    <p style={styles.errorText}>{error || t('lien_reinitialisation_invalide')}</p>
                     <Button variant="primary" onClick={() => navigate('/')}>
-                        {t('retour_connexion') || 'Retour à la connexion'}
+                        {t('retour_connexion')}
                     </Button>
                 </Card>
             </div>
@@ -114,11 +98,11 @@ export default function ResetPassword() {
     if (success) {
         return (
             <div style={styles.container}>
-                <Card title={t('mot_de_passe_reinitialise') || 'Mot de passe réinitialisé'} variant="success">
-                    <p style={styles.text}>{t('mot_de_passe_reinitialise_succes') || 'Votre mot de passe a été réinitialisé avec succès.'}</p>
-                    <p style={styles.subText}>{t('connecter_nouveau_mot_de_passe') || 'Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.'}</p>
+                <Card title={t('mot_de_passe_reinitialise')} variant="success">
+                    <p style={styles.text}>{t('mot_de_passe_reinitialise_succes')}</p>
+                    <p style={styles.subText}>{t('connecter_nouveau_mot_de_passe')}</p>
                     <Button variant="primary" onClick={() => navigate('/')}>
-                        {t('se_connecter') || 'Se connecter'}
+                        {t('se_connecter')}
                     </Button>
                 </Card>
             </div>
@@ -127,8 +111,8 @@ export default function ResetPassword() {
 
     return (
         <div style={styles.container}>
-            <Card title={t('nouveau_mot_de_passe_titre') || 'Nouveau mot de passe'} variant="primary">
-                <p style={styles.infoText}>{t('creer_nouveau_mot_de_passe') || 'Créez un nouveau mot de passe pour votre compte.'}</p>
+            <Card title={t('nouveau_mot_de_passe_titre')} variant="primary">
+                <p style={styles.infoText}>{t('creer_nouveau_mot_de_passe')}</p>
 
                 {error && (
                     <div style={styles.errorContainer}>
@@ -138,21 +122,21 @@ export default function ResetPassword() {
 
                 <form onSubmit={handleSubmit}>
                     <Input
-                        label={t('nouveau_mot_de_passe') || 'Nouveau mot de passe'}
+                        label={t('nouveau_mot_de_passe')}
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder={t('mot_de_passe_min_8') || 'Minimum 8 caractères'}
+                        placeholder={t('mot_de_passe_min_8')}
                         required
                         minLength={8}
                         disabled={loading}
                     />
                     <Input
-                        label={t('confirmer_mot_de_passe') || 'Confirmer le mot de passe'}
+                        label={t('confirmer_mot_de_passe')}
                         type="password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder={t('confirmer_mot_de_passe') || 'Confirmer le mot de passe'}
+                        placeholder={t('confirmer_mot_de_passe')}
                         required
                         disabled={loading}
                     />
@@ -161,7 +145,7 @@ export default function ResetPassword() {
                             {t('annuler')}
                         </Button>
                         <Button type="submit" variant="primary" loading={loading}>
-                            {t('reinitialiser') || 'Réinitialiser'}
+                            {t('reinitialiser')}
                         </Button>
                     </div>
                 </form>

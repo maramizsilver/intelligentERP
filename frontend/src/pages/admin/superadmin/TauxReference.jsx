@@ -1,4 +1,3 @@
-// frontend/src/pages/admin/superadmin/TauxReference.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
@@ -18,7 +17,7 @@ const CATEGORIES = ['TVA', 'INTERET', 'PENALITE', 'REMISE', 'TAXE', 'COMMISSION'
 
 export default function TauxReference() {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, dir } = useLanguage();
   const navigate = useNavigate();
 
   const [taux, setTaux] = useState([]);
@@ -60,7 +59,7 @@ export default function TauxReference() {
       const res = await API.get('/admin/taux-reference', { params });
       setTaux(res.data.taux || []);
     } catch (err) {
-      setError(t('erreur_chargement_taux') || 'Impossible de charger les taux de référence');
+      setError(t('erreur_chargement_taux'));
     } finally {
       setLoading(false);
     }
@@ -86,17 +85,17 @@ export default function TauxReference() {
     try {
       if (editingId) {
         await API.put(`/admin/taux-reference/${editingId}`, form);
-        setSuccess(t('taux_modifie') || 'Taux de référence mis à jour avec succès');
+        setSuccess(t('taux_modifie'));
       } else {
         await API.post('/admin/taux-reference', form);
-        setSuccess(t('taux_cree') || 'Taux de référence créé avec succès');
+        setSuccess(t('taux_cree'));
       }
       setIsModalOpen(false);
       setEditingId(null);
       setForm({ categorie: '', sous_categorie: '', nom: '', description: '', taux: '', date_debut: '', date_fin: '', actif: true });
       loadTaux();
     } catch (err) {
-      setError(err.response?.data?.message || t('erreur_taux') || 'Erreur');
+      setError(err.response?.data?.message || t('erreur_taux'));
     } finally {
       setFormLoading(false);
     }
@@ -120,37 +119,37 @@ export default function TauxReference() {
   const handleToggle = async (id, actif) => {
     try {
       await API.put(`/admin/taux-reference/${id}/toggle`, { actif: !actif });
-      setSuccess(actif ? t('taux_desactive') || 'Taux désactivé' : t('taux_active') || 'Taux activé');
+      setSuccess(actif ? t('taux_desactive') : t('taux_active'));
       loadTaux();
     } catch (err) {
-      setError(err.response?.data?.message || t('erreur_toggle_taux') || 'Erreur');
+      setError(err.response?.data?.message || t('erreur_toggle_taux'));
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm(t('confirmation_suppression_taux') || 'Supprimer définitivement ce taux de référence ?')) return;
+    if (!window.confirm(t('confirmation_suppression_taux'))) return;
     try {
       await API.delete(`/admin/taux-reference/${id}`);
-      setSuccess(t('taux_supprime') || 'Taux de référence supprimé');
+      setSuccess(t('taux_supprime'));
       loadTaux();
     } catch (err) {
-      setError(err.response?.data?.message || t('erreur_suppression_taux') || 'Erreur');
+      setError(err.response?.data?.message || t('erreur_suppression_taux'));
     }
   };
 
   const columns = [
-    { key: 'categorie', label: t('categorie') || 'Catégorie' },
+    { key: 'categorie', label: t('categorie') },
     { key: 'nom', label: t('nom') },
     { key: 'description', label: t('description') },
-    { key: 'taux', label: t('taux') || 'Taux', render: (row) => `${row.taux}%` },
+    { key: 'taux', label: t('taux_pourcent'), render: (row) => `${row.taux}%` },
     {
       key: 'date_debut',
-      label: t('date_debut') || 'Date début',
+      label: t('date_debut'),
       render: (row) => new Date(row.date_debut).toLocaleDateString('fr-FR')
     },
     {
       key: 'date_fin',
-      label: t('date_fin') || 'Date fin',
+      label: t('date_fin'),
       render: (row) => new Date(row.date_fin).toLocaleDateString('fr-FR')
     },
     {
@@ -158,17 +157,14 @@ export default function TauxReference() {
       label: t('statut'),
       render: (row) => (
         <Badge variant={row.actif ? 'success' : 'danger'}>
-          {row.actif ? (t('taux_actif') || 'Actif') : (t('taux_inactif') || 'Inactif')}
+          {row.actif ? t('taux_actif') : t('taux_inactif')}
         </Badge>
       )
     },
     {
       key: 'version',
-      label: t('version') || 'Version',
-      render: (row) => {
-        const versionText = t('taux_version') || 'v{version}';
-        return versionText.replace('{version}', row.version || 1);
-      }
+      label: t('version_taux'),
+      render: (row) => `${t('version_taux')} ${row.version || 1}`
     }
   ];
 
@@ -179,7 +175,7 @@ export default function TauxReference() {
       onClick: (row) => handleEdit(row)
     },
     {
-      label: t('actif_inactif') || 'Activer/Désactiver',
+      label: t('activer_desactiver'),
       variant: 'warning',
       onClick: (row) => handleToggle(row.id, row.actif)
     },
@@ -194,8 +190,8 @@ export default function TauxReference() {
     return (
       <div>
         <div style={styles.header}>
-          <h1 style={styles.title}>{t('acces_refuse') || 'Accès refusé'}</h1>
-          <p style={styles.subtitle}>{t('acces_reserve_superadmin') || 'Cette page est réservée au SuperAdmin de la plateforme.'}</p>
+          <h1 style={styles.title}>{t('acces_refuse_titre')}</h1>
+          <p style={styles.subtitle}>{t('acces_reserve_superadmin')}</p>
         </div>
         <Button variant="secondary" onClick={() => navigate('/dashboard')}>
           {t('retour')}
@@ -205,13 +201,11 @@ export default function TauxReference() {
   }
 
   return (
-    <div>
+    <div style={{ textAlign: dir === 'rtl' ? 'right' : 'left' }}>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>{t('gestion_taux_reference') || 'Gestion des Taux de Référence'}</h1>
-          <p style={styles.subtitle}>
-            {t('base_centralisee_taux') || 'Base centralisée des taux et périodes - Gérée exclusivement par le SuperAdmin'}
-          </p>
+          <h1 style={styles.title}>{t('gestion_taux_reference')}</h1>
+          <p style={styles.subtitle}>{t('base_centralisee_taux')}</p>
         </div>
         <div style={styles.headerActions}>
           <Button variant="secondary" onClick={() => navigate('/dashboard')}>
@@ -225,7 +219,7 @@ export default function TauxReference() {
               setIsModalOpen(true);
             }}
           >
-            {t('nouveau_taux') || 'Nouveau taux'}
+            {t('ajouter_taux')}
           </Button>
         </div>
       </div>
@@ -241,16 +235,16 @@ export default function TauxReference() {
         </div>
       )}
 
-      <Card title={t('filtres') || 'Filtres'} variant="primary" style={{ marginBottom: '24px' }}>
+      <Card title={t('filtres')} variant="primary" style={{ marginBottom: '24px' }}>
         <div style={styles.filterGrid}>
           <div style={styles.formGroup}>
-            <label style={styles.label}>{t('categorie') || 'Catégorie'}</label>
+            <label style={styles.label}>{t('categorie')}</label>
             <select
               style={styles.select}
               value={filterCategorie}
               onChange={(e) => setFilterCategorie(e.target.value)}
             >
-              <option value="">{t('toutes_categories') || 'Toutes'}</option>
+              <option value="">{t('toutes_categories')}</option>
               {CATEGORIES.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
@@ -263,25 +257,25 @@ export default function TauxReference() {
               value={filterActif}
               onChange={(e) => setFilterActif(e.target.value)}
             >
-              <option value="">{t('tous') || 'Tous'}</option>
-              <option value="true">{t('taux_actifs') || 'Actifs'}</option>
-              <option value="false">{t('taux_inactifs') || 'Inactifs'}</option>
+              <option value="">{t('tous')}</option>
+              <option value="true">{t('taux_actifs')}</option>
+              <option value="false">{t('taux_inactifs')}</option>
             </select>
           </div>
           <div style={styles.filterActions}>
             <Button variant="secondary" onClick={() => { setFilterCategorie(''); setFilterActif(''); }}>
-              {t('reinitialiser_filtres') || 'Réinitialiser'}
+              {t('reinitialiser_filtres')}
             </Button>
           </div>
         </div>
       </Card>
 
-      <Card title={t('liste_taux') || 'Liste des taux de référence'} variant="primary">
+      <Card title={t('liste_taux')} variant="primary">
         <div style={styles.statsRow}>
           <span style={styles.statsText}>
-            {t('total_taux') || 'Total:'} <strong>{taux.length}</strong> {t('taux') || 'taux'}
+            {t('total_taux')} <strong>{taux.length}</strong> {t('taux')}
             {taux.filter(t => t.actif).length > 0 && 
-              ` · ${t('taux_actifs') || 'Actifs'}: ${taux.filter(t => t.actif).length}`
+              ` · ${t('taux_actifs')}: ${taux.filter(t => t.actif).length}`
             }
           </span>
         </div>
@@ -291,11 +285,11 @@ export default function TauxReference() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingId ? (t('modifier_taux') || 'Modifier le taux de référence') : (t('creer_taux') || 'Nouveau taux de référence')}
+        title={editingId ? t('modifier_taux') : t('ajouter_taux')}
         size="lg"
         actions={[
           {
-            label: editingId ? (t('modifier') || 'Mettre à jour') : (t('creer') || 'Créer'),
+            label: editingId ? t('modifier') : t('ajouter'),
             variant: 'primary',
             onClick: handleSubmit,
             loading: formLoading,
@@ -305,7 +299,7 @@ export default function TauxReference() {
         <form onSubmit={handleSubmit}>
           <div style={styles.formGrid}>
             <div style={styles.formGroup}>
-              <label style={styles.label}>{t('categorie') || 'Catégorie'} *</label>
+              <label style={styles.label}>{t('categorie')} *</label>
               <select
                 style={styles.select}
                 name="categorie"
@@ -314,19 +308,19 @@ export default function TauxReference() {
                 required
                 disabled={formLoading}
               >
-                <option value="">-- {t('choisir') || 'Choisir'} --</option>
+                <option value="">-- {t('choisir')} --</option>
                 {CATEGORIES.map(c => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
             </div>
             <Input
-              label={t('sous_categorie') || 'Sous-catégorie'}
+              label={t('sous_categorie')}
               name="sous_categorie"
               value={form.sous_categorie}
               onChange={handleChange}
               disabled={formLoading}
-              placeholder={t('exemple_sous_categorie') || 'Ex: Standard, Réduite...'}
+              placeholder={t('exemple_sous_categorie')}
             />
             <Input
               label={t('nom') + ' *'}
@@ -335,10 +329,10 @@ export default function TauxReference() {
               onChange={handleChange}
               required
               disabled={formLoading}
-              placeholder={t('exemple_taux') || 'Ex: TVA Standard 2024'}
+              placeholder={t('exemple_taux')}
             />
             <Input
-              label={t('taux_obligatoire') || 'Taux (%) *'}
+              label={t('taux_obligatoire')}
               name="taux"
               type="number"
               step="0.01"
@@ -350,7 +344,7 @@ export default function TauxReference() {
               placeholder="Ex: 19.5"
             />
             <Input
-              label={t('date_debut_obligatoire') || 'Date début *'}
+              label={t('date_debut_obligatoire')}
               name="date_debut"
               type="date"
               value={form.date_debut}
@@ -359,7 +353,7 @@ export default function TauxReference() {
               disabled={formLoading}
             />
             <Input
-              label={t('date_fin_obligatoire') || 'Date fin *'}
+              label={t('date_fin_obligatoire')}
               name="date_fin"
               type="date"
               value={form.date_fin}
@@ -377,7 +371,7 @@ export default function TauxReference() {
               onChange={handleChange}
               disabled={formLoading}
               rows="3"
-              placeholder={t('description_taux') || 'Description détaillée du taux'}
+              placeholder={t('description_taux')}
             />
           </div>
           <div style={styles.checkboxGroup}>
@@ -389,7 +383,7 @@ export default function TauxReference() {
                 onChange={handleChange}
                 disabled={formLoading}
               />
-              <span>{t('actif_taux') || 'Actif'}</span>
+              <span>{t('actif_taux')}</span>
             </label>
           </div>
         </form>

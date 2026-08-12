@@ -201,9 +201,11 @@ function AppRoutes() {
           <PrivateRoute><Layout><Notifications /></Layout></PrivateRoute>
         } />
 
-        {/* Profil */}
+        {/* Profil - accessible par TOUS (avec allowSuperAdmin) */}
         <Route path="/profil" element={
-          <PrivateRoute><Layout><Profil /></Layout></PrivateRoute>
+          <PrivateRoute allowSuperAdmin>
+            <Layout><Profil /></Layout>
+          </PrivateRoute>
         } />
 
         {/* Finance */}

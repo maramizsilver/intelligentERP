@@ -7,11 +7,13 @@
 // ---------------------------------------------------------------------------
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext'; // AJOUTÉ
 import chatbotApi from '../../services/chatbot.api';
 import { colors, spacing, typography, borderRadius, shadows, transitions } from '../../styles/theme';
 
 export default function ChatbotWidget() {
     const { user } = useAuth();
+    const { t, dir } = useLanguage(); // AJOUTÉ - dir pour RTL
     const [ouvert, setOuvert] = useState(false);
     const [messages, setMessages] = useState([]);
     const [saisie, setSaisie] = useState('');
@@ -54,7 +56,7 @@ export default function ChatbotWidget() {
             const res = await chatbotApi.envoyerMessage(texte);
             setMessages((prev) => [...prev, { role: 'assistant', contenu: res.data.reponse }]);
         } catch (err) {
-            setErreur(err.response?.data?.message || "L'assistant est momentanément indisponible.");
+            setErreur(err.response?.data?.message || t('assistant_indisponible'));
         } finally {
             setEnvoiEnCours(false);
         }
@@ -69,31 +71,53 @@ export default function ChatbotWidget() {
         setMessages([]);
     };
 
+    // Styles avec support RTL
+    const panelStyle = {
+        position: 'fixed',
+        bottom: '88px',
+        [dir === 'rtl' ? 'left' : 'right']: spacing.lg, // RTL support
+        width: '360px',
+        maxWidth: 'calc(100vw - 32px)',
+        height: '520px',
+        maxHeight: 'calc(100vh - 120px)',
+        backgroundColor: colors.bgCard,
+        borderRadius: borderRadius.xl,
+        boxShadow: shadows.xxl,
+        border: `1px solid ${colors.border}`,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        zIndex: 2000,
+        fontFamily: typography.fontFamily,
+    };
+
+    const buttonStyle = {
+        position: 'fixed',
+        bottom: spacing.lg,
+        [dir === 'rtl' ? 'left' : 'right']: spacing.lg, // RTL support
+        width: '56px',
+        height: '56px',
+        borderRadius: borderRadius.full,
+        border: 'none',
+        background: colors.gradientPrimary,
+        color: colors.white,
+        fontSize: '24px',
+        cursor: 'pointer',
+        boxShadow: shadows.glowPrimary,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2000,
+        transition: `transform ${transitions.bounce}`,
+    };
+
     return (
         <>
             {/* Bulle flottante */}
             <button
                 onClick={() => setOuvert((o) => !o)}
-                aria-label="Assistant IA"
-                style={{
-                    position: 'fixed',
-                    bottom: spacing.lg,
-                    right: spacing.lg,
-                    width: '56px',
-                    height: '56px',
-                    borderRadius: borderRadius.full,
-                    border: 'none',
-                    background: colors.gradientPrimary,
-                    color: colors.white,
-                    fontSize: '24px',
-                    cursor: 'pointer',
-                    boxShadow: shadows.glowPrimary,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 2000,
-                    transition: `transform ${transitions.bounce}`,
-                }}
+                aria-label={t('assistant_ia')}
+                style={buttonStyle}
                 onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.08)')}
                 onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
             >
@@ -102,26 +126,7 @@ export default function ChatbotWidget() {
 
             {/* Panneau de conversation */}
             {ouvert && (
-                <div
-                    style={{
-                        position: 'fixed',
-                        bottom: '88px',
-                        right: spacing.lg,
-                        width: '360px',
-                        maxWidth: 'calc(100vw - 32px)',
-                        height: '520px',
-                        maxHeight: 'calc(100vh - 120px)',
-                        backgroundColor: colors.bgCard,
-                        borderRadius: borderRadius.xl,
-                        boxShadow: shadows.xxl,
-                        border: `1px solid ${colors.border}`,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        overflow: 'hidden',
-                        zIndex: 2000,
-                        fontFamily: typography.fontFamily,
-                    }}
-                >
+                <div style={panelStyle}>
                     {/* En-tête */}
                     <div
                         style={{
@@ -134,12 +139,12 @@ export default function ChatbotWidget() {
                         }}
                     >
                         <div>
-                            <div style={typography.bodyBold}>Assistant IA</div>
-                            <div style={{ ...typography.small, opacity: 0.85 }}>Toujours prêt à vous aider</div>
+                            <div style={typography.bodyBold}>{t('assistant_ia')}</div>
+                            <div style={{ ...typography.small, opacity: 0.85 }}>{t('toujours_pret_aider')}</div>
                         </div>
                         <button
                             onClick={effacer}
-                            title="Effacer la conversation"
+                            title={t('effacer_conversation')}
                             style={{
                                 background: 'rgba(255,255,255,0.15)',
                                 border: 'none',
@@ -150,7 +155,7 @@ export default function ChatbotWidget() {
                                 ...typography.small,
                             }}
                         >
-                            Effacer
+                            {t('effacer_conversation')}
                         </button>
                     </div>
 
@@ -168,7 +173,7 @@ export default function ChatbotWidget() {
                     >
                         {messages.length === 0 && (
                             <div style={{ ...typography.small, color: colors.textMuted, textAlign: 'center', marginTop: spacing.lg }}>
-                                Posez-moi une question sur vos stocks, clients, commandes ou factures.
+                                {t('poser_question_stocks')}
                             </div>
                         )}
 
@@ -185,6 +190,7 @@ export default function ChatbotWidget() {
                                     padding: `${spacing.sm} ${spacing.md}`,
                                     whiteSpace: 'pre-wrap',
                                     ...typography.body,
+                                    textAlign: dir === 'rtl' ? 'right' : 'left', // RTL support
                                 }}
                             >
                                 {m.contenu}
@@ -203,7 +209,7 @@ export default function ChatbotWidget() {
                                     ...typography.small,
                                 }}
                             >
-                                L'assistant réfléchit...
+                                {t('assistant_reflechit')}
                             </div>
                         )}
 
@@ -232,7 +238,7 @@ export default function ChatbotWidget() {
                             type="text"
                             value={saisie}
                             onChange={(e) => setSaisie(e.target.value)}
-                            placeholder="Écrivez votre question..."
+                            placeholder={t('ecrivez_question')}
                             maxLength={2000}
                             disabled={envoiEnCours}
                             style={{
@@ -242,6 +248,7 @@ export default function ChatbotWidget() {
                                 padding: `${spacing.sm} ${spacing.md}`,
                                 outline: 'none',
                                 ...typography.body,
+                                textAlign: dir === 'rtl' ? 'right' : 'left', // RTL support
                             }}
                         />
                         <button

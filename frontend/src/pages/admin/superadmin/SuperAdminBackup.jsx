@@ -39,47 +39,47 @@ export default function SuperAdminBackup() {
             setTotal(res.data.total || 0);
         } catch (err) {
             console.error('Erreur chargement backups:', err);
-            setError(t('erreur_chargement_backups') || 'Impossible de charger l\'historique des sauvegardes');
+            setError(t('erreur_chargement_backups') || t('erreur_chargement_donnees'));
         } finally {
             setLoading(false);
         }
     };
 
     const triggerBackup = async () => {
-        if (!window.confirm(t('confirmation_lancer_sauvegarde') || 'Lancer une sauvegarde manuelle de toutes les bases de données ?')) return;
+        if (!window.confirm(t('confirmation_lancer_sauvegarde'))) return;
         setBackupLoading(true);
         setMessage('');
         setError('');
         try {
             const res = await API.post('/superadmin/backup');
-            setMessage(`${res.data.total} ${t('bases_sauvegardees') || 'bases de données sauvegardées avec succès'}`);
+            setMessage(`${res.data.total} ${t('bases_sauvegardees')}`);
             loadBackups();
         } catch (err) {
-            setError(t('erreur_sauvegarde') || 'Erreur lors de la sauvegarde');
+            setError(t('erreur_sauvegarde'));
         } finally {
             setBackupLoading(false);
         }
     };
 
     const cleanupBackups = async () => {
-        const days = prompt(`${t('nettoyage_confirmation') || 'Nombre de jours à conserver (défaut: 30)'} :`, '30');
+        const days = prompt(`${t('nettoyage_confirmation')} :`, '30');
         if (days === null) return;
         setCleanupLoading(true);
         setMessage('');
         setError('');
         try {
             const res = await API.delete('/superadmin/backup/cleanup?days=' + (parseInt(days) || 30));
-            setMessage(`${res.data.deleted} ${t('sauvegardes_supprimees') || 'sauvegardes supprimées'}`);
+            setMessage(`${res.data.deleted} ${t('sauvegardes_supprimees')}`);
             loadBackups();
         } catch (err) {
-            setError(t('erreur_nettoyage') || 'Erreur lors du nettoyage');
+            setError(t('erreur_nettoyage'));
         } finally {
             setCleanupLoading(false);
         }
     };
 
     const handleDelete = async (filename) => {
-        if (!window.confirm(t('supprimer_sauvegarde_confirmation') || 'Supprimer ce backup ?')) return;
+        if (!window.confirm(t('supprimer_sauvegarde_confirmation'))) return;
         setDeleteLoading(filename);
         setMessage('');
         setError('');
@@ -88,7 +88,7 @@ export default function SuperAdminBackup() {
             setMessage(res.data.message);
             loadBackups();
         } catch (err) {
-            setError(t('erreur_suppression_sauvegarde') || 'Erreur lors de la suppression');
+            setError(t('erreur_suppression_sauvegarde'));
         } finally {
             setDeleteLoading(null);
         }
@@ -109,7 +109,7 @@ export default function SuperAdminBackup() {
             link.remove();
             window.URL.revokeObjectURL(url);
         } catch (err) {
-            setError(t('erreur_telechargement_sauvegarde') || 'Erreur lors du téléchargement');
+            setError(t('erreur_telechargement_sauvegarde'));
             console.error(err);
         }
     };
@@ -130,7 +130,7 @@ export default function SuperAdminBackup() {
             link.remove();
             window.URL.revokeObjectURL(url);
         } catch (err) {
-            setError(t('erreur_telechargement_sauvegarde') || 'Erreur lors du téléchargement');
+            setError(t('erreur_telechargement_sauvegarde'));
             console.error(err);
         }
     };
@@ -148,34 +148,34 @@ export default function SuperAdminBackup() {
             label: t('date'),
             render: (row) => new Date(row.created_at).toLocaleString('fr-FR')
         },
-        { key: 'dbName', label: t('base_donnees') || 'Base de données' },
+        { key: 'dbName', label: t('base_donnees') },
         {
             key: 'filename',
-            label: t('fichier') || 'Fichier',
+            label: t('fichier'),
             render: (row) => (
                 <span style={{ fontSize: '12px', color: '#64748B' }}>{row.filename}</span>
             )
         },
         {
             key: 'size',
-            label: t('taille_fichier') || 'Taille',
+            label: t('taille_fichier'),
             render: (row) => formatFileSize(row.size)
         },
         {
             key: 'encrypted',
-            label: t('chiffre') || 'Chiffré',
+            label: t('chiffre'),
             render: (row) => (
                 <Badge variant={row.encrypted ? 'success' : 'danger'}>
-                    {row.encrypted ? (t('oui') || 'Oui') : (t('non') || 'Non')}
+                    {row.encrypted ? t('oui') : t('non')}
                 </Badge>
             )
         },
         {
             key: 'signed',
-            label: t('signe') || 'Signé',
+            label: t('signe'),
             render: (row) => (
                 <Badge variant={row.signed ? 'success' : 'outline'}>
-                    {row.signed ? (t('oui') || 'Oui') : (t('non') || 'Non')}
+                    {row.signed ? t('oui') : t('non')}
                 </Badge>
             )
         }
@@ -183,19 +183,19 @@ export default function SuperAdminBackup() {
 
     const actions = [
         {
-            label: t('telecharger_sql') || 'Télécharger SQL',
+            label: t('telecharger_sql'),
             variant: 'primary',
             onClick: (row) => handleDownload(row.filename),
             disabled: (row) => row.size === 0
         },
         {
-            label: t('telecharger_chiffre') || 'Télécharger chiffré',
+            label: t('telecharger_chiffre'),
             variant: 'secondary',
             onClick: (row) => handleDownloadEncrypted(row.filename),
             disabled: (row) => !row.encrypted
         },
         {
-            label: t('supprimer_sauvegarde') || 'Supprimer',
+            label: t('supprimer_sauvegarde'),
             variant: 'danger',
             onClick: (row) => handleDelete(row.filename),
             loading: (row) => deleteLoading === row.filename
@@ -206,8 +206,8 @@ export default function SuperAdminBackup() {
         <div>
             <div style={styles.header}>
                 <div>
-                    <h1 style={styles.title}>{t('sauvegarde_donnees') || 'Sauvegarde des données'}</h1>
-                    <p style={styles.subtitle}>{t('gerer_sauvegardes') || 'Gérez les sauvegardes automatiques de la plateforme'}</p>
+                    <h1 style={styles.title}>{t('sauvegarde_donnees')}</h1>
+                    <p style={styles.subtitle}>{t('gerer_sauvegardes')}</p>
                 </div>
                 <div style={styles.headerActions}>
                     <Button variant="secondary" onClick={() => navigate('/superadmin/dashboard')}>
@@ -230,11 +230,11 @@ export default function SuperAdminBackup() {
             <div style={styles.statsGrid}>
                 <div style={{ ...styles.statCard, borderLeft: '4px solid #22C55E' }}>
                     <span style={styles.statNumber}>{total}</span>
-                    <span style={styles.statLabel}>{t('sauvegardes_disponibles') || 'Sauvegardes disponibles'}</span>
+                    <span style={styles.statLabel}>{t('sauvegardes_disponibles')}</span>
                 </div>
                 <div style={{ ...styles.statCard, borderLeft: '4px solid #0EA5E9' }}>
                     <span style={styles.statNumber}>{backups.filter(b => b.encrypted).length}</span>
-                    <span style={styles.statLabel}>{t('sauvegardes_chiffrees') || 'Sauvegardes chiffrées'}</span>
+                    <span style={styles.statLabel}>{t('sauvegardes_chiffrees')}</span>
                 </div>
             </div>
 
@@ -244,29 +244,29 @@ export default function SuperAdminBackup() {
                     onClick={triggerBackup}
                     loading={backupLoading}
                 >
-                    {t('lancer_sauvegarde') || 'Lancer une sauvegarde'}
+                    {t('lancer_sauvegarde')}
                 </Button>
                 <Button
                     variant="secondary"
                     onClick={cleanupBackups}
                     loading={cleanupLoading}
                 >
-                    {t('nettoyer_sauvegardes') || 'Nettoyer les anciennes sauvegardes'}
+                    {t('nettoyer_sauvegardes')}
                 </Button>
                 <Button
                     variant="outline"
                     onClick={loadBackups}
                     loading={loading}
                 >
-                    {t('actualiser_liste') || 'Actualiser'}
+                    {t('actualiser_liste')}
                 </Button>
             </div>
 
-            <Card title={t('historique_sauvegardes') || 'Historique des sauvegardes'} variant="primary" style={{ marginTop: '20px' }}>
+            <Card title={t('historique_sauvegardes')} variant="primary" style={{ marginTop: '20px' }}>
                 {backups.length === 0 ? (
                     <EmptyState
-                        title={t('aucune_sauvegarde') || 'Aucune sauvegarde'}
-                        description={t('aucune_sauvegarde_description') || 'Aucune sauvegarde n\'a encore été effectuée.'}
+                        title={t('aucune_sauvegarde')}
+                        description={t('aucune_sauvegarde_description')}
                     />
                 ) : (
                     <Table columns={columns} data={backups} loading={loading} actions={actions} />
