@@ -104,7 +104,7 @@ export default function ClientProfil() {
     } catch (err) {
       setMessage({ 
         type: 'error', 
-        text: '❌ ' + (err.response?.data?.message || 'Erreur lors de la mise à jour') 
+        text:  (err.response?.data?.message || 'Erreur lors de la mise à jour') 
       });
     } finally {
       setLoading(false);

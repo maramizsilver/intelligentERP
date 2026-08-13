@@ -65,6 +65,7 @@ import ClientCommandeDetail from './pages/client/ClientCommandeDetail';
 import ClientProduits from './pages/client/ClientProduits';
 import ClientFactures from './pages/client/ClientFactures';
 import ClientProfil from './pages/client/ClientProfil';
+import ClientLayout from './components/layout/ClientLayout';
 
 // Finance
 import Finance from './pages/Finance/Finance';
@@ -163,29 +164,29 @@ function AppRoutes() {
         {/* ============================================================
             ROUTES CLIENT EXTERNE
             ============================================================ */}
-        <Route path="/client/dashboard" element={
-          <PrivateRoute externalOnly><ClientDashboard /></PrivateRoute>
-        } />
+         <Route path="/client/dashboard" element={
+            <PrivateRoute externalOnly><ClientLayout><ClientDashboard /></ClientLayout></PrivateRoute>
+          } />
 
-        <Route path="/client/commandes" element={
-          <PrivateRoute externalOnly><ClientCommandes /></PrivateRoute>
-        } />
+          <Route path="/client/commandes" element={
+            <PrivateRoute externalOnly><ClientLayout><ClientCommandes /></ClientLayout></PrivateRoute>
+          } />
 
-        <Route path="/client/commande/:id" element={
-          <PrivateRoute externalOnly><ClientCommandeDetail /></PrivateRoute>
-        } />
+          <Route path="/client/commande/:id" element={
+            <PrivateRoute externalOnly><ClientLayout><ClientCommandeDetail /></ClientLayout></PrivateRoute>
+          } />
 
-        <Route path="/client/produits" element={
-          <PrivateRoute externalOnly><ClientProduits /></PrivateRoute>
-        } />
+          <Route path="/client/produits" element={
+            <PrivateRoute externalOnly><ClientLayout><ClientProduits /></ClientLayout></PrivateRoute>
+          } />
 
-        <Route path="/client/factures" element={
-          <PrivateRoute externalOnly><ClientFactures /></PrivateRoute>
-        } />
+          <Route path="/client/factures" element={
+            <PrivateRoute externalOnly><ClientLayout><ClientFactures /></ClientLayout></PrivateRoute>
+          } />
 
-        <Route path="/client/profil" element={
-          <PrivateRoute externalOnly><ClientProfil /></PrivateRoute>
-        } />
+          <Route path="/client/profil" element={
+            <PrivateRoute externalOnly><ClientLayout><ClientProfil /></ClientLayout></PrivateRoute>
+          } />  
 
         {/* ============================================================
             ROUTES INTERNES (utilisateurs de l'entreprise)

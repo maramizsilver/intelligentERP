@@ -89,7 +89,7 @@ export default function ClientProduits() {
             return (
               <div key={produit.id} style={styles.productCard}>
                 <div style={styles.productTop}>
-                  <div style={styles.productIcon}>📦</div>
+              
                   <span
                     style={{
                       ...styles.stockPill,
