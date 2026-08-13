@@ -88,7 +88,7 @@ export default function ClientFactures() {
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState icon="🧾" title="Aucune facture trouvée" description="Vos factures apparaîtront ici." />
+        <EmptyState title="Aucune facture trouvée" description="Vos factures apparaîtront ici." />
       ) : (
         <div style={styles.list}>
           {filtered.map((f) => {

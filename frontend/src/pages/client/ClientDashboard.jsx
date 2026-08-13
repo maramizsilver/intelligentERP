@@ -98,11 +98,11 @@ export default function ClientDashboard() {
 
       <div style={styles.statsGrid}>
         {[
-          { value: stats.commandes, label: 'Commandes', color: '#0F172A', icon: '📋', path: '/client/commandes' },
-          { value: stats.enCours, label: 'En cours', color: '#76aae7', icon: '🔄', path: '/client/commandes' },
-          { value: stats.factures, label: 'Factures', color: '#3B82F6', icon: '💰', path: '/client/factures' },
-          { value: stats.impayees, label: 'Impayées', color: '#030d36', icon: '⚠️', path: '/client/factures' },
-          { value: stats.produits, label: 'Produits', color: '#3397b3', icon: '📦', path: '/client/produits' },
+          { value: stats.commandes, label: 'Commandes', color: '#0F172A', path: '/client/commandes' },
+          { value: stats.enCours, label: 'En cours', color: '#284566',  path: '/client/commandes' },
+          { value: stats.factures, label: 'Factures', color: '#3B82F6',  path: '/client/factures' },
+          { value: stats.impayees, label: 'Impayées', color: '#0827a4', path: '/client/factures' },
+          { value: stats.produits, label: 'Produits', color: '#3397b3', path: '/client/produits' },
         ].map((stat, i) => (
           <button
             key={i}
@@ -119,10 +119,10 @@ export default function ClientDashboard() {
       <Card title="⚡ Actions rapides" variant="primary">
         <div style={styles.quickActions}>
           {[
-            { icon: '📦', label: 'Catalogue', path: '/client/produits' },
-            { icon: '📋', label: 'Mes commandes', path: '/client/commandes' },
-            { icon: '💰', label: 'Mes factures', path: '/client/factures' },
-            { icon: '👤', label: 'Mon profil', path: '/client/profil' },
+            { label: 'Catalogue', path: '/client/produits' },
+            { label: 'Mes commandes', path: '/client/commandes' },
+            { label: 'Mes factures', path: '/client/factures' },
+            { label: 'Mon profil', path: '/client/profil' },
           ].map((action, i) => (
             <div key={i} onClick={() => navigate(action.path)} style={styles.actionCard}>
               <span style={styles.actionIcon}>{action.icon}</span>
@@ -133,7 +133,7 @@ export default function ClientDashboard() {
       </Card>
 
       <Card
-        title="🕘 Dernières commandes"
+        title=" Dernières commandes"
         variant="primary"
         actions={
           recentOrders.length > 0 && (

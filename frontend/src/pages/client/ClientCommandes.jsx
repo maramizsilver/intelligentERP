@@ -52,8 +52,8 @@ export default function ClientCommandes() {
   const statutInfo = (statut) => {
     const map = {
       livree: { label: 'Livrée', variant: 'success', icon: '✅' },
-      confirmee: { label: 'Confirmée', variant: 'primary', icon: '📦' },
-      en_attente: { label: 'En attente', variant: 'warning', icon: '⏳' },
+      confirmee: { label: 'Confirmée', variant: 'primary'  },
+      en_attente: { label: 'En attente', variant: 'warning' },
       annulee: { label: 'Annulée', variant: 'danger', icon: '✕' },
     };
     return map[statut] || map.en_attente;
