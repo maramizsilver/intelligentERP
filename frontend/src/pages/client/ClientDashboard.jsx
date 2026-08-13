@@ -3,19 +3,29 @@ import { useAuth } from '../../context/AuthContext';
 import API from '../../utils/api';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
+import EmptyState from '../../components/common/EmptyState';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { useNavigate } from 'react-router-dom';
+
+const STATUT_INFO = {
+  livree: { label: 'Livrée', bg: '#D1FAE5', color: '#065F46', icon: '✅' },
+  confirmee: { label: 'Confirmée', bg: '#DBEAFE', color: '#1E40AF', icon: '📦' },
+  en_attente: { label: 'En attente', bg: '#FEF3C7', color: '#92400E', icon: '⏳' },
+  annulee: { label: 'Annulée', bg: '#FEE2E2', color: '#991B1B', icon: '✕' },
+};
 
 export default function ClientDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
   const [stats, setStats] = useState({
     commandes: 0,
     enCours: 0,
     factures: 0,
     impayees: 0,
-    produits: 0
+    produits: 0,
   });
   const [recentOrders, setRecentOrders] = useState([]);
 
@@ -23,13 +33,15 @@ export default function ClientDashboard() {
     loadData();
   }, []);
 
-  const loadData = async () => {
+  const loadData = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      isRefresh ? setRefreshing(true) : setLoading(true);
+      setError('');
+
       const [commandesRes, facturesRes, produitsRes] = await Promise.all([
         API.get('/client/commandes'),
         API.get('/client/factures'),
-        API.get('/client/produits')
+        API.get('/client/produits'),
       ]);
 
       const commandes = commandesRes.data.commandes || [];
@@ -38,17 +50,23 @@ export default function ClientDashboard() {
 
       setStats({
         commandes: commandes.length,
-        enCours: commandes.filter(c => c.statut === 'en_attente' || c.statut === 'confirmee').length,
+        enCours: commandes.filter((c) => c.statut === 'en_attente' || c.statut === 'confirmee').length,
         factures: factures.length,
-        impayees: factures.filter(f => f.statut === 'emise' || f.statut === 'brouillon').length,
-        produits: produits.length
+        impayees: factures.filter((f) => f.statut === 'emise' || f.statut === 'brouillon').length,
+        produits: produits.length,
       });
 
-      setRecentOrders(commandes.slice(0, 5));
+      setRecentOrders(
+        [...commandes]
+          .sort((a, b) => new Date(b.date_commande) - new Date(a.date_commande))
+          .slice(0, 5)
+      );
     } catch (err) {
       console.error('Erreur chargement dashboard client:', err);
+      setError('Impossible de charger votre tableau de bord pour le moment.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -58,29 +76,43 @@ export default function ClientDashboard() {
     <div style={styles.container}>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>👋 Bonjour {user?.prenom} {user?.nom}</h1>
-          <p style={styles.subtitle}>
-            {user?.entreprise_nom || 'Espace client'}
-          </p>
+          <h1 style={styles.title}>Bonjour {user?.prenom} {user?.nom}</h1>
+          <p style={styles.subtitle}>{user?.entreprise_nom || 'Espace client'}</p>
         </div>
-        <Button variant="primary" onClick={() => navigate('/client/commandes')}>
-          Nouvelle commande
-        </Button>
+        <div style={styles.headerActions}>
+          <Button variant="secondary" onClick={() => loadData(true)} loading={refreshing}>
+            ⟳ Actualiser
+          </Button>
+          <Button variant="primary" onClick={() => navigate('/client/produits')}>
+            + Nouvelle commande
+          </Button>
+        </div>
       </div>
+
+      {error && (
+        <div style={styles.errorContainer}>
+          <span style={styles.errorText}>{error}</span>
+          <button style={styles.errorRetry} onClick={() => loadData()}>Réessayer</button>
+        </div>
+      )}
 
       <div style={styles.statsGrid}>
         {[
-          { value: stats.commandes, label: 'Commandes', color: '#0F172A', icon: '📋' },
-          { value: stats.enCours, label: 'En cours', color: '#F59E0B', icon: '🔄' },
-          { value: stats.factures, label: 'Factures', color: '#3B82F6', icon: '💰' },
-          { value: stats.impayees, label: 'Impayées', color: '#EF4444', icon: '⚠️' },
-          { value: stats.produits, label: 'Produits', color: '#22C55E', icon: '📦' }
+          { value: stats.commandes, label: 'Commandes', color: '#0F172A', icon: '📋', path: '/client/commandes' },
+          { value: stats.enCours, label: 'En cours', color: '#76aae7', icon: '🔄', path: '/client/commandes' },
+          { value: stats.factures, label: 'Factures', color: '#3B82F6', icon: '💰', path: '/client/factures' },
+          { value: stats.impayees, label: 'Impayées', color: '#030d36', icon: '⚠️', path: '/client/factures' },
+          { value: stats.produits, label: 'Produits', color: '#3397b3', icon: '📦', path: '/client/produits' },
         ].map((stat, i) => (
-          <div key={i} style={{...styles.statCard, borderBottom: `3px solid ${stat.color}`}}>
+          <button
+            key={i}
+            style={{ ...styles.statCard, borderBottom: `3px solid ${stat.color}` }}
+            onClick={() => navigate(stat.path)}
+          >
             <div style={{ fontSize: '28px', marginBottom: '4px' }}>{stat.icon}</div>
             <div style={styles.statNumber}>{stat.value}</div>
             <div style={styles.statLabel}>{stat.label}</div>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -90,7 +122,7 @@ export default function ClientDashboard() {
             { icon: '📦', label: 'Catalogue', path: '/client/produits' },
             { icon: '📋', label: 'Mes commandes', path: '/client/commandes' },
             { icon: '💰', label: 'Mes factures', path: '/client/factures' },
-            { icon: '👤', label: 'Mon profil', path: '/client/profil' }
+            { icon: '👤', label: 'Mon profil', path: '/client/profil' },
           ].map((action, i) => (
             <div key={i} onClick={() => navigate(action.path)} style={styles.actionCard}>
               <span style={styles.actionIcon}>{action.icon}</span>
@@ -100,31 +132,60 @@ export default function ClientDashboard() {
         </div>
       </Card>
 
-      {recentOrders.length > 0 && (
-        <Card title=" Dernières commandes" variant="primary">
-          {recentOrders.map(order => (
-            <div key={order.id} style={styles.orderItem}>
-              <div>
-                <div style={styles.orderRef}>Commande #{order.reference || order.id}</div>
-                <div style={styles.orderDate}>{new Date(order.date_commande).toLocaleDateString('fr-FR')}</div>
-              </div>
-              <div style={styles.orderStatus}>
-                <span style={{
-                  ...styles.statusBadge,
-                  backgroundColor: order.statut === 'livree' ? '#D1FAE5' : '#FEF3C7',
-                  color: order.statut === 'livree' ? '#065F46' : '#92400E'
-                }}>
-                  {order.statut === 'livree' ? ' Livrée' : ' En cours'}
-                </span>
-                <span style={styles.orderTotal}>{order.total} €</span>
-              </div>
-            </div>
-          ))}
-          <Button variant="secondary" onClick={() => navigate('/client/commandes')} style={{ marginTop: '12px' }}>
-            Voir toutes les commandes →
-          </Button>
-        </Card>
-      )}
+      <Card
+        title="🕘 Dernières commandes"
+        variant="primary"
+        actions={
+          recentOrders.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={() => navigate('/client/commandes')}>
+              Voir tout
+            </Button>
+          )
+        }
+      >
+        {recentOrders.length === 0 ? (
+          <EmptyState
+            icon="📭"
+            title="Aucune commande pour le moment"
+            description="Passez votre première commande depuis notre catalogue."
+            action={
+              <Button variant="primary" onClick={() => navigate('/client/produits')}>
+                Voir le catalogue
+              </Button>
+            }
+          />
+        ) : (
+          <div style={styles.orderList}>
+            {recentOrders.map((order) => {
+              const info = STATUT_INFO[order.statut] || STATUT_INFO.en_attente;
+              return (
+                <div
+                  key={order.id}
+                  style={styles.orderItem}
+                  onClick={() => navigate(`/client/commande/${order.id}`)}
+                >
+                  <span style={styles.orderIcon}>{info.icon}</span>
+                  <div style={styles.orderInfo}>
+                    <div style={styles.orderRef}>Commande #{order.reference || order.id}</div>
+                    <div style={styles.orderDate}>
+                      {new Date(order.date_commande).toLocaleDateString('fr-FR', {
+                        day: '2-digit', month: 'long', year: 'numeric',
+                      })}
+                    </div>
+                  </div>
+                  <div style={styles.orderRight}>
+                    <span style={{ ...styles.statusBadge, backgroundColor: info.bg, color: info.color }}>
+                      {info.label}
+                    </span>
+                    <span style={styles.orderTotal}>{order.total_ttc || order.total} €</span>
+                    <span style={styles.chevron}>›</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
@@ -143,6 +204,11 @@ const styles = {
     flexWrap: 'wrap',
     gap: '12px',
   },
+  headerActions: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
+  },
   title: {
     fontSize: '28px',
     fontWeight: 700,
@@ -153,6 +219,31 @@ const styles = {
     fontSize: '14px',
     color: '#64748B',
     marginTop: '4px',
+  },
+  errorContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '12px',
+    backgroundColor: '#FEF2F2',
+    border: '1px solid #FECACA',
+    borderRadius: '8px',
+    padding: '12px 16px',
+    marginBottom: '20px',
+  },
+  errorText: {
+    color: '#991B1B',
+    fontSize: '13px',
+    fontWeight: 500,
+  },
+  errorRetry: {
+    border: 'none',
+    background: 'transparent',
+    color: '#991B1B',
+    fontWeight: 600,
+    fontSize: '13px',
+    textDecoration: 'underline',
+    cursor: 'pointer',
   },
   statsGrid: {
     display: 'grid',
@@ -167,6 +258,9 @@ const styles = {
     boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
     border: '1px solid #E8EDF2',
     transition: 'all 0.2s ease',
+    cursor: 'pointer',
+    textAlign: 'left',
+    fontFamily: 'inherit',
   },
   statNumber: {
     fontSize: '28px',
@@ -193,10 +287,6 @@ const styles = {
     cursor: 'pointer',
     transition: 'all 0.2s ease',
     border: '1px solid #E8EDF2',
-    ':hover': {
-      transform: 'translateY(-2px)',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-    }
   },
   actionIcon: {
     fontSize: '32px',
@@ -207,25 +297,41 @@ const styles = {
     fontWeight: 500,
     color: '#334155',
   },
+  orderList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
   orderItem: {
     display: 'flex',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '12px 16px',
+    gap: '14px',
+    padding: '14px 16px',
     backgroundColor: '#F8FAFC',
-    borderRadius: '8px',
+    borderRadius: '10px',
     border: '1px solid #E8EDF2',
-    marginBottom: '8px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  },
+  orderIcon: {
+    fontSize: '22px',
+    width: '32px',
+    textAlign: 'center',
+  },
+  orderInfo: {
+    flex: 1,
   },
   orderRef: {
     fontWeight: 600,
     color: '#0F172A',
+    fontSize: '14px',
   },
   orderDate: {
     fontSize: '12px',
     color: '#94A3B8',
+    marginTop: '2px',
   },
-  orderStatus: {
+  orderRight: {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
@@ -234,10 +340,17 @@ const styles = {
     padding: '4px 12px',
     borderRadius: '20px',
     fontSize: '12px',
-    fontWeight: 500,
+    fontWeight: 600,
   },
   orderTotal: {
-    fontWeight: 600,
+    fontWeight: 700,
     color: '#0F172A',
+    fontSize: '14px',
+    minWidth: '60px',
+    textAlign: 'right',
+  },
+  chevron: {
+    fontSize: '18px',
+    color: '#CBD5E1',
   },
 };
