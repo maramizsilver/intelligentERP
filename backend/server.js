@@ -5,6 +5,7 @@ require('dotenv').config();
 const db = require('./config/db');
 const { errorHandler } = require('./middleware/errorHandler.middleware');
 const authMiddleware = require('./middleware/authMiddleware');
+const tenantMiddleware = require('./middleware/tenant.middleware');
 const sessionMiddleware = require('./middleware/sessionMiddleware');
 const auditMiddleware = require('./middleware/audit.middleware');
 const { securityHeaders, xssProtection, noCache } = require('./middleware/security.middleware');
@@ -112,11 +113,12 @@ const protectedRoutes = [
     { path: '/api/clients-tenant', route: './routes/clientTenantRoutes' },
     { path: '/api/chatbot', route: './routes/chatbotRoutes' },
     { path: '/api/documents-actions', route: './routes/documentActionsRoutes' },
-    { path: '/api/documents-metier', route: './routes/documentsMetierRoutes' }
+    { path: '/api/documents-metier', route: './routes/documentsMetierRoutes' },
+    { path: '/api/analytics', route: './routes/analyticsRoutes' },
 ];
 
 protectedRoutes.forEach(({ path, route }) => {
-    app.use(path, authMiddleware, sessionMiddleware, auditMiddleware, require(route));
+    app.use(path, authMiddleware, tenantMiddleware,sessionMiddleware, auditMiddleware, require(route));
 });
 
 // Cette route utilise ses propres middlewares définis dans clientPortalRoutes.js
