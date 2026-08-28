@@ -1,10 +1,3 @@
-// frontend/src/components/dashboard/charts/RevenueLineChart.jsx
-// ---------------------------------------------------------------------------
-// Courbe d'évolution du chiffre d'affaires vs objectif mensuel.
-// Bibliothèque : Recharts (choisie car légère, déclarative en JSX — donc
-// cohérente avec le reste du code React — et déjà listée comme dépendance
-// disponible dans l'environnement d'artefacts du projet).
-// ---------------------------------------------------------------------------
 import React from 'react';
 import {
   ResponsiveContainer,
@@ -14,7 +7,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
 } from 'recharts';
 
 function CustomTooltip({ active, payload, label }) {
@@ -44,16 +36,6 @@ export default function RevenueLineChart({ data }) {
           tickFormatter={(v) => `${Math.round(v / 1000)}k`}
         />
         <Tooltip content={<CustomTooltip />} />
-        <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-        <Line
-          type="monotone"
-          dataKey="objectif"
-          name="Objectif"
-          stroke="#CBD5E1"
-          strokeWidth={2}
-          strokeDasharray="6 4"
-          dot={false}
-        />
         <Line
           type="monotone"
           dataKey="revenu"
