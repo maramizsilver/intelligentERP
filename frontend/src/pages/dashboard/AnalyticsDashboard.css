@@ -96,4 +96,115 @@
   margin: 2px 0 0;
   font-size: 12px;
   color: var(--text-muted);
+}/* --- Filtres de période --- */
+.ad-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.ad-filter-chip {
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-0);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s var(--ease-standard);
+}
+
+.ad-filter-chip--active {
+  background: var(--brand-blue);
+  color: #FFFFFF;
+  border-color: var(--brand-blue);
+}
+
+.ad-filter-custom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.ad-filter-date {
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  font-size: 13px;
+  background: var(--surface-0);
+}
+
+.ad-filter-apply {
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: none;
+  background: var(--brand-blue);
+  color: #FFFFFF;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* --- État vide (premier usage) --- */
+.ad-empty-hero {
+  text-align: center;
+  max-width: 560px;
+  margin: 60px auto;
+  padding: 40px 32px;
+  background: var(--surface-0);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+}
+
+.ad-empty-icon { font-size: 48px; margin-bottom: 16px; }
+
+.ad-empty-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+}
+
+.ad-empty-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0 0 24px;
+}
+
+.ad-empty-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* --- Graphique vide --- */
+.ad-chart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+  min-height: 200px;
+}
+
+.ad-chart-empty-icon { font-size: 28px; }
+
+.ad-error {
+  background: var(--negative-100);
+  color: #9F1239;
+  padding: 16px 20px;
+  border-radius: 12px;
+  margin-bottom: 16px;
 }
