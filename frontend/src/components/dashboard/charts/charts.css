@@ -1,0 +1,66 @@
+/* ============================================================
+   frontend/src/components/dashboard/charts/charts.css
+   ------------------------------------------------------------
+   Styles partagés par les trois graphiques (tooltip Recharts
+   personnalisé + mise en page du donut avec légende).
+   ============================================================ */
+.rc-tooltip {
+  background: var(--navy-900);
+  color: #FFFFFF;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  box-shadow: var(--shadow-md);
+  min-width: 140px;
+}
+
+.rc-tooltip-label {
+  margin: 0 0 6px;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.rc-tooltip-row {
+  margin: 2px 0;
+  color: #CBD5E1;
+}
+
+.rc-tooltip-row strong {
+  color: #FFFFFF;
+  font-family: var(--font-mono);
+}
+
+.donut-layout {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.donut-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-width: 160px;
+}
+
+.donut-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.donut-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.donut-legend-name { color: var(--text-secondary); flex: 1; }
+.donut-legend-value { font-family: var(--font-mono); font-weight: 700; color: var(--text-primary); }

@@ -1,0 +1,80 @@
+/* ============================================================
+   frontend/src/styles/brand-tokens.css
+   ------------------------------------------------------------
+   Système de tokens partagé par la page d'inscription et le
+   nouveau tableau de bord analytique, pour garantir une identité
+   visuelle cohérente entre les deux écrans.
+
+   Choix esthétiques (voir explication complète dans le chat) :
+   - On conserve le bleu de marque existant (#0EA5E9) et l'indigo
+     (#6366F1) déjà utilisés dans l'app, mais on les fait travailler
+     avec un fond "navy" profond côté inscription (posture "SaaS
+     B2B sérieux") et une palette sémantique claire côté dashboard
+     (vert = positif, ambre = neutre, rose = négatif).
+   - Typographie : "Sora" pour les titres (geométrique, technique,
+     cohérent avec un logiciel de gestion), "Inter" pour le corps de
+     texte (déjà utilisée dans le reste de l'app), "JetBrains Mono"
+     pour les chiffres clés (renforce la lecture "donnée/temps réel").
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+
+:root {
+  /* --- Couleurs de marque (héritées du reste de l'app) --- */
+  --brand-blue: #0EA5E9;
+  --brand-blue-dark: #0284C7;
+  --brand-indigo: #6366F1;
+  --brand-indigo-dark: #4F46E5;
+
+  /* --- Fond "navy" pour les surfaces d'autorité (inscription, hero) --- */
+  --navy-950: #0B1120;
+  --navy-900: #0F172A;
+  --navy-800: #16213A;
+  --navy-700: #1E2A46;
+
+  /* --- Neutres --- */
+  --surface-0: #FFFFFF;
+  --surface-50: #F8FAFC;
+  --surface-100: #F1F5F9;
+  --border-subtle: #E2E8F0;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+  --text-on-navy: #E2E8F0;
+  --text-on-navy-muted: #94A3B8;
+
+  /* --- Couleurs sémantiques (tendances KPI) --- */
+  --positive-500: #10B981;
+  --positive-100: #D1FAE5;
+  --warning-500: #F59E0B;
+  --warning-100: #FEF3C7;
+  --negative-500: #F43F5E;
+  --negative-100: #FFE4E8;
+
+  /* --- Typographie --- */
+  --font-display: 'Sora', 'Inter', -apple-system, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+
+  /* --- Rayons & ombres --- */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 24px 60px rgba(15, 23, 42, 0.14);
+  --shadow-glow-blue: 0 8px 28px rgba(14, 165, 233, 0.35);
+
+  /* --- Transitions --- */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
