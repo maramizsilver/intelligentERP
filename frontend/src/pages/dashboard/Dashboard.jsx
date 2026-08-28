@@ -8,6 +8,8 @@ import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import PageHero from '../../components/common/PageHero';
+import { colors, spacing, borderRadius, glassmorphism } from '../../styles/theme';
 
 export default function Dashboard() {
   const { user, hasPermission } = useAuth();
@@ -38,14 +40,8 @@ export default function Dashboard() {
     try {
       setLoading(true);
       const [
-        clientsRes,
-        fournisseursRes,
-        produitsRes,
-        commandesRes,
-        devisRes,
-        promotionsRes,
-        alertesRes,
-        achatsRes
+        clientsRes, fournisseursRes, produitsRes, commandesRes,
+        devisRes, promotionsRes, alertesRes, achatsRes
       ] = await Promise.all([
         API.get('/clients').catch(() => ({ data: { clients: [] } })),
         API.get('/fournisseurs').catch(() => ({ data: { fournisseurs: [] } })),
@@ -98,71 +94,80 @@ export default function Dashboard() {
       setSuccess(t('export_succes') || 'Données exportées avec succès');
       setTimeout(() => setSuccess(''), 5000);
     } catch (err) {
-      setError(t('erreur_export') || 'Erreur lors de l\'export');
+      setError(t('erreur_export') || "Erreur lors de l'export");
       setTimeout(() => setError(''), 5000);
     } finally {
       setExporting(false);
     }
   };
 
-  if (user?.is_external) {
-    navigate('/client/dashboard');
-    return null;
-  }
-  if (user?.is_super_admin) {
-    navigate('/superadmin/dashboard');
-    return null;
-  }
+  if (user?.is_external) { navigate('/client/dashboard'); return null; }
+  if (user?.is_super_admin) { navigate('/superadmin/dashboard'); return null; }
+  if (loading) return <LoadingSpinner size="lg" text={t('chargement')} />;
 
-  if (loading) {
-    return <LoadingSpinner size="lg" text={t('chargement')} />;
-  }
+  // Icônes + dégradés associés à chaque module pour un rendu cohérent
+  const MODULES = {
+    clients:    { icon: '👥', gradient: colors.gradientPrimary },
+    devis:      { icon: '📄', gradient: colors.gradientSecondary },
+    commandes:  { icon: '🛒', gradient: colors.gradientSuccess },
+    promotions: { icon: '🏷️', gradient: 'linear-gradient(135deg, #EC4899 0%, #DB2777 100%)' },
+    fournisseurs: { icon: '🏭', gradient: colors.gradientWarning },
+    achats:     { icon: '📦', gradient: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)' },
+    produits:   { icon: '📦', gradient: colors.gradientPrimary },
+    mouvements: { icon: '🔄', gradient: colors.gradientSecondary },
+    alertes:    { icon: '⚠️', gradient: colors.gradientDanger },
+    entrepots:  { icon: '🏚️', gradient: 'linear-gradient(135deg, #64748B 0%, #475569 100%)' },
+    calculateur:{ icon: '🧮', gradient: colors.gradientSuccess },
+    inventaire: { icon: '📋', gradient: colors.gradientWarning },
+    utilisateurs:{ icon: '👤', gradient: colors.gradientPrimary },
+    documents:  { icon: '📁', gradient: colors.gradientSecondary },
+    archives:   { icon: '🗄️', gradient: 'linear-gradient(135deg, #64748B 0%, #475569 100%)' },
+  };
 
   const menuItems = [];
-
   if (hasPermission('Ventes', 'consultation')) {
     menuItems.push(
-      { path: '/clients', label: t('clients'), desc: `${stats.clients} ${t('enregistres') || 'enregistrés'}` },
-      { path: '/devis', label: t('devis'), desc: `${stats.devis} ${t('total')} · ${stats.devisEnAttente} ${t('en_attente')}` },
-      { path: '/commandes', label: t('commandes'), desc: `${stats.commandes} ${t('total')} · ${stats.commandesEnAttente} ${t('en_attente')}` },
-      { path: '/promotions', label: t('promotions') || 'Promotions', desc: `${stats.promotionsActives} ${t('actives') || 'actives'}` }
+      { key: 'clients', path: '/clients', label: t('clients'), desc: `${stats.clients} ${t('enregistres') || 'enregistrés'}` },
+      { key: 'devis', path: '/devis', label: t('devis'), desc: `${stats.devis} ${t('total')} · ${stats.devisEnAttente} ${t('en_attente')}` },
+      { key: 'commandes', path: '/commandes', label: t('commandes'), desc: `${stats.commandes} ${t('total')} · ${stats.commandesEnAttente} ${t('en_attente')}` },
+      { key: 'promotions', path: '/promotions', label: t('promotions') || 'Promotions', desc: `${stats.promotionsActives} ${t('actives') || 'actives'}` }
     );
   }
-
   if (hasPermission('Achats', 'consultation')) {
     menuItems.push(
-      { path: '/fournisseurs', label: t('fournisseurs'), desc: `${stats.fournisseurs} ${t('enregistres') || 'enregistrés'}` },
-      { path: '/achats', label: t('achats'), desc: `${stats.achatsEnCours} ${t('en_cours') || 'en cours'}` }
+      { key: 'fournisseurs', path: '/fournisseurs', label: t('fournisseurs'), desc: `${stats.fournisseurs} ${t('enregistres') || 'enregistrés'}` },
+      { key: 'achats', path: '/achats', label: t('achats'), desc: `${stats.achatsEnCours} ${t('en_cours') || 'en cours'}` }
     );
   }
-
   if (hasPermission('Stock', 'consultation')) {
     menuItems.push(
-      { path: '/produits', label: t('produits'), desc: `${stats.produits} ${t('references') || 'références'}` },
-      { path: '/mouvements-stock', label: t('mouvements_stock'), desc: t('historique_stock') || 'Historique des stocks' },
-      { 
-        path: '/alertes-stock', 
-        label: t('alertes') || 'Alertes', 
+      { key: 'produits', path: '/produits', label: t('produits'), desc: `${stats.produits} ${t('references') || 'références'}` },
+      { key: 'mouvements', path: '/mouvements-stock', label: t('mouvements_stock'), desc: t('historique_stock') || 'Historique des stocks' },
+      { key: 'alertes', path: '/alertes-stock', label: t('alertes') || 'Alertes',
         desc: stats.alertesStock > 0 ? `${stats.alertesStock} ${t('produits_critiques') || 'produit(s) critique(s)'}` : t('aucune_alerte') || 'Aucune alerte',
-        danger: stats.alertesStock > 0
-      },
-      { path: '/entrepots', label: t('entrepots') || 'Entrepôts', desc: t('gestion_entrepots') || 'Gestion des entrepôts' },
-      { path: '/calculateur', label: t('calculateur') || 'Calculateur', desc: t('moteur_calcul') || 'Moteur de calcul' },
-      { path: '/inventaires', label: t('inventaire'), desc: t('gestion_inventaires') || 'Gestion des inventaires' }
+        danger: stats.alertesStock > 0 },
+      { key: 'entrepots', path: '/entrepots', label: t('entrepots') || 'Entrepôts', desc: t('gestion_entrepots') || 'Gestion des entrepôts' },
+      { key: 'calculateur', path: '/calculateur', label: t('calculateur') || 'Calculateur', desc: t('moteur_calcul') || 'Moteur de calcul' },
+      { key: 'inventaire', path: '/inventaires', label: t('inventaire'), desc: t('gestion_inventaires') || 'Gestion des inventaires' }
     );
   }
-
   if (hasPermission('Utilisateurs', 'consultation')) {
-    menuItems.push(
-      { path: '/utilisateurs', label: t('utilisateurs'), desc: t('gestion_acces') || 'Gestion des accès' }
-    );
+    menuItems.push({ key: 'utilisateurs', path: '/utilisateurs', label: t('utilisateurs'), desc: t('gestion_acces') || 'Gestion des accès' });
   }
   if (hasPermission('Documents', 'consultation')) {
     menuItems.push(
-      { path: '/documents', label: t('documents'), desc: t('gestion_documentaire') || 'Gestion documentaire' },
-      { path: '/archives', label: t('archives'), desc: t('archivage_numerique') || 'Archivage numérique' }
+      { key: 'documents', path: '/documents', label: t('documents'), desc: t('gestion_documentaire') || 'Gestion documentaire' },
+      { key: 'archives', path: '/archives', label: t('archives'), desc: t('archivage_numerique') || 'Archivage numérique' }
     );
   }
+
+  const heroStats = [
+    { label: t('clients'), value: stats.clients, accent: '#38BDF8' },
+    { label: t('commandes'), value: stats.commandes, accent: '#4ADE80' },
+    { label: t('devis'), value: stats.devis, accent: '#A78BFA' },
+    { label: t('produits'), value: stats.produits, accent: '#FBBF24' },
+    { label: t('alertes_stock') || 'Alertes', value: stats.alertesStock, accent: stats.alertesStock > 0 ? '#F87171' : '#94A3B8' },
+  ];
 
   return (
     <div>
@@ -179,102 +184,61 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div style={styles.header}>
-        <div>
-          <h1 style={styles.title}>{t('dashboard')}</h1>
-          <p style={styles.subtitle}>
-            {t('bonjour') || 'Bonjour'} {user?.prenom} {user?.nom} · {user?.role || 'Utilisateur'}
-            {user?.entreprise && ` · ${user.entreprise}`}
-          </p>
-        </div>
-        <div style={styles.headerActions}>
-          <Button 
-            variant="outline" 
-            onClick={exporterDonnees} 
-            loading={exporting}
-            size="sm"
-          >
-            {t('exporter_donnees') || 'Exporter mes données'}
-          </Button>
-          <Button variant="secondary" onClick={loadStats} size="sm">
-            {t('actualiser') || 'Actualiser'}
-          </Button>
-        </div>
-      </div>
+      <PageHero
+        icon="🏢"
+        title={`${t('bonjour') || 'Bonjour'} ${user?.prenom} ${user?.nom}`}
+        subtitle={`${user?.role || 'Utilisateur'}${user?.entreprise ? ` · ${user.entreprise}` : ''}`}
+        stats={heroStats}
+        actions={
+          <>
+            <Button variant="outline" onClick={exporterDonnees} loading={exporting} size="sm">
+              {t('exporter_donnees') || 'Exporter mes données'}
+            </Button>
+            <Button variant="primary" onClick={loadStats} size="sm">
+              {t('actualiser') || 'Actualiser'}
+            </Button>
+          </>
+        }
+      />
 
-      <div style={styles.statsGrid}>
-        <div style={styles.statCard}>
-          <div style={styles.statNumber}>{stats.clients}</div>
-          <div style={styles.statLabel}>{t('clients')}</div>
-        </div>
-        <div style={styles.statCard}>
-          <div style={styles.statNumber}>{stats.fournisseurs}</div>
-          <div style={styles.statLabel}>{t('fournisseurs')}</div>
-        </div>
-        <div style={styles.statCard}>
-          <div style={styles.statNumber}>{stats.produits}</div>
-          <div style={styles.statLabel}>{t('produits')}</div>
-        </div>
-        <div style={styles.statCard}>
-          <div style={styles.statNumber}>{stats.commandes}</div>
-          <div style={styles.statLabel}>
-            {t('commandes')}
-            {stats.commandesEnAttente > 0 && (
-              <Badge variant="warning" style={{ marginLeft: '6px' }}>
-                {stats.commandesEnAttente} {t('en_attente')}
-              </Badge>
-            )}
-          </div>
-        </div>
-        <div style={styles.statCard}>
-          <div style={styles.statNumber}>{stats.devis}</div>
-          <div style={styles.statLabel}>
-            {t('devis')}
-            {stats.devisEnAttente > 0 && (
-              <Badge variant="warning" style={{ marginLeft: '6px' }}>
-                {stats.devisEnAttente} {t('en_attente')}
-              </Badge>
-            )}
-          </div>
-        </div>
-        <div style={styles.statCard}>
-          <div style={styles.statNumber}>{stats.promotionsActives}</div>
-          <div style={styles.statLabel}>{t('promotions_actives') || 'Promotions actives'}</div>
-        </div>
-        <div style={{ ...styles.statCard, ...(stats.alertesStock > 0 ? styles.statCardDanger : {}) }}>
-          <div style={{ ...styles.statNumber, color: stats.alertesStock > 0 ? '#DC2626' : '#0F172A' }}>
-            {stats.alertesStock}
-          </div>
-          <div style={styles.statLabel}>
-            {t('alertes_stock') || 'Alertes stock'}
-            {stats.alertesStock > 0 && (
-              <Badge variant="danger" style={{ marginLeft: '6px' }}>{t('rupture') || 'rupture'}</Badge>
-            )}
-          </div>
-        </div>
-        <div style={styles.statCard}>
-          <div style={styles.statNumber}>{stats.achatsEnCours}</div>
-          <div style={styles.statLabel}>{t('achats_en_cours') || 'Achats en cours'}</div>
-        </div>
-      </div>
-
-      <Card title={t('acces_rapide') || 'Accès rapide'} variant="primary">
+      <Card
+        title={t('acces_rapide') || 'Accès rapide'}
+        subtitle={t('gerer_acces_module') || 'Naviguez directement vers un module'}
+      >
         <div style={styles.menuGrid}>
-          {menuItems.map((item, idx) => (
-            <div
-              key={idx}
-              style={{
-                ...styles.menuCard,
-                ...(item.danger ? styles.menuCardDanger : {}),
-              }}
-              onClick={() => navigate(item.path)}
-            >
-              <div style={styles.menuContent}>
-                <div style={styles.menuTitle}>{item.label}</div>
-                <div style={styles.menuDesc}>{item.desc}</div>
+          {menuItems.map((item) => {
+            const mod = MODULES[item.key] || { icon: '📌', gradient: colors.gradientPrimary };
+            return (
+              <div
+                key={item.key}
+                style={{
+                  ...styles.menuCard,
+                  ...(item.danger ? styles.menuCardDanger : {}),
+                }}
+                onClick={() => navigate(item.path)}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.boxShadow = '0 12px 28px rgba(15,23,42,0.10)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(15,23,42,0.04)';
+                }}
+              >
+                <div style={{ ...styles.menuIconBadge, background: mod.gradient }}>
+                  {mod.icon}
+                </div>
+                <div style={styles.menuContent}>
+                  <div style={styles.menuTitle}>
+                    {item.label}
+                    {item.danger && <Badge variant="danger" style={{ marginLeft: '8px' }}>!</Badge>}
+                  </div>
+                  <div style={styles.menuDesc}>{item.desc}</div>
+                </div>
+                <span style={styles.menuChevron}>›</span>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </Card>
     </div>
@@ -282,131 +246,72 @@ export default function Dashboard() {
 }
 
 const styles = {
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '24px',
-    flexWrap: 'wrap',
-    gap: '12px',
-  },
-  headerActions: {
-    display: 'flex',
-    gap: '8px',
-    flexWrap: 'wrap',
-  },
-  title: {
-    fontSize: '24px',
-    fontWeight: 700,
-    color: '#0F172A',
-    margin: 0,
-  },
-  subtitle: {
-    fontSize: '14px',
-    color: '#64748B',
-    margin: '4px 0 0',
-  },
   errorContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    backgroundColor: '#FEF2F2',
-    border: '1px solid #FECACA',
-    borderRadius: '8px',
-    padding: '12px 16px',
-    marginBottom: '16px',
+    display: 'flex', alignItems: 'center', gap: '8px',
+    backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px',
+    padding: '12px 16px', marginBottom: '16px',
   },
-  errorIcon: {
-    color: '#991B1B',
-    fontSize: '16px',
-    fontWeight: 'bold',
-  },
-  errorText: {
-    color: '#991B1B',
-    fontSize: '13px',
-    fontWeight: 500,
-  },
+  errorIcon: { color: '#991B1B', fontSize: '16px', fontWeight: 'bold' },
+  errorText: { color: '#991B1B', fontSize: '13px', fontWeight: 500 },
   successContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    backgroundColor: '#F0FDF4',
-    border: '1px solid #86EFAC',
-    borderRadius: '8px',
-    padding: '12px 16px',
-    marginBottom: '16px',
+    display: 'flex', alignItems: 'center', gap: '8px',
+    backgroundColor: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: '10px',
+    padding: '12px 16px', marginBottom: '16px',
   },
-  successIcon: {
-    color: '#065F46',
-    fontSize: '16px',
-    fontWeight: 'bold',
-  },
-  successText: {
-    color: '#065F46',
-    fontSize: '13px',
-    fontWeight: 500,
-  },
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-    gap: '16px',
-    marginBottom: '28px',
-  },
-  statCard: {
-    backgroundColor: '#FFFFFF',
-    padding: '20px 24px',
-    borderRadius: '12px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-    border: '1px solid #E8EDF2',
-  },
-  statCardDanger: {
-    borderColor: '#FECACA',
-    backgroundColor: '#FEF2F2',
-  },
-  statNumber: {
-    fontSize: '28px',
-    fontWeight: 700,
-    color: '#0F172A',
-  },
-  statLabel: {
-    fontSize: '13px',
-    color: '#64748B',
-    marginTop: '4px',
-    display: 'flex',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: '4px',
-  },
+  successIcon: { color: '#065F46', fontSize: '16px', fontWeight: 'bold' },
+  successText: { color: '#065F46', fontSize: '13px', fontWeight: 500 },
+
   menuGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-    gap: '12px',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
+    gap: spacing.md,
   },
   menuCard: {
     display: 'flex',
     alignItems: 'center',
-    padding: '16px 20px',
-    backgroundColor: '#F8FAFC',
-    borderRadius: '10px',
+    gap: spacing.sm,
+    padding: '16px 18px',
+    backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.lg,
     cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    border: '1px solid #E8EDF2',
+    transition: 'all 0.25s ease',
+    border: '1px solid #EEF2F6',
+    boxShadow: '0 1px 3px rgba(15,23,42,0.04)',
   },
   menuCardDanger: {
-    backgroundColor: '#FEF2F2',
     borderColor: '#FECACA',
+    background: 'linear-gradient(180deg, #FFF 0%, #FEF2F2 100%)',
   },
-  menuContent: {
-    flex: 1,
+  menuIconBadge: {
+    width: '42px',
+    height: '42px',
+    borderRadius: borderRadius.md,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '19px',
+    flexShrink: 0,
+    boxShadow: '0 4px 12px rgba(15,23,42,0.12)',
   },
+  menuContent: { flex: 1, minWidth: 0 },
   menuTitle: {
     fontSize: '14px',
-    fontWeight: 500,
+    fontWeight: 600,
     color: '#0F172A',
+    display: 'flex',
+    alignItems: 'center',
   },
   menuDesc: {
     fontSize: '12px',
     color: '#94A3B8',
     marginTop: '2px',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  menuChevron: {
+    fontSize: '20px',
+    color: '#CBD5E1',
+    flexShrink: 0,
   },
 };

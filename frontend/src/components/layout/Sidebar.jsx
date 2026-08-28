@@ -53,7 +53,8 @@ export default function Sidebar() {
     sections.push({
       section: t('navigation') || 'Navigation',
       items: [
-        { path: '/dashboard', label: t('dashboard'), icon: '📊' }
+        { path: '/dashboard', label: t('dashboard'), icon: '📊' },
+        { path: '/statistiques', label: 'Statistiques', icon: '📈' }
       ]
     });
 
@@ -97,6 +98,7 @@ export default function Sidebar() {
         { path: '/alertes-stock', label: t('alerte_rupture'), icon: '⚠️' },
         { path: '/entrepots', label: t('entrepots') || 'Entrepôts', icon: '🏚️' },
         { path: '/calculateur', label: t('calculateur') || 'Calculateur', icon: '🧮' }
+        
       ];
       if (hasPermission('Stock', 'modification')) {
         stockItems.push({ path: '/transfert-stock', label: t('transfert_stock') || 'Transfert stock', icon: '🔄' });
@@ -165,9 +167,10 @@ export default function Sidebar() {
           }),
         }}
       >
-        <div style={styles.logoContainer}>
+               <div style={styles.logoContainer}>
+          <div style={styles.logoGlow} />
           <div style={styles.logo}>
-            <span style={styles.logoIcon}>🏢</span>
+            <div style={styles.logoBadge}>🏢</div>
             {(!collapsed || isMobile) && <span style={styles.logoText}>ERP</span>}
           </div>
           {!isMobile && (
@@ -258,16 +261,18 @@ const styles = {
     position: 'fixed',
     top: 0,
     height: '100vh',
-    backgroundColor: '#0F172A',
+    background: 'linear-gradient(180deg, #0B1220 0%, #0F172A 60%, #0B1220 100%)',
     color: colors.white,
     display: 'flex',
     flexDirection: 'column',
     transition: `width ${transitions.normal}, transform ${transitions.normal}`,
     zIndex: 999,
     overflow: 'hidden',
-    boxShadow: '2px 0 12px rgba(0,0,0,0.15)',
+    boxShadow: '2px 0 20px rgba(0,0,0,0.25)',
+    borderRight: '1px solid rgba(255,255,255,0.06)',
   },
   logoContainer: {
+    position: 'relative',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -276,18 +281,38 @@ const styles = {
     minHeight: '64px',
     flexShrink: 0,
   },
+  logoGlow: {
+    position: 'absolute',
+    top: '-40px',
+    left: '-20px',
+    width: '160px',
+    height: '160px',
+    borderRadius: '50%',
+    background: 'radial-gradient(circle, rgba(14,165,233,0.25) 0%, transparent 70%)',
+    pointerEvents: 'none',
+  },
   logo: {
+    position: 'relative',
     display: 'flex',
     alignItems: 'center',
     gap: spacing.sm,
   },
-  logoIcon: {
-    fontSize: '24px',
+  logoBadge: {
+    width: '34px',
+    height: '34px',
+    borderRadius: borderRadius.md,
+    background: 'linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '16px',
+    boxShadow: '0 4px 14px rgba(14,165,233,0.4)',
+    flexShrink: 0,
   },
   logoText: {
-    fontSize: '20px',
+    fontSize: '19px',
     fontWeight: 700,
-    color: '#0EA5E9',
+    color: '#FFFFFF',
     letterSpacing: '0.5px',
   },
   toggleBtn: {
@@ -327,9 +352,10 @@ const styles = {
     marginBottom: '2px',
     color: 'rgba(255,255,255,0.6)',
   },
-  menuItemActive: {
-    backgroundColor: 'rgba(14, 165, 233, 0.15)',
-    color: '#0EA5E9',
+    menuItemActive: {
+      background: 'linear-gradient(90deg, rgba(14,165,233,0.18) 0%, rgba(14,165,233,0.04) 100%)',
+      color: '#126d94',
+      boxShadow: 'inset 3px 0 0 #0EA5E9',
   },
   menuIcon: {
     fontSize: '18px',
