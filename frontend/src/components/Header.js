@@ -8,7 +8,7 @@ import AccountLockButton from './AccountLockButton';
 import GlobalSearchBar from '../components/common/GlobalSearchBar';
 
 export default function Header() {
-  const { user, logout, hasPermission } = useAuth();
+  const { user, logout } = useAuth();
   const { t, dir } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
@@ -29,10 +29,6 @@ export default function Header() {
     navigate('/');
   };
 
-  const isActive = (path) => {
-    return location.pathname === path || location.pathname.startsWith(path + '/');
-  };
-
   if (!user) return null;
 
   const roleLabel = user.is_super_admin
@@ -41,184 +37,15 @@ export default function Header() {
       ? t('client') || 'Client'
       : (user.role || t('utilisateur') || 'Utilisateur');
 
-  const NavButton = ({ to, label, active, onClick }) => (
-    <button
-      style={{
-        padding: isMobile ? '6px 10px' : '6px 14px',
-        borderRadius: '8px',
-        backgroundColor: active ? '#F0F9FF' : 'transparent',
-        color: active ? '#0EA5E9' : '#64748B',
-        border: 'none',
-        cursor: 'pointer',
-        fontSize: isMobile ? '12px' : '13px',
-        fontWeight: active ? 600 : 500,
-        transition: 'all 0.2s ease',
-        whiteSpace: 'nowrap',
-      }}
-      onClick={onClick}
-    >
-      {label}
-    </button>
-  );
-
-  const renderNavButtons = () => {
-    // ============================================================
-    // SUPER ADMIN
-    // ============================================================
-    if (user.is_super_admin) {
-      return (
-        <>
-          <NavButton
-            to="/superadmin/dashboard"
-            label={t('dashboard')}
-            active={isActive('/superadmin/dashboard')}
-            onClick={() => navigate('/superadmin/dashboard')}
-          />
-          <NavButton
-            to="/superadmin/taux-reference"
-            label={t('taux_periodes') || 'Taux référence'}
-            active={isActive('/superadmin/taux-reference')}
-            onClick={() => navigate('/superadmin/taux-reference')}
-          />
-          <NavButton
-            to="/superadmin/sessions"
-            label={t('sessions') || 'Sessions'}
-            active={isActive('/superadmin/sessions')}
-            onClick={() => navigate('/superadmin/sessions')}
-          />
-          <NavButton
-            to="/superadmin/audit"
-            label={t('audit') || 'Audit'}
-            active={isActive('/superadmin/audit')}
-            onClick={() => navigate('/superadmin/audit')}
-          />
-          <NavButton
-            to="/superadmin/abonnements"
-            label={t('abonnements') || 'Abonnements'}
-            active={isActive('/superadmin/abonnements')}
-            onClick={() => navigate('/superadmin/abonnements')}
-          />
-          <NavButton
-            to="/superadmin/backup"
-            label={t('backup') || 'Backup'}
-            active={isActive('/superadmin/backup')}
-            onClick={() => navigate('/superadmin/backup')}
-          />
-          <NavButton
-            to="/test-documentation"
-            label={t('test_docs') || 'Test Docs'}
-            active={isActive('/test-documentation')}
-            onClick={() => navigate('/test-documentation')}
-          />
-        </>
-      );
-    }
-
-    // ============================================================
-    // CLIENT EXTERNE
-    // ============================================================
-    if (user.is_external) {
-      return [
-        { path: '/client/dashboard', label: t('dashboard') },
-        { path: '/client/commandes', label: t('commandes') },
-        { path: '/client/produits', label: t('produits') },
-        { path: '/client/factures', label: t('factures') },
-        { path: '/client/profil', label: t('profil') },
-        { path: '/test-documentation', label: t('test_docs') || 'Test Docs' },
-      ].map((route) => (
-        <NavButton
-          key={route.path}
-          to={route.path}
-          label={route.label}
-          active={isActive(route.path)}
-          onClick={() => navigate(route.path)}
-        />
-      ));
-    }
-
-    // ============================================================
-    // UTILISATEUR INTERNE - Routes avec permissions
-    // ============================================================
-    const internalRoutes = [];
-
-    // Dashboard - toujours visible
-    internalRoutes.push({ path: '/dashboard', label: t('dashboard') });
-
-    // Mon Profil
-    internalRoutes.push({ path: '/profil', label: t('mon_profil') || 'Mon Profil' });
-
-    // Test Docs
-    internalRoutes.push({ path: '/test-documentation', label: t('test_docs') || 'Test Docs' });
-
-    // Ventes
-    if (hasPermission('Ventes', 'consultation')) {
-      internalRoutes.push({ path: '/clients', label: t('clients') });
-      internalRoutes.push({ path: '/devis', label: t('devis') });
-      internalRoutes.push({ path: '/commandes', label: t('commandes') });
-      internalRoutes.push({ path: '/promotions', label: t('promotions') || 'Promotions' });
-      internalRoutes.push({ path: '/paiement/client', label: t('paiement_en_ligne') || 'Paiement en ligne' });
-    }
-
-    // Achats
-    if (hasPermission('Achats', 'consultation')) {
-      internalRoutes.push({ path: '/fournisseurs', label: t('fournisseurs') });
-      internalRoutes.push({ path: '/achats', label: t('achats') });
-      internalRoutes.push({ path: '/paiement/fournisseur', label: t('paiement_fournisseur') || 'Paiement fournisseur' });
-    }
-
-    // Finance
-    if (hasPermission('Finance', 'consultation')) {
-      internalRoutes.push({ path: '/finance', label: t('finance') });
-    }
-
-    // Stock
-    if (hasPermission('Stock', 'consultation')) {
-      internalRoutes.push({ path: '/produits', label: t('produits') });
-      internalRoutes.push({ path: '/mouvements-stock', label: t('mouvements_stock') });
-      internalRoutes.push({ path: '/alertes-stock', label: t('alerte_rupture') });
-      internalRoutes.push({ path: '/entrepots', label: t('entrepots') || 'Entrepôts' });
-      internalRoutes.push({ path: '/inventaires', label: t('inventaire') });
-      internalRoutes.push({ path: '/calculateur', label: t('calculateur') || 'Calculateur' });
-      internalRoutes.push({ path: '/transfert-stock', label: t('transfert_stock') || 'Transfert stock' });
-    }
-
-    // Utilisateurs
-    if (hasPermission('Utilisateurs', 'consultation')) {
-      internalRoutes.push({ path: '/utilisateurs', label: t('utilisateurs') });
-    }
-
-    // Documents
-    if (hasPermission('Documents', 'consultation')) {
-      internalRoutes.push({ path: '/documents', label: t('documents') });
-      internalRoutes.push({ path: '/documents/generation', label: t('generer_document') || 'Générer un document' });
-      internalRoutes.push({ path: '/documents/numerisation', label: t('numeriser_ocr') || 'Numériser (OCR)' });
-      internalRoutes.push({ path: '/archives', label: t('archives') });
-    }
-
-    // Notifications
-    internalRoutes.push({ path: '/notifications', label: t('notifications') });
-
-    // Sécurité MFA
-    internalRoutes.push({ path: '/securite/mfa', label: t('securite_mfa') || 'Sécurité MFA' });
-
-    return internalRoutes.map((route) => (
-      <NavButton
-        key={route.path}
-        to={route.path}
-        label={route.label}
-        active={isActive(route.path)}
-        onClick={() => navigate(route.path)}
-      />
-    ));
-  };
 
   return (
     <header
-          style={{
+      style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: isMobile ? '10px 16px' : '12px 28px',
+        padding: isMobile ? '0 16px' : '0 24px',
+        height: '60px',
         backgroundColor: 'rgba(255,255,255,0.85)',
         backdropFilter: 'blur(10px)',
         WebkitBackdropFilter: 'blur(10px)',
@@ -228,9 +55,7 @@ export default function Header() {
         position: 'sticky',
         top: 0,
         zIndex: 1000,
-        flexWrap: 'wrap',
-        gap: '8px',
-        minHeight: isMobile ? '56px' : 'auto',
+        gap: '12px',
         direction: dir,
       }}
     >
@@ -271,61 +96,41 @@ export default function Header() {
           <GlobalSearchBar isMobile={false} />
         )}
 
-        <nav
-          style={{
-            display: 'flex',
-            gap: '4px',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            overflow: 'hidden',
-          }}
-        >
-          {isMobile ? (
-            <>
-              {renderNavButtons().slice(0, 2)}
-              {renderNavButtons().length > 2 && (
-                <button
-                  style={{
-                    padding: '6px 10px',
-                    borderRadius: '8px',
-                    backgroundColor: menuOpen ? '#F0F9FF' : 'transparent',
-                    color: menuOpen ? '#0EA5E9' : '#64748B',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                  }}
-                  onClick={() => setMenuOpen(!menuOpen)}
-                >
-                  ...
-                </button>
-              )}
-            </>
-          ) : (
-            renderNavButtons()
-          )}
-        </nav>
+        {/* La navigation complète vit dans la Sidebar — le header ne la
+            duplique plus (c'est ce qui le faisait passer à 300px de haut).
+            On garde juste un accès rapide "Rechercher" sur mobile. */}
+        {isMobile && !user.is_super_admin && !user.is_external && (
+          <button
+            style={{
+              padding: '6px 10px',
+              borderRadius: '8px',
+              backgroundColor: menuOpen ? '#F0F9FF' : 'transparent',
+              color: menuOpen ? '#0EA5E9' : '#64748B',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '16px',
+            }}
+            onClick={() => setMenuOpen(!menuOpen)}
+            title={t('rechercher') || 'Rechercher'}
+          >
+            🔍
+          </button>
+        )}
 
         {isMobile && menuOpen && (
           <div
             style={{
               position: 'absolute',
-              top: '56px',
+              top: '52px',
               left: '0',
               right: '0',
               backgroundColor: '#FFFFFF',
               borderBottom: '1px solid #E2E8F0',
               boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
               padding: '12px 16px',
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '4px',
               zIndex: 999,
             }}
           >
-            {renderNavButtons().slice(2).map((btn, idx) => (
-              <React.Fragment key={idx}>{btn}</React.Fragment>
-            ))}
             <GlobalSearchBar isMobile={true} />
           </div>
         )}
@@ -446,10 +251,10 @@ export default function Header() {
 
         <button
           style={{
-            padding: isMobile ? '6px 12px' : '6px 16px',
-            background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
-            color: 'white',
-            border: 'none',
+            padding: isMobile ? '6px 12px' : '6px 14px',
+            background: 'transparent',
+            color: '#EF4444',
+            border: '1px solid #FCA5A5',
             borderRadius: '8px',
             cursor: 'pointer',
             fontSize: isMobile ? '12px' : '13px',
@@ -457,6 +262,14 @@ export default function Header() {
             transition: 'all 0.2s ease',
           }}
           onClick={handleLogout}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#FEF2F2';
+            e.currentTarget.style.borderColor = '#EF4444';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.borderColor = '#FCA5A5';
+          }}
         >
           {t('deconnexion')}
         </button>
