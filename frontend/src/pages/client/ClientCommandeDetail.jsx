@@ -7,9 +7,9 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
 
 const ETAPES = [
-  { key: 'en_attente', label: 'Commande reçue', icon: '📝' },
-  { key: 'confirmee', label: 'Confirmée', icon: '📦' },
-  { key: 'livree', label: 'Livrée', icon: '✅' },
+  { key: 'en_attente', label: 'Commande reçue' },
+  { key: 'confirmee', label: 'Confirmée' },
+  { key: 'livree', label: 'Livrée' },
 ];
 
 export default function ClientCommandeDetail() {
@@ -40,7 +40,7 @@ export default function ClientCommandeDetail() {
     return (
       <div style={styles.container}>
         <EmptyState
-          icon="❓"
+
           title="Commande introuvable"
           description="Cette commande n'existe pas ou vous n'y avez pas accès."
           action={<Button variant="primary" onClick={() => navigate('/client/commandes')}>Retour à mes commandes</Button>}

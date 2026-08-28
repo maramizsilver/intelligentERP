@@ -214,14 +214,16 @@ export default function Header() {
 
   return (
     <header
-      style={{
+          style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: isMobile ? '10px 16px' : '10px 24px',
-        backgroundColor: '#FFFFFF',
+        padding: isMobile ? '10px 16px' : '12px 28px',
+        backgroundColor: 'rgba(255,255,255,0.85)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
         color: '#1A1A2E',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+        boxShadow: '0 1px 0 rgba(15,23,42,0.06), 0 8px 24px rgba(15,23,42,0.04)',
         borderBottom: '1px solid #E2E8F0',
         position: 'sticky',
         top: 0,
@@ -372,14 +374,16 @@ export default function Header() {
               {user.prenom} {user.nom}
             </span>
 
-            <span
+                        <span
               style={{
-                padding: '3px 12px',
-                borderRadius: '12px',
+                padding: '4px 14px',
+                borderRadius: '20px',
                 fontSize: '11px',
-                fontWeight: 600,
-                backgroundColor: '#F0F9FF',
-                color: '#0EA5E9',
+                fontWeight: 700,
+                letterSpacing: '0.3px',
+                background: 'linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%)',
+                color: '#FFFFFF',
+                boxShadow: '0 2px 8px rgba(14,165,233,0.35)',
               }}
             >
               {roleLabel}

@@ -1,43 +1,168 @@
-// src/pages/auth/Register.jsx
-import React, { useState } from 'react';
+// frontend/src/pages/auth/Register.jsx
+// ---------------------------------------------------------------------------
+// Refonte de la page d'inscription : mise en page "split-screen" (panneau de
+// marque à gauche, formulaire à droite), validation en temps réel champ par
+// champ, indicateur de robustesse du mot de passe, et retour visuel clair
+// sur l'état du bouton d'envoi (idle / chargement / succès / erreur).
+//
+// Le comportement métier (appel API, redirection, gestion du paiement pour
+// le plan payant) est identique à l'ancienne version : seule la présentation
+// et l'expérience de saisie ont été retravaillées.
+// ---------------------------------------------------------------------------
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 import API from '../../utils/api';
 import LanguageSwitcher from '../../components/common/LanguageSwitcher';
-import Button from '../../components/common/Button';
-import Input from '../../components/common/Input';
+import '../../styles/brand-tokens.css';
+import './Register.css';
+
+// ============================================================
+// Règles de validation (alignées avec le schéma Joi du backend :
+// backend/middleware/validate.middleware.js -> registerSchema)
+// ============================================================
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validateField(name, value, form) {
+  switch (name) {
+    case 'entreprise_nom':
+      if (!value.trim()) return "Le nom de l'entreprise est requis";
+      if (value.trim().length < 2) return 'Au moins 2 caractères';
+      return '';
+    case 'nom':
+      if (!value.trim()) return 'Le nom est requis';
+      if (value.trim().length < 2) return 'Au moins 2 caractères';
+      return '';
+    case 'prenom':
+      if (!value.trim()) return 'Le prénom est requis';
+      if (value.trim().length < 2) return 'Au moins 2 caractères';
+      return '';
+    case 'email':
+      if (!value.trim()) return "L'email est requis";
+      if (!EMAIL_REGEX.test(value.trim())) return 'Format d\'email invalide';
+      return '';
+    case 'password': {
+      if (!value) return 'Le mot de passe est requis';
+      if (value.length < 8) return '8 caractères minimum';
+      if (!/[A-Z]/.test(value)) return 'Ajoutez une majuscule';
+      if (!/[a-z]/.test(value)) return 'Ajoutez une minuscule';
+      if (!/[0-9]/.test(value)) return 'Ajoutez un chiffre';
+      if (!/[!@#$%^&*]/.test(value)) return 'Ajoutez un caractère spécial (!@#$%^&*)';
+      return '';
+    }
+    case 'confirmPassword':
+      if (!value) return 'Confirmez le mot de passe';
+      if (value !== form.password) return 'Les mots de passe ne correspondent pas';
+      return '';
+    default:
+      return '';
+  }
+}
+
+/** Calcule un score de robustesse de 0 (très faible) à 4 (excellent). */
+function computePasswordScore(password) {
+  if (!password) return 0;
+  let score = 0;
+  if (password.length >= 8) score += 1;
+  if (password.length >= 12) score += 1;
+  if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score += 1;
+  if (/[0-9]/.test(password)) score += 1;
+  if (/[!@#$%^&*]/.test(password)) score += 1;
+  return Math.min(score, 4);
+}
+
+const STRENGTH_LABELS = ['Très faible', 'Faible', 'Correct', 'Bon', 'Excellent'];
+const STRENGTH_COLORS = ['#F43F5E', '#F97316', '#F59E0B', '#22C55E', '#10B981'];
+
+// Champs requis pour activer le bouton d'envoi
+const REQUIRED_FIELDS = ['entreprise_nom', 'nom', 'prenom', 'email', 'password', 'confirmPassword'];
 
 export default function Register() {
   const { t } = useLanguage();
+  const navigate = useNavigate();
+
   const [form, setForm] = useState({
     entreprise_nom: '',
     nom: '',
     prenom: '',
     email: '',
     password: '',
+    confirmPassword: '',
     plan_type: 'essai',
   });
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const [touched, setTouched] = useState({});
+  const [errors, setErrors] = useState({});
+  const [serverError, setServerError] = useState('');
+  const [submitState, setSubmitState] = useState('idle'); // idle | loading | success | error
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const passwordScore = useMemo(() => computePasswordScore(form.password), [form.password]);
+
+  // Formulaire valide si chaque champ requis est rempli et sans erreur connue
+  const isFormValid = useMemo(() => {
+    return REQUIRED_FIELDS.every((field) => {
+      const value = form[field];
+      const error = validateField(field, value, form);
+      return value && !error;
+    });
+  }, [form]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    const nextForm = { ...form, [name]: value };
+    setForm(nextForm);
+
+    // Validation en direct uniquement sur les champs déjà "touchés"
+    if (touched[name]) {
+      setErrors((prev) => ({ ...prev, [name]: validateField(name, value, nextForm) }));
+    }
+    // Si on change le mot de passe, on revalide aussi la confirmation
+    if (name === 'password' && touched.confirmPassword) {
+      setErrors((prev) => ({
+        ...prev,
+        confirmPassword: validateField('confirmPassword', nextForm.confirmPassword, nextForm),
+      }));
+    }
+    if (submitState === 'error') setSubmitState('idle');
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    setTouched((prev) => ({ ...prev, [name]: true }));
+    setErrors((prev) => ({ ...prev, [name]: validateField(name, value, form) }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
-    setLoading(true);
+    setServerError('');
 
-    if (form.password.length < 8) {
-      setError(t('mot_de_passe_min_8') || 'Le mot de passe doit contenir au moins 8 caractères');
-      setLoading(false);
+    // Valide tout le formulaire d'un coup (au cas où l'utilisateur n'a
+    // jamais quitté un champ avant de soumettre)
+    const allTouched = {};
+    const allErrors = {};
+    REQUIRED_FIELDS.forEach((field) => {
+      allTouched[field] = true;
+      allErrors[field] = validateField(field, form[field], form);
+    });
+    setTouched(allTouched);
+    setErrors(allErrors);
+
+    const hasErrors = Object.values(allErrors).some(Boolean);
+    if (hasErrors) {
+      setSubmitState('error');
       return;
     }
 
+    setSubmitState('loading');
     try {
-      const response = await API.post('/auth/register-entreprise', form);
+      const payload = {
+        entreprise_nom: form.entreprise_nom,
+        nom: form.nom,
+        prenom: form.prenom,
+        email: form.email,
+        password: form.password,
+        plan_type: form.plan_type,
+      };
+      const response = await API.post('/auth/register-entreprise', payload);
 
       if (form.plan_type === 'payant') {
         const paiementResponse = await API.post('/paiement/create-abonnement', {
@@ -49,506 +174,311 @@ export default function Register() {
         if (paiementResponse.data.success) {
           window.location.href = paiementResponse.data.paymentUrl;
           return;
-        } else {
-          setError(paiementResponse.data.message || t('erreur_paiement') || 'Erreur lors de la création du paiement');
-          setLoading(false);
-          return;
         }
+        setServerError(paiementResponse.data.message || 'Erreur lors de la création du paiement');
+        setSubmitState('error');
+        return;
       }
 
-      setSuccess(t('inscription_reussie') || 'Inscription réussie ! Vérifiez votre email pour activer votre compte.');
-      setTimeout(() => navigate('/'), 4000);
+      setSubmitState('success');
+      setTimeout(() => navigate('/'), 2600);
     } catch (err) {
       const apiErrors = err.response?.data?.errors;
-      setError(apiErrors ? apiErrors.join(', ') : (err.response?.data?.message || t('erreur_inscription') || 'Erreur lors de l\'inscription'));
-    } finally {
-      setLoading(false);
+      setServerError(apiErrors ? apiErrors.join(', ') : (err.response?.data?.message || "Erreur lors de l'inscription"));
+      setSubmitState('error');
     }
   };
 
+  const fieldStatus = (name) => {
+    if (!touched[name]) return 'idle';
+    return errors[name] ? 'invalid' : 'valid';
+  };
+
   return (
-    <div style={styles.container}>
-      <div style={styles.bgDecoration}>
-        <div style={styles.bgCircle1} />
-        <div style={styles.bgCircle2} />
-      </div>
-
-      <div style={styles.card}>
-        <div style={styles.topBar}>
-          <LanguageSwitcher />
-        </div>
-
-        <div style={styles.header}>
-          <div style={styles.logoWrapper}>
-            <div style={styles.logoIcon}>🏢</div>
-          </div>
-          <h1 style={styles.title}>{t('creer_mon_compte') || 'Créer mon compte'}</h1>
-          <p style={styles.subtitle}>{t('inscrire_entreprise') || 'Inscrivez votre entreprise en quelques minutes'}</p>
-        </div>
-
-        {error && (
-          <div style={styles.errorContainer}>
-            <span style={styles.errorText}>{error}</span>
-          </div>
-        )}
-        {success && (
-          <div style={styles.successContainer}>
-            <span style={styles.successText}>{success}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={styles.section}>
-            <div style={styles.sectionHeader}>
-              <span style={styles.sectionTitle}>{t('infos_entreprise') || "Informations de l'entreprise"}</span>
+    <div className="rg-page">
+      <div className="rg-shell">
+        {/* ---------------------------------------------------------
+            PANNEAU DE MARQUE — pose le ton "logiciel de gestion sérieux"
+            et rappelle en un coup d'œil ce que le futur client obtient.
+           --------------------------------------------------------- */}
+        <aside className="rg-brand" aria-hidden="false">
+          <div className="rg-brand-top">
+            <div className="rg-logo">
+              <span className="rg-logo-mark">◆</span>
+              <span className="rg-logo-text">ERP</span>
             </div>
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>{t('nom_entreprise') || "Nom de l'entreprise"}</label>
-              <input
-                style={styles.input}
-                name="entreprise_nom"
-                placeholder="Ex: Société ABC"
-                onChange={handleChange}
-                required
-                disabled={loading}
-              />
-            </div>
+            <LanguageSwitcher variant="dark" />
           </div>
 
-          <div style={styles.divider} />
+          <div className="rg-brand-body">
+            <p className="rg-eyebrow">Plateforme de gestion d'entreprise</p>
+            <h1 className="rg-headline">
+              Pilotez votre activité<br />depuis un seul endroit.
+            </h1>
+            <p className="rg-subline">
+              Ventes, achats, stock, finance et documents : votre ERP tunisien,
+              pensé pour les équipes qui veulent avancer vite.
+            </p>
 
-          <div style={styles.section}>
-            <div style={styles.sectionHeader}>
-              <span style={styles.sectionTitle}>{t('compte_administrateur') || 'Compte administrateur'}</span>
+            <ul className="rg-feature-list">
+              <li>
+                <span className="rg-feature-icon" style={{ background: '#10B981' }}>✓</span>
+                30 connexions d'essai gratuites, sans carte bancaire
+              </li>
+              <li>
+                <span className="rg-feature-icon" style={{ background: '#0EA5E9' }}>✓</span>
+                Vos données restent chiffrées et vous appartiennent
+              </li>
+              <li>
+                <span className="rg-feature-icon" style={{ background: '#6366F1' }}>✓</span>
+                Assistant IA intégré pour vos équipes commerciales
+              </li>
+            </ul>
+          </div>
+
+          <p className="rg-brand-footer">© 2026 ERP — Tous droits réservés</p>
+        </aside>
+
+        {/* ---------------------------------------------------------
+            FORMULAIRE
+           --------------------------------------------------------- */}
+        <main className="rg-form-panel">
+          <div className="rg-form-card">
+            <div className="rg-form-header">
+              <h2 className="rg-form-title">Créer votre compte</h2>
+              <p className="rg-form-subtitle">
+                Déjà inscrit ?{' '}
+                <button type="button" className="rg-link" onClick={() => navigate('/')}>
+                  Se connecter
+                </button>
+              </p>
             </div>
 
-            <div style={styles.row}>
-              <div style={{ ...styles.inputGroup, flex: 1 }}>
-                <label style={styles.label}>{t('nom')}</label>
-                <input
-                  style={styles.input}
-                  name="nom"
-                  placeholder={t('nom')}
-                  onChange={handleChange}
-                  required
-                  disabled={loading}
-                />
+            {serverError && (
+              <div className="rg-alert rg-alert-error" role="alert">
+                <span className="rg-alert-icon">!</span>
+                <span>{serverError}</span>
               </div>
-              <div style={{ ...styles.inputGroup, flex: 1 }}>
-                <label style={styles.label}>{t('prenom')}</label>
-                <input
-                  style={styles.input}
-                  name="prenom"
-                  placeholder={t('prenom')}
-                  onChange={handleChange}
-                  required
-                  disabled={loading}
-                />
-              </div>
-            </div>
-
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>{t('email')}</label>
-              <input
-                style={styles.input}
-                name="email"
-                type="email"
-                placeholder="jean.dupont@entreprise.com"
-                onChange={handleChange}
-                required
-                disabled={loading}
-              />
-            </div>
-
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>{t('mot_de_passe')}</label>
-              <input
-                style={styles.input}
-                name="password"
-                type="password"
-                placeholder={t('mot_de_passe_min_8') || 'Minimum 8 caractères'}
-                onChange={handleChange}
-                required
-                minLength={8}
-                disabled={loading}
-              />
-            </div>
-          </div>
-
-          <div style={styles.divider} />
-
-          <div style={styles.section}>
-            <div style={styles.sectionHeader}>
-              <span style={styles.sectionTitle}>{t('choisir_formule') || 'Choisissez votre formule'}</span>
-            </div>
-
-            <div style={styles.planGrid}>
-              <div
-                style={{
-                  ...styles.planCard,
-                  ...(form.plan_type === 'essai' ? styles.planCardActive : {}),
-                }}
-                onClick={() => setForm({ ...form, plan_type: 'essai' })}
-              >
-                <div style={styles.planTitle}>{t('essai_gratuit') || 'Essai gratuit'}</div>
-                <div style={styles.planDesc}>{t('connexions_gratuites') || '30 connexions gratuites'}</div>
-                <div style={styles.planBadge}>{t('sans_engagement') || 'Sans engagement'}</div>
-              </div>
-
-              <div
-                style={{
-                  ...styles.planCard,
-                  ...(form.plan_type === 'payant' ? styles.planCardActive : {}),
-                }}
-                onClick={() => setForm({ ...form, plan_type: 'payant' })}
-              >
-                <div style={styles.planTitle}>{t('abonnement') || 'Abonnement'}</div>
-                <div style={styles.planDesc}>{t('acces_illimite') || 'Accès illimité'}</div>
-                <div style={styles.planBadgePro}>Pro</div>
-                <div style={styles.planPrice}>100 DT / mois</div>
-              </div>
-            </div>
-          </div>
-
-          <button
-            style={loading ? styles.buttonLoading : styles.button}
-            type="submit"
-            disabled={loading}
-          >
-            {loading ? (
-              <span style={styles.buttonContent}>
-                <span style={styles.spinner} />
-                {t('inscription_en_cours') || 'Inscription en cours...'}
-              </span>
-            ) : (
-              <span style={styles.buttonContent}>
-                {t('sinscrire') || "S'inscrire"}
-                <span style={styles.buttonArrow}>→</span>
-              </span>
             )}
-          </button>
-        </form>
 
-        <div style={styles.divider}>
-          <span style={styles.dividerLine} />
-          <span style={styles.dividerText}>{t('or') || 'ou'}</span>
-          <span style={styles.dividerLine} />
-        </div>
+            {submitState === 'success' ? (
+              <div className="rg-success" role="status">
+                <div className="rg-success-badge">✓</div>
+                <h3>Inscription réussie</h3>
+                <p>
+                  Vérifiez votre email pour activer votre compte. Redirection vers
+                  la page de connexion...
+                </p>
+              </div>
+            ) : (
+              <form className="rg-form" onSubmit={handleSubmit} noValidate>
+                {/* --- Entreprise --- */}
+                <FormField
+                  label="Nom de l'entreprise"
+                  name="entreprise_nom"
+                  placeholder="Ex : Société ABC"
+                  value={form.entreprise_nom}
+                  status={fieldStatus('entreprise_nom')}
+                  error={errors.entreprise_nom}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  autoComplete="organization"
+                />
 
-        <button style={styles.loginButton} onClick={() => navigate('/')}>
-          {t('deja_compte') || 'Déjà un compte ? Se connecter'}
-        </button>
+                <div className="rg-row">
+                  <FormField
+                    label="Nom"
+                    name="nom"
+                    placeholder="Ben Salah"
+                    value={form.nom}
+                    status={fieldStatus('nom')}
+                    error={errors.nom}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    autoComplete="family-name"
+                  />
+                  <FormField
+                    label="Prénom"
+                    name="prenom"
+                    placeholder="Amine"
+                    value={form.prenom}
+                    status={fieldStatus('prenom')}
+                    error={errors.prenom}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    autoComplete="given-name"
+                  />
+                </div>
 
-        <p style={styles.footer}>© 2026 ERP - {t('tous_droits_reserves') || 'Tous droits réservés'}</p>
+                <FormField
+                  label="Email professionnel"
+                  name="email"
+                  type="email"
+                  placeholder="amine@entreprise.com"
+                  value={form.email}
+                  status={fieldStatus('email')}
+                  error={errors.email}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  autoComplete="email"
+                />
+
+                <FormField
+                  label="Mot de passe"
+                  name="password"
+                  type="password"
+                  placeholder="8 caractères minimum"
+                  value={form.password}
+                  status={fieldStatus('password')}
+                  error={errors.password}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  autoComplete="new-password"
+                />
+
+                {form.password && (
+                  <div className="rg-strength" aria-live="polite">
+                    <div className="rg-strength-track">
+                      {[0, 1, 2, 3].map((i) => (
+                        <span
+                          key={i}
+                          className="rg-strength-seg"
+                          style={{
+                            backgroundColor: i < passwordScore ? STRENGTH_COLORS[passwordScore] : 'var(--border-subtle)',
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <span className="rg-strength-label" style={{ color: STRENGTH_COLORS[passwordScore] }}>
+                      {STRENGTH_LABELS[passwordScore]}
+                    </span>
+                  </div>
+                )}
+
+                <FormField
+                  label="Confirmer le mot de passe"
+                  name="confirmPassword"
+                  type="password"
+                  placeholder="Ressaisissez le mot de passe"
+                  value={form.confirmPassword}
+                  status={fieldStatus('confirmPassword')}
+                  error={errors.confirmPassword}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  autoComplete="new-password"
+                />
+
+                {/* --- Formule --- */}
+                <fieldset className="rg-plan-fieldset">
+                  <legend className="rg-field-label">Formule</legend>
+                  <div className="rg-plan-grid">
+                    <PlanCard
+                      id="plan-essai"
+                      title="Essai gratuit"
+                      desc="30 connexions offertes"
+                      badge="Sans engagement"
+                      active={form.plan_type === 'essai'}
+                      onSelect={() => setForm((f) => ({ ...f, plan_type: 'essai' }))}
+                    />
+                    <PlanCard
+                      id="plan-payant"
+                      title="Abonnement Pro"
+                      desc="Accès illimité"
+                      badge="100 DT / mois"
+                      badgeAccent
+                      active={form.plan_type === 'payant'}
+                      onSelect={() => setForm((f) => ({ ...f, plan_type: 'payant' }))}
+                    />
+                  </div>
+                </fieldset>
+
+                <SubmitButton state={submitState} disabled={!isFormValid} />
+              </form>
+            )}
+          </div>
+        </main>
       </div>
     </div>
   );
 }
 
-const styles = {
-  container: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: '100vh',
-    backgroundColor: '#F0F4F8',
-    padding: '24px 0',
-    position: 'relative',
-    overflow: 'hidden',
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-  },
-  bgDecoration: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    overflow: 'hidden',
-    zIndex: 0,
-  },
-  bgCircle1: {
-    position: 'absolute',
-    top: '-30%',
-    right: '-10%',
-    width: '600px',
-    height: '600px',
-    borderRadius: '50%',
-    background: 'radial-gradient(circle, rgba(14, 165, 233, 0.06) 0%, transparent 70%)',
-    animation: 'float 8s ease-in-out infinite',
-  },
-  bgCircle2: {
-    position: 'absolute',
-    bottom: '-20%',
-    left: '-10%',
-    width: '500px',
-    height: '500px',
-    borderRadius: '50%',
-    background: 'radial-gradient(circle, rgba(14, 165, 233, 0.04) 0%, transparent 70%)',
-    animation: 'float 10s ease-in-out infinite reverse',
-  },
-  card: {
-    position: 'relative',
-    zIndex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    backdropFilter: 'blur(20px)',
-    WebkitBackdropFilter: 'blur(20px)',
-    padding: '40px',
-    borderRadius: '24px',
-    boxShadow: '0 20px 60px rgba(14, 165, 233, 0.10)',
-    width: '480px',
-    maxWidth: '92%',
-    border: '1px solid rgba(255, 255, 255, 0.5)',
-    maxHeight: '90vh',
-    overflowY: 'auto',
-  },
-  topBar: {
-    position: 'absolute',
-    top: '20px',
-    right: '20px',
-    zIndex: 2,
-  },
-  header: {
-    textAlign: 'center',
-    marginBottom: '28px',
-  },
-  logoWrapper: {
-    display: 'flex',
-    justifyContent: 'center',
-    marginBottom: '12px',
-  },
-  logoIcon: {
-    fontSize: '36px',
-    display: 'inline-flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '64px',
-    height: '64px',
-    borderRadius: '50%',
-    background: 'linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%)',
-    boxShadow: '0 8px 32px rgba(14, 165, 233, 0.30)',
-  },
-  title: {
-    fontSize: '24px',
-    fontWeight: 700,
-    color: '#0F172A',
-    margin: 0,
-    letterSpacing: '-0.5px',
-  },
-  subtitle: {
-    fontSize: '14px',
-    color: '#64748B',
-    margin: '4px 0 0',
-  },
-  errorContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    backgroundColor: '#FEF2F2',
-    border: '1px solid #FECACA',
-    borderRadius: '12px',
-    padding: '12px 16px',
-    marginBottom: '20px',
-  },
-  errorText: { color: '#991B1B', fontSize: '13px', fontWeight: 500 },
-  successContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    backgroundColor: '#F0FDF4',
-    border: '1px solid #86EFAC',
-    borderRadius: '12px',
-    padding: '12px 16px',
-    marginBottom: '20px',
-  },
-  successText: { color: '#065F46', fontSize: '13px', fontWeight: 500 },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-  },
-  section: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-  },
-  sectionHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    marginBottom: '4px',
-  },
-  sectionTitle: {
-    fontSize: '14px',
-    fontWeight: 600,
-    color: '#334155',
-  },
-  row: {
-    display: 'flex',
-    gap: '12px',
-  },
-  inputGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-  },
-  label: {
-    fontSize: '12px',
-    fontWeight: 600,
-    color: '#475569',
-    letterSpacing: '0.3px',
-  },
-  input: {
-    width: '100%',
-    padding: '12px 14px',
-    borderRadius: '10px',
-    border: '2px solid #E2E8F0',
-    fontSize: '13px',
-    transition: 'all 0.3s ease',
-    backgroundColor: '#F8FAFC',
-    boxSizing: 'border-box',
-    outline: 'none',
-    fontFamily: 'inherit',
-    color: '#0F172A',
-  },
-  divider: {
-    border: 'none',
-    borderTop: '1px solid #E2E8F0',
-    margin: '4px 0',
-  },
-  planGrid: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '12px',
-  },
-  planCard: {
-    position: 'relative',
-    padding: '16px',
-    borderRadius: '12px',
-    border: '2px solid #E2E8F0',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    textAlign: 'center',
-    backgroundColor: '#FAFBFC',
-  },
-  planCardActive: {
-    borderColor: '#0EA5E9',
-    backgroundColor: '#F0F9FF',
-    boxShadow: '0 4px 16px rgba(14, 165, 233, 0.15)',
-  },
-  planTitle: { fontSize: '14px', fontWeight: 600, color: '#0F172A' },
-  planDesc: { fontSize: '11px', color: '#64748B' },
-  planBadge: {
-    display: 'inline-block',
-    marginTop: '6px',
-    padding: '2px 10px',
-    borderRadius: '12px',
-    fontSize: '10px',
-    fontWeight: 600,
-    backgroundColor: '#E2E8F0',
-    color: '#475569',
-  },
-  planBadgePro: {
-    display: 'inline-block',
-    marginTop: '6px',
-    padding: '2px 10px',
-    borderRadius: '12px',
-    fontSize: '10px',
-    fontWeight: 600,
-    background: 'linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%)',
-    color: '#FFFFFF',
-  },
-  planPrice: {
-    marginTop: '8px',
-    fontSize: '14px',
-    fontWeight: 700,
-    color: '#0EA5E9',
-  },
-  button: {
-    width: '100%',
-    padding: '14px',
-    background: 'linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%)',
-    color: '#FFFFFF',
-    border: 'none',
-    borderRadius: '12px',
-    fontSize: '15px',
-    fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    boxShadow: '0 4px 16px rgba(14, 165, 233, 0.30)',
-  },
-  buttonLoading: {
-    width: '100%',
-    padding: '14px',
-    background: '#94A3B8',
-    color: '#FFFFFF',
-    border: 'none',
-    borderRadius: '12px',
-    fontSize: '15px',
-    fontWeight: 600,
-    cursor: 'not-allowed',
-    opacity: 0.7,
-  },
-  buttonContent: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-  },
-  buttonArrow: {
-    display: 'inline-block',
-    transition: 'transform 0.3s ease',
-  },
-  spinner: {
-    display: 'inline-block',
-    width: '20px',
-    height: '20px',
-    border: '2px solid rgba(255, 255, 255, 0.3)',
-    borderTop: '2px solid #FFFFFF',
-    borderRadius: '50%',
-    animation: 'spin 0.8s linear infinite',
-  },
-  dividerText: {
-    fontSize: '12px',
-    color: '#94A3B8',
-    fontWeight: 500,
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-  },
-  dividerLine: {
-    flex: 1,
-    height: '1px',
-    backgroundColor: '#E2E8F0',
-  },
-  loginButton: {
-    width: '100%',
-    padding: '12px',
-    backgroundColor: 'transparent',
-    color: '#0EA5E9',
-    border: 'none',
-    borderRadius: '10px',
-    fontSize: '14px',
-    fontWeight: 500,
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-  },
-  footer: {
-    textAlign: 'center',
-    marginTop: '20px',
-    fontSize: '12px',
-    color: '#94A3B8',
-  },
-};
+// ============================================================
+// Sous-composants réutilisables
+// ============================================================
 
-const animStyle = document.createElement('style');
-animStyle.textContent = `
-  @keyframes float {
-    0%, 100% { transform: translate(0, 0) scale(1); }
-    33% { transform: translate(30px, -30px) scale(1.1); }
-    66% { transform: translate(-20px, 20px) scale(0.95); }
-  }
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-`;
-document.head.appendChild(animStyle);
+/** Champ de formulaire avec validation en temps réel et icône d'état. */
+function FormField({ label, name, type = 'text', placeholder, value, status, error, onChange, onBlur, autoComplete }) {
+  const inputId = `field-${name}`;
+  const errorId = `${inputId}-error`;
+
+  return (
+    <div className="rg-field">
+      <label className="rg-field-label" htmlFor={inputId}>{label}</label>
+      <div className={`rg-input-wrap rg-input-wrap--${status}`}>
+        <input
+          id={inputId}
+          name={name}
+          type={type}
+          className="rg-input"
+          placeholder={placeholder}
+          value={value}
+          onChange={onChange}
+          onBlur={onBlur}
+          autoComplete={autoComplete}
+          aria-invalid={status === 'invalid'}
+          aria-describedby={status === 'invalid' ? errorId : undefined}
+        />
+        {status === 'valid' && <span className="rg-status-icon rg-status-icon--valid" aria-hidden="true">✓</span>}
+        {status === 'invalid' && <span className="rg-status-icon rg-status-icon--invalid" aria-hidden="true">!</span>}
+      </div>
+      {status === 'invalid' && (
+        <p className="rg-field-error" id={errorId}>{error}</p>
+      )}
+    </div>
+  );
+}
+
+/** Carte de sélection de formule (radio stylisé). */
+function PlanCard({ id, title, desc, badge, badgeAccent, active, onSelect }) {
+  return (
+    <label htmlFor={id} className={`rg-plan-card ${active ? 'rg-plan-card--active' : ''}`}>
+      <input
+        type="radio"
+        id={id}
+        name="plan_type"
+        checked={active}
+        onChange={onSelect}
+        className="rg-plan-radio"
+      />
+      <span className="rg-plan-title">{title}</span>
+      <span className="rg-plan-desc">{desc}</span>
+      <span className={`rg-plan-badge ${badgeAccent ? 'rg-plan-badge--accent' : ''}`}>{badge}</span>
+    </label>
+  );
+}
+
+/** Bouton d'envoi avec retour visuel explicite selon l'état de soumission. */
+function SubmitButton({ state, disabled }) {
+  const isLoading = state === 'loading';
+  const isError = state === 'error';
+
+  return (
+    <button
+      type="submit"
+      className={`rg-submit ${isError ? 'rg-submit--shake' : ''}`}
+      disabled={disabled || isLoading}
+    >
+      {isLoading ? (
+        <span className="rg-submit-content">
+          <span className="rg-spinner" aria-hidden="true" />
+          Création du compte...
+        </span>
+      ) : (
+        <span className="rg-submit-content">
+          S'inscrire
+          <span className="rg-submit-arrow" aria-hidden="true">→</span>
+        </span>
+      )}
+    </button>
+  );
+}

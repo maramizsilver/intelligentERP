@@ -128,7 +128,7 @@ export const media = {
 };
 
 // ============================================================
-// 🎯 COMPOSANTS DE BASE
+//  COMPOSANTS DE BASE
 // ============================================================
 
 export const button = {
@@ -590,7 +590,7 @@ export const layout = {
 };
 
 // ============================================================
-// 📱 RESPONSIVE UTILITIES
+//  RESPONSIVE UTILITIES
 // ============================================================
 
 export const responsive = {
@@ -614,5 +614,34 @@ export const responsive = {
     '@media (max-width: 768px)': {
       width: '100% !important',
     },
+  },
+};
+// ============================================================
+// 🌌 HERO / GLASSMORPHISM (repris du style de la page de connexion)
+// ============================================================
+export const hero = {
+  darkGradient: 'linear-gradient(160deg, #0B1220 0%, #0F172A 55%, #111827 100%)',
+  glowTopLeft: 'radial-gradient(circle at 15% 15%, rgba(14,165,233,0.25) 0%, transparent 55%)',
+  glowBottomRight: 'radial-gradient(circle at 90% 90%, rgba(124,58,237,0.18) 0%, transparent 55%)',
+  border: 'rgba(255,255,255,0.08)',
+  glassCard: 'rgba(255,255,255,0.06)',
+  glassCardBorder: 'rgba(255,255,255,0.10)',
+};
+
+export const glassmorphism = {
+  panel: {
+    background: hero.darkGradient,
+    borderRadius: borderRadius.xl,
+    border: `1px solid ${hero.border}`,
+    boxShadow: '0 20px 60px rgba(2, 6, 23, 0.45)',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  glassCard: {
+    background: hero.glassCard,
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
+    border: `1px solid ${hero.glassCardBorder}`,
+    borderRadius: borderRadius.lg,
   },
 };

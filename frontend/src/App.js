@@ -6,7 +6,7 @@ import { LanguageProvider } from './context/LanguageContext';
 import Layout from './components/layout/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import SessionMonitor from './components/SessionMonitor';
-
+import AnalyticsDashboard from './pages/dashboard/AnalyticsDashboard';
 // ============================================================
 // IMPORTS DES PAGES
 // ============================================================
@@ -130,6 +130,7 @@ function AppRoutes() {
             <Layout><SuperAdminDashboard /></Layout>
           </PrivateRoute>
         } />
+        <Route path="/statistiques" element={<PrivateRoute><Layout><AnalyticsDashboard /></Layout></PrivateRoute>} />
 
         <Route path="/superadmin/taux-reference" element={
           <PrivateRoute superAdminOnly>
@@ -325,7 +326,7 @@ function AppRoutes() {
         <Route path="/paiement/cancel" element={<PaiementCancel />} />
         <Route path="/paiement/abonnement-success" element={<AbonnementSuccess />} />
         <Route path="/paiement/abonnement-cancel" element={<PaiementCancel />} />
-
+      <Route path="/statistiques" element={<PrivateRoute><Layout><AnalyticsDashboard /></Layout></PrivateRoute>} />
         {/* Redirection par défaut */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
