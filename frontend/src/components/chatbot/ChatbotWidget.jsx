@@ -7,8 +7,8 @@
 // ---------------------------------------------------------------------------
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useLanguage } from '../../context/LanguageContext'; // AJOUTÉ
-import chatbotApi from '../../services/chatbot.api';
+import { useLanguage } from '../../context/LanguageContext'; 
+import geminiChatbotApi from '../../services/chatbot.api';
 import { colors, spacing, typography, borderRadius, shadows, transitions } from '../../styles/theme';
 
 export default function ChatbotWidget() {
@@ -24,7 +24,7 @@ export default function ChatbotWidget() {
 
     useEffect(() => {
         if (ouvert && !historiqueCharge) {
-            chatbotApi.getHistorique()
+            geminiChatbotApi.getHistorique()
                 .then((res) => {
                     setMessages(res.data.historique.map((m) => ({ role: m.role, contenu: m.contenu })));
                     setHistoriqueCharge(true);
@@ -53,7 +53,7 @@ export default function ChatbotWidget() {
         setErreur(null);
 
         try {
-            const res = await chatbotApi.envoyerMessage(texte);
+            const res = await geminiChatbotApi.envoyerMessage(texte);
             setMessages((prev) => [...prev, { role: 'assistant', contenu: res.data.reponse }]);
         } catch (err) {
             setErreur(err.response?.data?.message || t('assistant_indisponible'));
@@ -64,7 +64,7 @@ export default function ChatbotWidget() {
 
     const effacer = async () => {
         try {
-            await chatbotApi.viderHistorique();
+            await geminiChatbotApi.viderHistorique();
         } catch {
             // pas bloquant pour l'utilisateur
         }
