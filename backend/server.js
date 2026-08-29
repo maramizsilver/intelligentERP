@@ -115,6 +115,7 @@ const protectedRoutes = [
     { path: '/api/documents-actions', route: './routes/documentActionsRoutes' },
     { path: '/api/documents-metier', route: './routes/documentsMetierRoutes' },
     { path: '/api/analytics', route: './routes/analyticsRoutes' },
+    { path: '/api/gemini-chatbot', route: './routes/geminiChatbotRoutes' },
 ];
 
 protectedRoutes.forEach(({ path, route }) => {

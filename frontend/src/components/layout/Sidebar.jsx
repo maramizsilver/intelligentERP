@@ -4,6 +4,44 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { colors, spacing, borderRadius, transitions } from '../../styles/theme';
+import {
+  Building2,
+  LayoutDashboard,
+  BarChart3,
+  LineChart,
+  Percent,
+  KeyRound,
+  ClipboardCheck,
+  Repeat,
+  Database,
+  UserCircle2,
+  Users,
+  FileText,
+  ShoppingCart,
+  Tag,
+  CreditCard,
+  Factory,
+  PackageSearch,
+  Wallet,
+  Package,
+  RefreshCw,
+  AlertTriangle,
+  Warehouse,
+  Calculator,
+  ArrowLeftRight,
+  ClipboardList,
+  User,
+  FolderOpen,
+  FilePlus2,
+  ScanLine,
+  Archive,
+  ShieldCheck,
+  Bell,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Menu,
+} from 'lucide-react';
 
 export default function Sidebar() {
   const { user, hasPermission } = useAuth();
@@ -36,13 +74,13 @@ export default function Sidebar() {
         {
           section: t('administration') || 'Administration',
           items: [
-            { path: '/superadmin/dashboard', label: t('dashboard'), icon: '🏢' },
-            { path: '/superadmin/taux-reference', label: t('taux_periodes') || 'Taux & Périodes', icon: '📊' },
-            { path: '/superadmin/sessions', label: t('sessions') || 'Sessions', icon: '🔐' },
-            { path: '/superadmin/audit', label: t('audit') || 'Audit', icon: '📋' },
-            { path: '/superadmin/abonnements', label: t('abonnements') || 'Abonnements', icon: '💳' },
-            { path: '/superadmin/backup', label: t('backup') || 'Backup', icon: '💾' },
-            { path: '/profil', label: t('mon_profil') || 'Mon profil', icon: '🙍' }
+            { path: '/superadmin/dashboard', label: t('dashboard'), icon: Building2 },
+            { path: '/superadmin/taux-reference', label: t('taux_periodes') || 'Taux & Périodes', icon: Percent },
+            { path: '/superadmin/sessions', label: t('sessions') || 'Sessions', icon: KeyRound },
+            { path: '/superadmin/audit', label: t('audit') || 'Audit', icon: ClipboardCheck },
+            { path: '/superadmin/abonnements', label: t('abonnements') || 'Abonnements', icon: Repeat },
+            { path: '/superadmin/backup', label: t('backup') || 'Backup', icon: Database },
+            { path: '/profil', label: t('mon_profil') || 'Mon profil', icon: UserCircle2 }
           ]
         }
       ];
@@ -53,8 +91,8 @@ export default function Sidebar() {
     sections.push({
       section: t('navigation') || 'Navigation',
       items: [
-        { path: '/dashboard', label: t('dashboard'), icon: '📊' },
-        { path: '/statistiques', label: 'Statistiques', icon: '📈' }
+        { path: '/dashboard', label: t('dashboard'), icon: LayoutDashboard },
+        { path: '/statistiques', label: 'Statistiques', icon: LineChart }
       ]
     });
 
@@ -62,11 +100,11 @@ export default function Sidebar() {
       sections.push({
         section: t('ventes') || 'Ventes',
         items: [
-          { path: '/clients', label: t('clients'), icon: '👥' },
-          { path: '/devis', label: t('devis'), icon: '📄' },
-          { path: '/commandes', label: t('commandes'), icon: '🛒' },
-          { path: '/promotions', label: t('promotions') || 'Promotions', icon: '🏷️' },
-          { path: '/paiement/client', label: t('paiement_en_ligne') || 'Paiement en ligne', icon: '💳' }
+          { path: '/clients', label: t('clients'), icon: Users },
+          { path: '/devis', label: t('devis'), icon: FileText },
+          { path: '/commandes', label: t('commandes'), icon: ShoppingCart },
+          { path: '/promotions', label: t('promotions') || 'Promotions', icon: Tag },
+          { path: '/paiement/client', label: t('paiement_en_ligne') || 'Paiement en ligne', icon: CreditCard }
         ]
       });
     }
@@ -75,9 +113,9 @@ export default function Sidebar() {
       sections.push({
         section: t('achats') || 'Achats',
         items: [
-          { path: '/fournisseurs', label: t('fournisseurs'), icon: '🏭' },
-          { path: '/achats', label: t('achats'), icon: '📦' },
-          { path: '/paiement/fournisseur', label: t('paiement_fournisseur') || 'Paiement fournisseur', icon: '💳' }
+          { path: '/fournisseurs', label: t('fournisseurs'), icon: Factory },
+          { path: '/achats', label: t('achats'), icon: PackageSearch },
+          { path: '/paiement/fournisseur', label: t('paiement_fournisseur') || 'Paiement fournisseur', icon: CreditCard }
         ]
       });
     }
@@ -86,54 +124,53 @@ export default function Sidebar() {
       sections.push({
         section: t('finance') || 'Finance',
         items: [
-          { path: '/finance', label: t('finance'), icon: '💰' }
+          { path: '/finance', label: t('finance'), icon: Wallet }
         ]
       });
     }
 
     if (hasPermission('Stock', 'consultation')) {
       const stockItems = [
-        { path: '/produits', label: t('produits'), icon: '📦' },
-        { path: '/mouvements-stock', label: t('mouvements_stock'), icon: '🔄' },
-        { path: '/alertes-stock', label: t('alerte_rupture'), icon: '⚠️' },
-        { path: '/entrepots', label: t('entrepots') || 'Entrepôts', icon: '🏚️' },
-        { path: '/calculateur', label: t('calculateur') || 'Calculateur', icon: '🧮' }
-        
+        { path: '/produits', label: t('produits'), icon: Package },
+        { path: '/mouvements-stock', label: t('mouvements_stock'), icon: RefreshCw },
+        { path: '/alertes-stock', label: t('alerte_rupture'), icon: AlertTriangle },
+        { path: '/entrepots', label: t('entrepots') || 'Entrepôts', icon: Warehouse },
+        { path: '/calculateur', label: t('calculateur') || 'Calculateur', icon: Calculator }
       ];
       if (hasPermission('Stock', 'modification')) {
-        stockItems.push({ path: '/transfert-stock', label: t('transfert_stock') || 'Transfert stock', icon: '🔄' });
+        stockItems.push({ path: '/transfert-stock', label: t('transfert_stock') || 'Transfert stock', icon: ArrowLeftRight });
       }
-      stockItems.push({ path: '/inventaires', label: t('inventaire'), icon: '📋' });
+      stockItems.push({ path: '/inventaires', label: t('inventaire'), icon: ClipboardList });
       sections.push({ section: t('stock') || 'Stock', items: stockItems });
     }
 
     const adminItems = [];
     if (hasPermission('Utilisateurs', 'consultation')) {
-      adminItems.push({ path: '/utilisateurs', label: t('utilisateurs'), icon: '👤' });
+      adminItems.push({ path: '/utilisateurs', label: t('utilisateurs'), icon: User });
     }
     if (hasPermission('Documents', 'consultation')) {
-      adminItems.push({ path: '/documents', label: t('documents'), icon: '📁' });
-      adminItems.push({ path: '/documents/generation', label: t('generer_document') || 'Générer un document', icon: '📄' });
-      adminItems.push({ path: '/documents/numerisation', label: t('numeriser_ocr') || 'Numériser (OCR)', icon: '📷' });
-      adminItems.push({ path: '/archives', label: t('archives'), icon: '🗄️' });
+      adminItems.push({ path: '/documents', label: t('documents'), icon: FolderOpen });
+      adminItems.push({ path: '/documents/generation', label: t('generer_document') || 'Générer un document', icon: FilePlus2 });
+      adminItems.push({ path: '/documents/numerisation', label: t('numeriser_ocr') || 'Numériser (OCR)', icon: ScanLine });
+      adminItems.push({ path: '/archives', label: t('archives'), icon: Archive });
     }
 
     adminItems.push({
       path: '/securite/mfa',
       label: t('securite_mfa') || 'Sécurité MFA',
-      icon: '🔐'
+      icon: ShieldCheck
     });
 
     adminItems.push({
       path: '/notifications',
       label: t('notifications'),
-      icon: '🔔'
+      icon: Bell
     });
 
     adminItems.push({
       path: '/profil',
       label: t('mon_profil') || 'Mon profil',
-      icon: '🙍'
+      icon: UserCircle2
     });
 
     if (adminItems.length > 0) {
@@ -151,6 +188,9 @@ export default function Sidebar() {
     right: dir === 'rtl' ? '0' : 'auto',
   };
 
+  const isRtlCollapseIcon = dir === 'rtl' ? ChevronRight : ChevronLeft;
+  const isRtlExpandIcon = dir === 'rtl' ? ChevronLeft : ChevronRight;
+
   return (
     <>
       {isMobile && isMobileOpen && (
@@ -167,20 +207,24 @@ export default function Sidebar() {
           }),
         }}
       >
-               <div style={styles.logoContainer}>
+        <div style={styles.logoContainer}>
           <div style={styles.logoGlow} />
           <div style={styles.logo}>
-            <div style={styles.logoBadge}>🏢</div>
+            <div style={styles.logoBadge}>
+              <Building2 size={18} strokeWidth={2} color="#FFFFFF" />
+            </div>
             {(!collapsed || isMobile) && <span style={styles.logoText}>ERP</span>}
           </div>
           {!isMobile && (
             <button style={styles.toggleBtn} onClick={() => setCollapsed(!collapsed)}>
-              {collapsed ? '→' : '←'}
+              {collapsed
+                ? React.createElement(isRtlExpandIcon, { size: 14, strokeWidth: 2 })
+                : React.createElement(isRtlCollapseIcon, { size: 14, strokeWidth: 2 })}
             </button>
           )}
           {isMobile && (
             <button style={styles.toggleBtn} onClick={() => setIsMobileOpen(false)}>
-              ✕
+              <X size={14} strokeWidth={2} />
             </button>
           )}
         </div>
@@ -191,26 +235,31 @@ export default function Sidebar() {
               {(!collapsed || isMobile) && (
                 <div style={styles.sectionTitle}>{section.section}</div>
               )}
-              {section.items.map((item) => (
-                <div
-                  key={item.path}
-                  style={{
-                    ...styles.menuItem,
-                    ...(isActive(item.path) ? styles.menuItemActive : {}),
-                  }}
-                  onClick={() => {
-                    navigate(item.path);
-                    if (isMobile) setIsMobileOpen(false);
-                  }}
-                >
-                  <span style={styles.menuIcon}>{item.icon}</span>
-                  {(!collapsed || isMobile) && (
-                    <div style={styles.menuContent}>
-                      <span style={styles.menuLabel}>{item.label}</span>
-                    </div>
-                  )}
-                </div>
-              ))}
+              {section.items.map((item) => {
+                const ItemIcon = item.icon;
+                return (
+                  <div
+                    key={item.path}
+                    style={{
+                      ...styles.menuItem,
+                      ...(isActive(item.path) ? styles.menuItemActive : {}),
+                    }}
+                    onClick={() => {
+                      navigate(item.path);
+                      if (isMobile) setIsMobileOpen(false);
+                    }}
+                  >
+                    <span style={styles.menuIcon}>
+                      <ItemIcon size={18} strokeWidth={2} color="currentColor" />
+                    </span>
+                    {(!collapsed || isMobile) && (
+                      <div style={styles.menuContent}>
+                        <span style={styles.menuLabel}>{item.label}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ))}
         </nav>
@@ -239,7 +288,7 @@ export default function Sidebar() {
           }}
           onClick={() => setIsMobileOpen(true)}
         >
-          ☰
+          <Menu size={20} strokeWidth={2} />
         </button>
       )}
     </>
@@ -305,7 +354,6 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '16px',
     boxShadow: '0 4px 14px rgba(14,165,233,0.4)',
     flexShrink: 0,
   },
@@ -316,13 +364,15 @@ const styles = {
     letterSpacing: '0.5px',
   },
   toggleBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     background: 'rgba(255,255,255,0.05)',
     border: '1px solid rgba(255,255,255,0.08)',
     borderRadius: borderRadius.md,
     color: '#94A3B8',
     cursor: 'pointer',
-    padding: '4px 8px',
-    fontSize: '12px',
+    padding: '6px 8px',
     transition: `all ${transitions.fast}`,
   },
   nav: {
@@ -352,16 +402,18 @@ const styles = {
     marginBottom: '2px',
     color: 'rgba(255,255,255,0.6)',
   },
-    menuItemActive: {
-      background: 'linear-gradient(90deg, rgba(14,165,233,0.18) 0%, rgba(14,165,233,0.04) 100%)',
-      color: '#126d94',
-      boxShadow: 'inset 3px 0 0 #0EA5E9',
+  menuItemActive: {
+    background: 'linear-gradient(90deg, rgba(14,165,233,0.18) 0%, rgba(14,165,233,0.04) 100%)',
+    color: '#7DD3FC',
+    boxShadow: 'inset 3px 0 0 #0EA5E9',
   },
   menuIcon: {
-    fontSize: '18px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     width: '28px',
-    textAlign: 'center',
     flexShrink: 0,
+    color: 'inherit',
   },
   menuContent: {
     flex: 1,
@@ -423,13 +475,15 @@ const styles = {
     position: 'fixed',
     top: '12px',
     zIndex: 100,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#0F172A',
     border: 'none',
     borderRadius: borderRadius.md,
     color: colors.white,
     padding: '8px 12px',
     cursor: 'pointer',
-    fontSize: '20px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
   },
 };
