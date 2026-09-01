@@ -1,14 +1,12 @@
-// backend/config/gemini.config.js
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 if (!process.env.GEMINI_API_KEY) {
-    console.warn('[IA Gemini] GEMINI_API_KEY manquant dans .env : l\'agent IA Gemini ne pourra pas répondre.');
+    console.warn('[IA] GEMINI_API_KEY manquant dans .env : le chatbot ne pourra pas répondre.');
 }
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-// gemini-2.5-flash : bon rapport qualité / quota gratuit, function calling supporté.
-// gemini-2.0-flash reste utilisable si le quota de 2.5 est épuisé.
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+// gemini-2.0-flash : gratuit, rapide, bon support du function calling
+const CHATBOT_MODEL = process.env.GEMINI_CHATBOT_MODEL || 'gemini-2.0-flash';
 
-module.exports = { genAI, GEMINI_MODEL };
+module.exports = { genAI, CHATBOT_MODEL };

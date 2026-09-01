@@ -1,15 +1,9 @@
 // backend/services/chatbot.service.js
-// ---------------------------------------------------------------------------
-// Assistant client intelligent (chatbot conversationnel) — cœur du Module
-// d'Intelligence Artificielle. Gère l'historique de conversation (par
-// utilisateur, dans la base tenant courante) et l'échange avec l'API OpenAI,
-// y compris la boucle de "function calling" vers les données de l'ERP.
-// ---------------------------------------------------------------------------
-const { openai, CHATBOT_MODEL } = require('../config/openai.config');
+const { genAI, CHATBOT_MODEL } = require('../config/gemini.config');
 const { TOOL_DEFINITIONS, executerOutil } = require('./chatbotTools.service');
 
-const MAX_HISTORIQUE = 20;   
-const MAX_TOURS_OUTILS = 4;      
+const MAX_HISTORIQUE = 20;
+const MAX_TOURS_OUTILS = 4;
 
 function query(db, sql, params = []) {
     return new Promise((resolve, reject) => {
@@ -21,7 +15,6 @@ function query(db, sql, params = []) {
 }
 
 let tableVerifiee = false;
-/** Crée la table d'historique si elle n'existe pas encore (idempotent). */
 async function assurerTable(db) {
     if (tableVerifiee) return;
     await query(
@@ -73,13 +66,46 @@ async function enregistrerMessage(db, userId, role, contenu) {
     );
 }
 
-/**
- * Envoie un message utilisateur au chatbot et renvoie la réponse texte de l'IA,
- * après avoir laissé le modèle appeler les outils ERP nécessaires.
- */
+function convertirHistoriquePourGemini(historique) {
+    return historique.map((m) => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }]
+    }));
+}
+
+function convertirSchemaPourGemini(schema) {
+    if (!schema || typeof schema !== 'object') return schema;
+    const resultat = { ...schema };
+
+    if (typeof resultat.type === 'string') {
+        resultat.type = resultat.type.toUpperCase();
+    }
+    if (resultat.properties) {
+        const nouvellesProps = {};
+        for (const [cle, valeur] of Object.entries(resultat.properties)) {
+            nouvellesProps[cle] = convertirSchemaPourGemini(valeur);
+        }
+        resultat.properties = nouvellesProps;
+    }
+    if (resultat.items) {
+        resultat.items = convertirSchemaPourGemini(resultat.items);
+    }
+    return resultat;
+}
+
+function convertirOutilsPourGemini(toolDefinitions) {
+    return toolDefinitions.map((t) => ({
+        name: t.function.name,
+        description: t.function.description,
+        parameters: convertirSchemaPourGemini(t.function.parameters)
+    }));
+}
+
+const OUTILS_GEMINI = convertirOutilsPourGemini(TOOL_DEFINITIONS);
+
 async function envoyerMessage(db, user, messageUtilisateur) {
-    if (!process.env.OPENAI_API_KEY) {
-        const err = new Error("Le chatbot IA n'est pas configuré (clé OPENAI_API_KEY manquante).");
+    if (!process.env.GEMINI_API_KEY) {
+        const err = new Error("Le chatbot IA n'est pas configuré (clé GEMINI_API_KEY manquante).");
         err.code = 'IA_NON_CONFIGUREE';
         throw err;
     }
@@ -89,47 +115,54 @@ async function envoyerMessage(db, user, messageUtilisateur) {
     const historique = await chargerHistorique(db, user.id);
     await enregistrerMessage(db, user.id, 'user', messageUtilisateur);
 
-    const messages = [
-        { role: 'system', content: construirePromptSysteme(user) },
-        ...historique,
-        { role: 'user', content: messageUtilisateur }
-    ];
+    const model = genAI.getGenerativeModel({
+        model: CHATBOT_MODEL,
+        systemInstruction: construirePromptSysteme(user),
+        tools: [{ functionDeclarations: OUTILS_GEMINI }]
+    });
+
+    const chat = model.startChat({
+        history: convertirHistoriquePourGemini(historique)
+    });
 
     let reponseTexte = '';
 
-    for (let tour = 0; tour < MAX_TOURS_OUTILS; tour++) {
-        const completion = await openai.chat.completions.create({
-            model: CHATBOT_MODEL,
-            messages,
-            tools: TOOL_DEFINITIONS,
-            tool_choice: 'auto',
-            temperature: 0.3
-        });
+    try {
+        let result = await chat.sendMessage(messageUtilisateur);
 
-        const choix = completion.choices[0];
-        const messageAssistant = choix.message;
-        messages.push(messageAssistant);
+        for (let tour = 0; tour < MAX_TOURS_OUTILS; tour++) {
+            const appelsOutils = result.response.functionCalls();
 
-        const appelsOutils = messageAssistant.tool_calls;
-        if (!appelsOutils || appelsOutils.length === 0) {
-            reponseTexte = messageAssistant.content || '';
-            break;
+            if (!appelsOutils || appelsOutils.length === 0) {
+                reponseTexte = result.response.text() || '';
+                break;
+            }
+
+            const partsReponses = [];
+            for (const appel of appelsOutils) {
+                const resultatOutil = await executerOutil(
+                    appel.name,
+                    JSON.stringify(appel.args || {}),
+                    db,
+                    user
+                );
+                partsReponses.push({
+                    functionResponse: {
+                        name: appel.name,
+                        response: resultatOutil
+                    }
+                });
+            }
+
+            result = await chat.sendMessage(partsReponses);
+
+            if (tour === MAX_TOURS_OUTILS - 1) {
+                reponseTexte = "Je n'ai pas réussi à obtenir toutes les données nécessaires pour répondre précisément. Peux-tu reformuler ta question ?";
+            }
         }
-
-        // Le modèle veut interroger l'ERP : on exécute chaque outil demandé,
-        // puis on renvoie les résultats pour qu'il formule sa réponse finale.
-        for (const appel of appelsOutils) {
-            const resultat = await executerOutil(appel.function.name, appel.function.arguments, db, user);
-            messages.push({
-                role: 'tool',
-                tool_call_id: appel.id,
-                content: JSON.stringify(resultat)
-            });
-        }
-
-        if (tour === MAX_TOURS_OUTILS - 1) {
-            reponseTexte = "Je n'ai pas réussi à obtenir toutes les données nécessaires pour répondre précisément. Peux-tu reformuler ta question ?";
-        }
+    } catch (err) {
+        console.error('[Chatbot IA - Gemini] Erreur:', err.message);
+        reponseTexte = "L'assistant IA est momentanément indisponible. Réessaie dans un instant.";
     }
 
     await enregistrerMessage(db, user.id, 'assistant', reponseTexte);
