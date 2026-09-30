@@ -40,11 +40,7 @@
   },
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js",
-    "fix-login": "node scripts/fix-login-emails.js",
-    "fix-corrupted": "node scripts/fix-corrupted-data.js",
-    "decrypt-users": "node scripts/decrypt-all-users.js",
-  
-    "migrate-chatbot": "node scripts/migrate-chatbot-tables.js"
+    "dev": "nodemon server.js"
+
   }
 }
