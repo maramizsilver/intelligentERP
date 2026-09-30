@@ -60,6 +60,6 @@ desktop.ini
 /frontend/.env.test.local
 /frontend/.env.production.local
 
-/backend/scripts
+# Fichiers générés (ne jamais commiter)
 backend/backups/
 /backend/uploads/
