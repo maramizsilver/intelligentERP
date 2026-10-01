@@ -283,7 +283,6 @@ class SessionService {
 
             console.log('[SESSION] Fingerprint:', fingerprint.substring(0, 30) + '...');
             console.log('[SESSION] User ID:', user.id);
-            console.log('[SESSION] Token:', token.substring(0, 30) + '...');
             console.log('[SESSION] Device Type:', deviceInfo.device_type);
             console.log('[SESSION] OS:', deviceInfo.os);
             console.log('[SESSION] Browser:', deviceInfo.browser);
@@ -395,7 +394,7 @@ class SessionService {
     static async hasActiveSession(userId, token) {
         try {
             console.log('[SESSION] hasActiveSession - User ID:', userId);
-            console.log('[SESSION] hasActiveSession - Token:', token.substring(0, 30) + '...');
+            
             
             const [rows] = await db.promisePoolMaster.query(
                 'SELECT id, is_active FROM sessions WHERE user_id = ? AND token = ?',
