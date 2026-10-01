@@ -4,9 +4,21 @@ require('dotenv').config();
 
 class SignatureService {
     constructor() {
-        this.secretKey = process.env.EXPORT_SECRET_KEY || 'erp_export_secret_2026';
-        console.log('[Signature] Service initialise avec cle secrete');
-    }
+        this.secretKey = process.env.EXPORT_SECRET_KEY ;
+        console.log('[SignatureService] Initialise avec cle secrete');
+        if (!this.secretKey) {
+            if (process.env.NODE_ENV === 'production') {
+            throw new Error('EXPORT_SECRET_KEY doit etre definie en production.');
+           } 
+           this.secretKey = crypto.randomBytes(32).toString('hex');
+           console.warn('[Signature] EXPORT_SECRET_KEY absente : cle temporaire generee (dev uniquement)'); {
+    
+             }
+        }
+            else{
+                const secret = process.env.EXPORT_SECRET_KEY;
+                this.secretKey = secret;
+        }}
 
     signData(data) {
         try {
