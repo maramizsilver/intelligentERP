@@ -1,11 +1,13 @@
 const mysql = require('mysql2');
 require('dotenv').config();
+// En production, on refuse de démarrer sans identifiants explicites (pas de repli sur root)
 if (
     process.env.NODE_ENV === 'production' &&
     (!process.env.DB_USER || !process.env.DB_PASSWORD)
 ) {
     throw new Error('DB_USER et DB_PASSWORD doivent etre definis en production.');
 }
+
 const masterPool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
