@@ -283,9 +283,6 @@ class SessionService {
 
             console.log('[SESSION] Fingerprint:', fingerprint.substring(0, 30) + '...');
             console.log('[SESSION] User ID:', user.id);
-            console.log('[SESSION] Device Type:', deviceInfo.device_type);
-            console.log('[SESSION] OS:', deviceInfo.os);
-            console.log('[SESSION] Browser:', deviceInfo.browser);
 
             const [blocked] = await db.promisePoolMaster.query(
                 'SELECT id FROM user_devices WHERE user_id = ? AND device_fingerprint = ? AND is_blocked = TRUE',
@@ -391,22 +388,54 @@ class SessionService {
         }
     }
 
-    static async hasActiveSession(userId, token) {
-        try {
-            console.log('[SESSION] hasActiveSession - User ID:', userId);
-            
-            
-            const [rows] = await db.promisePoolMaster.query(
-                'SELECT id, is_active FROM sessions WHERE user_id = ? AND token = ?',
-                [userId, token]
-            );
-            
-            console.log('[SESSION] hasActiveSession - Resultat:', rows.length > 0 ? 'TROUVEE (is_active=' + rows[0].is_active + ')' : 'NON TROUVEE');
-            return rows.length > 0 && rows[0].is_active === 1;
-        } catch (err) {
-            console.error('[SESSION] Erreur hasActiveSession:', err);
-            return false;
+    static async checkSuspiciousActivity(userId, fingerprint, location, req, previousSessionCount) {
+        // Verifier les connexions depuis un pays inhabituel (dans la MASTER)
+        const [previous] = await db.promisePoolMaster.query(
+            'SELECT country FROM user_connections WHERE user_id = ? ORDER BY created_at DESC LIMIT 5',
+            [userId]
+        );
+
+        if (previous.length > 0) {
+            const countries = previous.map(p => p.country);
+            if (!countries.includes(location.country) && location.country !== 'Inconnu') {
+                await db.promisePoolMaster.query(
+                    `INSERT INTO security_alerts 
+                     (user_id, alert_type, severity, message, details)
+                     VALUES (?, 'new_country', 'medium', 
+                             'Connexion depuis un pays non reconnu', ?)`,
+                    [userId, JSON.stringify({ 
+                        ip: req.ip, 
+                        country: location.country,
+                        city: location.city,
+                        time: new Date().toISOString()
+                    })]
+                );
+                console.log('[SESSION] Alerte: nouveau pays -', location.country);
+            }
         }
+
+        // Verifier les connexions simultanees
+        if (previousSessionCount > 1) {
+            await db.promisePoolMaster.query(
+                `INSERT INTO security_alerts 
+                 (user_id, alert_type, severity, message, details)
+                 VALUES (?, 'multiple_sessions', 'high', 
+                         'Connexions simultanees detectees', ?)`,
+                [userId, JSON.stringify({ 
+                    sessions_count: previousSessionCount,
+                    time: new Date().toISOString()
+                })]
+            );
+            console.log('[SESSION] Alerte: connexions simultanees -', previousSessionCount);
+        }
+    }
+
+    static async hasActiveSession(userId, token) {
+        const [rows] = await db.promisePoolMaster.query(
+            'SELECT id FROM sessions WHERE user_id = ? AND token = ? AND is_active = TRUE',
+            [userId, token]
+        );
+        return rows.length > 0;
     }
 
     static async updateSessionActivity(userId, token) {
