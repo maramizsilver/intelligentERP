@@ -172,11 +172,18 @@ exports.updateFactureStatut = (req, res) => {
 
 // SUPPRIMER UNE FACTURE
 exports.deleteFacture = (req, res) => {
-    const db = req.db;
-    const sql = 'DELETE FROM factures WHERE id = ? AND entreprise_id = ?';
-    db.query(sql, [req.params.id, req.user.entreprise_id], (err, result) => {
-        if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
-        if (result.affectedRows === 0) return res.status(404).json({ message: 'Facture introuvable' });
-        res.json({ message: 'Facture supprimée avec succès' });
+  const db = req.db;
+  db.query('SELECT statut FROM factures WHERE id = ? AND entreprise_id = ?',
+    [req.params.id, req.user.entreprise_id], (err, rows) => {
+      if (err) { console.error(err); return res.status(500).json({ message: 'Erreur serveur' }); }
+      if (rows.length === 0) return res.status(404).json({ message: 'Facture introuvable' });
+      if (rows[0].statut !== 'brouillon') {
+        return res.status(400).json({ message: "Une facture émise ne peut pas être supprimée : annulez-la (statut « annulée »)." });
+      }
+      db.query('DELETE FROM factures WHERE id = ? AND entreprise_id = ?',
+        [req.params.id, req.user.entreprise_id], (err2) => {
+          if (err2) { console.error(err2); return res.status(500).json({ message: 'Erreur serveur' }); }
+          res.json({ message: 'Facture supprimée avec succès' });
+        });
     });
 };

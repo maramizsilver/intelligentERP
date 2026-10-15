@@ -238,6 +238,9 @@ exports.deleteCommande = (req, res) => {
                     message: "Impossible d'annuler une commande deja confirmee, livree ou annulee" 
                 });
             }
+            if (['livree', 'confirmee'].includes(commande.statut)) {
+              return res.status(400).json({ message: 'Une commande confirmée ou livrée ne peut pas être supprimée : annulez-la.' });
+             }
         }
 
         db.query('SELECT * FROM commandes WHERE id = ?', [id], (errSelect, oldData) => {
