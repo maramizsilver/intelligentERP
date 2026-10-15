@@ -101,6 +101,7 @@ const INITIAL_SCHEMA = [
     dernier_numero_devis INT NOT NULL DEFAULT 0,
     dernier_numero_transaction INT NOT NULL DEFAULT 0,
     dernier_numero_facture INT NOT NULL DEFAULT 0,
+    dernier_numero_generique INT NOT NULL DEFAULT 0,
     INDEX idx_entreprise (entreprise_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
@@ -199,7 +200,7 @@ const INITIAL_SCHEMA = [
     entreprise_id INT NOT NULL DEFAULT 1,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     company_id INT DEFAULT 1,
-    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT,
     INDEX idx_devis_numero (numero_devis),
     INDEX idx_devis_reference (reference),
     INDEX idx_devis_date_devis (date_devis),
@@ -218,7 +219,7 @@ const INITIAL_SCHEMA = [
     total_ligne DECIMAL(12,2) NOT NULL,
     company_id INT DEFAULT 1,
     FOREIGN KEY (devis_id) REFERENCES devis(id) ON DELETE CASCADE,
-    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE,
+    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE RESTRICT,
     INDEX idx_devis_produits_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
@@ -240,7 +241,7 @@ const INITIAL_SCHEMA = [
     entreprise_id INT NOT NULL DEFAULT 1,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     company_id INT DEFAULT 1,
-    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT,
     FOREIGN KEY (devis_id) REFERENCES devis(id) ON DELETE SET NULL,
     INDEX idx_commandes_numero (numero_commande),
     INDEX idx_commandes_reference (reference),
@@ -257,7 +258,7 @@ const INITIAL_SCHEMA = [
     prix_unitaire DECIMAL(12,2) NOT NULL,
     company_id INT DEFAULT 1,
     FOREIGN KEY (commande_id) REFERENCES commandes(id) ON DELETE CASCADE,
-    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE,
+    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE RESTRICT,
     INDEX idx_commande_produits_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
@@ -279,7 +280,7 @@ const INITIAL_SCHEMA = [
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     company_id INT DEFAULT 1,
     UNIQUE KEY numero_facture_unique (numero_facture),
-    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT,
     FOREIGN KEY (devis_id) REFERENCES devis(id) ON DELETE SET NULL,
     FOREIGN KEY (commande_id) REFERENCES commandes(id) ON DELETE SET NULL,
     INDEX idx_factures_entreprise (entreprise_id),
@@ -301,7 +302,7 @@ const INITIAL_SCHEMA = [
     notes TEXT DEFAULT NULL,
     entreprise_id INT NOT NULL DEFAULT 1,
     company_id INT DEFAULT 1,
-    FOREIGN KEY (fournisseur_id) REFERENCES fournisseurs(id) ON DELETE CASCADE,
+    FOREIGN KEY (fournisseur_id) REFERENCES fournisseurs(id) ON DELETE RESTRICT,
     INDEX idx_achats_entreprise (entreprise_id),
     INDEX idx_achats_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
@@ -316,7 +317,7 @@ const INITIAL_SCHEMA = [
     quantite_recue INT DEFAULT 0,
     company_id INT DEFAULT 1,
     FOREIGN KEY (achat_id) REFERENCES achats(id) ON DELETE CASCADE,
-    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE,
+    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE RESTRICT,
     INDEX idx_achat_produits_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
@@ -337,7 +338,7 @@ const INITIAL_SCHEMA = [
     quantite INT NOT NULL DEFAULT 0,
     company_id INT DEFAULT 1,
     FOREIGN KEY (entrepot_id) REFERENCES entrepots(id) ON DELETE CASCADE,
-    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE,
+    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE RESTRICT,
     UNIQUE KEY uniq_entrepot_produit (entrepot_id, produit_id),
     INDEX idx_stock_entrepot_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
@@ -363,7 +364,7 @@ const INITIAL_SCHEMA = [
     ecart INT DEFAULT 0,
     company_id INT DEFAULT 1,
     FOREIGN KEY (inventaire_id) REFERENCES inventaires(id) ON DELETE CASCADE,
-    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE,
+    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE RESTRICT,
     INDEX idx_inventaire_lignes_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
@@ -380,7 +381,7 @@ const INITIAL_SCHEMA = [
     created_by INT DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     company_id INT DEFAULT 1,
-    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE CASCADE,
+    FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE RESTRICT,
     INDEX idx_mouvements_stock_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
@@ -515,7 +516,7 @@ const INITIAL_SCHEMA = [
     created_by INT DEFAULT NULL,
     updated_by INT DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     company_id INT DEFAULT 1,
     INDEX idx_taux_reference_central_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
@@ -671,7 +672,6 @@ const INITIAL_SCHEMA = [
     INDEX idx_chatbot_messages_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-  // NOUVELLES TABLES POUR LA GESTION DOCUMENTAIRE
   `CREATE TABLE IF NOT EXISTS documents_metier (
     id INT AUTO_INCREMENT PRIMARY KEY,
     type_document VARCHAR(50) NOT NULL,
@@ -704,6 +704,15 @@ const INITIAL_SCHEMA = [
     company_id INT DEFAULT 1,
     INDEX idx_documents_historique_doc (type_document, document_id),
     INDEX idx_documents_historique_company_id (company_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  `CREATE TABLE IF NOT EXISTS gemini_chatbot_messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    role ENUM('user','model') NOT NULL,
+    contenu MEDIUMTEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_gemini_chatbot_messages_user (user_id, created_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
 ];
 
@@ -732,29 +741,28 @@ async function migrerBaseExistante(dbName) {
   const admin = await getAdminConnection();
   try {
     await admin.changeUser({ database: dbName });
-    
+
     const migrations = [
       `ALTER TABLE commandes 
        ADD COLUMN IF NOT EXISTS devis_id INT NULL AFTER client_id,
        ADD CONSTRAINT IF NOT EXISTS commandes_devis_fk 
        FOREIGN KEY (devis_id) REFERENCES devis(id) ON DELETE SET NULL`,
-      
+
       `ALTER TABLE devis 
        ADD COLUMN IF NOT EXISTS entreprise_id INT NOT NULL DEFAULT 1`,
-      
+
       `ALTER TABLE commandes 
        ADD COLUMN IF NOT EXISTS entreprise_id INT NOT NULL DEFAULT 1`,
-      
+
       `ALTER TABLE achats 
        ADD COLUMN IF NOT EXISTS entreprise_id INT NOT NULL DEFAULT 1`,
-      
+
       `ALTER TABLE sequences 
        ADD COLUMN IF NOT EXISTS dernier_numero_facture INT NOT NULL DEFAULT 0`,
-      
-      // NOUVEAU: Ajout de la colonne dernier_numero_generique
+
       `ALTER TABLE sequences 
        ADD COLUMN IF NOT EXISTS dernier_numero_generique INT NOT NULL DEFAULT 0`,
-      
+
       `CREATE TABLE IF NOT EXISTS factures (
         id INT AUTO_INCREMENT PRIMARY KEY,
         numero_facture VARCHAR(50) NOT NULL,
@@ -772,7 +780,7 @@ async function migrerBaseExistante(dbName) {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY numero_facture_unique (numero_facture),
-        FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+        FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT,
         FOREIGN KEY (devis_id) REFERENCES devis(id) ON DELETE SET NULL,
         FOREIGN KEY (commande_id) REFERENCES commandes(id) ON DELETE SET NULL,
         INDEX idx_factures_entreprise (entreprise_id),
@@ -790,7 +798,6 @@ async function migrerBaseExistante(dbName) {
         INDEX idx_chatbot_messages_user (user_id, created_at)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-      // NOUVELLES TABLES POUR LA GESTION DOCUMENTAIRE (migration)
       `CREATE TABLE IF NOT EXISTS documents_metier (
         id INT AUTO_INCREMENT PRIMARY KEY,
         type_document VARCHAR(50) NOT NULL,
@@ -823,6 +830,15 @@ async function migrerBaseExistante(dbName) {
         company_id INT DEFAULT 1,
         INDEX idx_documents_historique_doc (type_document, document_id),
         INDEX idx_documents_historique_company_id (company_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+      `CREATE TABLE IF NOT EXISTS gemini_chatbot_messages (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        role ENUM('user','model') NOT NULL,
+        contenu MEDIUMTEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_gemini_chatbot_messages_user (user_id, created_at)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
     ];
 
@@ -833,7 +849,7 @@ async function migrerBaseExistante(dbName) {
         console.warn(`[MIGRATION] ${dbName}: ${err.message}`);
       }
     }
-    
+
     console.log(`[MIGRATION] Base ${dbName} migree avec succes`);
   } finally {
     await admin.end();

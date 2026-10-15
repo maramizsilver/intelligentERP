@@ -9,17 +9,17 @@ class BackupEncryptionService {
         this.key = this._getKey();
     }
 
-    _getKey() {
-        let key = process.env.BACKUP_ENCRYPTION_KEY;
-        
-        if (!key || key.length < 32) {
-            key = crypto.randomBytes(32).toString('hex');
-            console.warn('[BackupEncryption] Nouvelle cle generee: ' + key.substring(0, 20) + '...');
-            console.warn('[BackupEncryption] AJOUTER DANS .env: BACKUP_ENCRYPTION_KEY=' + key);
-        }
-        
-        return Buffer.from(key, 'hex');
-    }
+_getKey() {
+  const key = process.env.BACKUP_ENCRYPTION_KEY;
+  if (!key || !/^[0-9a-fA-F]{64}$/.test(key)) {
+    // On ne génère JAMAIS une clé à la volée : les anciens backups deviendraient illisibles
+    throw new Error(
+      'BACKUP_ENCRYPTION_KEY manquante ou invalide (64 caractères hexadécimaux). ' +
+      "Générer : node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+    );
+  }
+  return Buffer.from(key, 'hex');
+}
 
     encryptFile(inputPath, outputPath) {
         try {

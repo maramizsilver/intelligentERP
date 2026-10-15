@@ -13,6 +13,58 @@ const DB_HOST = process.env.DB_HOST || 'localhost';
 const DB_USER = process.env.DB_USER || 'root';
 const DB_PASSWORD = process.env.DB_PASSWORD || '';
 const DB_MASTER = process.env.DB_MASTER_NAME || 'erp_db';
+const { spawn } = require('child_process');
+
+const NOM_FICHIER_OK = /^[A-Za-z0-9._-]+$/;
+const DB_NOM_OK = /^[A-Za-z0-9_]+$/;
+
+// Empêche ../ dans les noms de fichiers (path traversal)
+function cheminSecurise(dossier, filename) {
+  const nom = path.basename(String(filename || ''));
+  if (!NOM_FICHIER_OK.test(nom) || nom.startsWith('.')) return null;
+  const base = path.resolve(dossier);
+  const complet = path.resolve(base, nom);
+  return complet.startsWith(base + path.sep) ? complet : null;
+}
+
+// Chemins SANS guillemets (spawn ne passe pas par un shell)
+function getMysqldumpPath() {
+  if (process.env.MYSQLDUMP_PATH) return process.env.MYSQLDUMP_PATH;
+  const candidats = [
+    'C:\\xampp\\mysql\\bin\\mysqldump.exe',
+    'C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysqldump.exe'
+  ];
+  return candidats.find((p) => fs.existsSync(p)) || 'mysqldump';
+}
+const MYSQL_BIN = process.env.MYSQL_BIN || 'mysql';
+
+// Le mot de passe passe par l'environnement : jamais dans la ligne de commande ni dans les logs
+const envMysql = () => ({ ...process.env, MYSQL_PWD: DB_PASSWORD });
+
+function dumpVersFichier(dbName, sortie) {
+  return new Promise((resolve, reject) => {
+    const out = fs.createWriteStream(sortie);
+    const p = spawn(getMysqldumpPath(),
+      ['-h', DB_HOST, '-u', DB_USER, '--single-transaction', '--routines', dbName],
+      { env: envMysql() });
+    let err = '';
+    p.stderr.on('data', (d) => { err += d; });
+    p.stdout.pipe(out);
+    p.on('error', reject);
+    p.on('close', (code) => (code === 0 ? resolve() : reject(new Error(err || `mysqldump a retourné ${code}`))));
+  });
+}
+
+function importerDepuisFichier(dbName, entree) {
+  return new Promise((resolve, reject) => {
+    const p = spawn(MYSQL_BIN, ['-h', DB_HOST, '-u', DB_USER, dbName], { env: envMysql() });
+    let err = '';
+    p.stderr.on('data', (d) => { err += d; });
+    p.on('error', reject);
+    p.on('close', (code) => (code === 0 ? resolve() : reject(new Error(err || `mysql a retourné ${code}`))));
+    fs.createReadStream(entree).pipe(p.stdin);
+  });
+}
 
 function getMysqldumpPath() {
     const xamppPath = 'C:\\xampp\\mysql\\bin\\mysqldump.exe';
@@ -52,66 +104,34 @@ async function getTenantDatabases() {
 }
 
 async function backupDatabase(dbName) {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupPath = path.join(BACKUP_DIR, dbName + '_' + timestamp + '.sql');
+  if (!DB_NOM_OK.test(dbName)) { console.error('BACKUP :Nom de base invalide ignoré:', dbName); return null; }
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  fs.mkdirSync(BACKUP_DIR, { recursive: true });
+  fs.mkdirSync(ENCRYPTED_BACKUP_DIR, { recursive: true });
 
-    if (!fs.existsSync(BACKUP_DIR)) {
-        fs.mkdirSync(BACKUP_DIR, { recursive: true });
-    }
+  const backupPath = path.join(BACKUP_DIR, `${dbName}_${timestamp}.sql`);
+  const encryptedPath = path.join(ENCRYPTED_BACKUP_DIR, `${dbName}_${timestamp}.enc`);
 
-    if (!fs.existsSync(ENCRYPTED_BACKUP_DIR)) {
-        fs.mkdirSync(ENCRYPTED_BACKUP_DIR, { recursive: true });
-    }
+  try {
+    await dumpVersFichier(dbName, backupPath);
+    const stats = fs.statSync(backupPath);
+    if (stats.size === 0) { console.error('[BACKUP] Fichier vide pour', dbName); return null; }
 
-    const mysqldump = getMysqldumpPath();
-    const passwordOption = DB_PASSWORD ? '-p' + DB_PASSWORD : '';
-    const command = mysqldump + ' -h ' + DB_HOST + ' -u ' + DB_USER + ' ' + passwordOption + ' ' + dbName + ' > ' + backupPath;
+    const checksum = backupEncryption.generateChecksum(backupPath);
+    const enc = backupEncryption.encryptFile(backupPath, encryptedPath);
+    const sig = enc.success ? backupEncryption.signBackup(encryptedPath) : { success: false };
 
-    console.log('[BACKUP] Commande:', command);
-
-    try {
-        const { stdout, stderr } = await execPromise(command);
-        
-        if (stderr && !stderr.includes('Warning')) {
-            console.error('[BACKUP] Erreur stderr:', stderr);
-            return null;
-        }
-
-        if (!fs.existsSync(backupPath)) {
-            console.error('[BACKUP] Fichier non cree pour ' + dbName);
-            return null;
-        }
-
-        const stats = fs.statSync(backupPath);
-        console.log('[BACKUP] Taille du fichier pour ' + dbName + ':', stats.size, 'octets');
-        
-        if (stats.size === 0) {
-            console.error('[BACKUP] Fichier vide pour ' + dbName);
-            return null;
-        }
-
-        const checksum = backupEncryption.generateChecksum(backupPath);
-        
-        const encryptedPath = path.join(ENCRYPTED_BACKUP_DIR, dbName + '_' + timestamp + '.enc');
-        const encryptedResult = backupEncryption.encryptFile(backupPath, encryptedPath);
-        
-        const signatureResult = backupEncryption.signBackup(backupPath);
-        
-        return {
-            dbName: dbName,
-            backupPath: backupPath,
-            encryptedPath: encryptedResult.success ? encryptedResult.outputPath : null,
-            size: stats.size,
-            encryptedSize: encryptedResult.success ? encryptedResult.size : null,
-            checksum: checksum,
-            signature: signatureResult.success ? signatureResult.signature : null,
-            timestamp: new Date().toISOString(),
-            encrypted: encryptedResult.success
-        };
-    } catch (err) {
-        console.error('[BACKUP] Erreur pour ' + dbName + ':', err.message);
-        return null;
-    }
+    return {
+      dbName, backupPath,
+      encryptedPath: enc.success ? enc.outputPath : null,
+      size: stats.size, encryptedSize: enc.success ? enc.size : null,
+      checksum, signature: sig.success ? sig.signature : null,
+      timestamp: new Date().toISOString(), encrypted: enc.success
+    };
+  } catch (err) {
+    console.error(`[BACKUP] Erreur pour ${dbName}:`, err.message);
+    return null;
+  }
 }
 
 async function backupAll() {
@@ -214,7 +234,7 @@ exports.getBackupHistory = async (req, res) => {
                 const encryptedPath = path.join(ENCRYPTED_BACKUP_DIR, f.replace('.sql', '.enc'));
                 const isEncrypted = fs.existsSync(encryptedPath);
                 const signaturePath = filePath + '.sig';
-                const isSigned = fs.existsSync(signaturePath);
+                const isSigned = fs.existsSync(encryptedPath + '.sig');
                 
                 return {
                     filename: f,
@@ -250,133 +270,71 @@ exports.cleanupBackups = async (req, res) => {
 };
 
 exports.downloadBackup = async (req, res) => {
-    try {
-        const { filename } = req.params;
-        const filePath = path.join(BACKUP_DIR, filename);
-        
-        if (!fs.existsSync(filePath)) {
-            return res.status(404).json({ message: 'Backup introuvable' });
-        }
-        
-        res.setHeader('Content-Type', 'application/sql');
-        res.setHeader('Content-Disposition', 'attachment; filename=' + filename);
-        res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
-        
-        const stream = fs.createReadStream(filePath);
-        stream.pipe(res);
-    } catch (err) {
-        console.error('Erreur downloadBackup:', err);
-        res.status(500).json({ message: 'Erreur lors du telechargement' });
-    }
+  const filePath = cheminSecurise(BACKUP_DIR, req.params.filename);
+  if (!filePath || !fs.existsSync(filePath)) return res.status(404).json({ message: 'Backup introuvable' });
+  res.setHeader('Content-Type', 'application/sql');
+  res.setHeader('Content-Disposition', 'attachment; filename=' + path.basename(filePath));
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+  fs.createReadStream(filePath).pipe(res);
 };
 
 exports.downloadEncryptedBackup = async (req, res) => {
-    try {
-        const { filename } = req.params;
-        const encryptedPath = path.join(ENCRYPTED_BACKUP_DIR, filename);
-        
-        if (!fs.existsSync(encryptedPath)) {
-            return res.status(404).json({ message: 'Backup chiffre introuvable' });
-        }
-        
-        const signaturePath = encryptedPath + '.sig';
-        const hasSignature = fs.existsSync(signaturePath);
-        
-        res.setHeader('Content-Type', 'application/octet-stream');
-        res.setHeader('Content-Disposition', 'attachment; filename=' + filename);
-        res.setHeader('X-Encrypted', 'true');
-        res.setHeader('X-Signed', hasSignature ? 'true' : 'false');
-        res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Encrypted, X-Signed');
-        
-        const stream = fs.createReadStream(encryptedPath);
-        stream.pipe(res);
-    } catch (err) {
-        console.error('Erreur downloadEncryptedBackup:', err);
-        res.status(500).json({ message: 'Erreur lors du telechargement' });
-    }
-};
-
-exports.restoreBackup = async (req, res) => {
-    try {
-        const { filename } = req.params;
-        const { targetDb } = req.body;
-        
-        if (!targetDb) {
-            return res.status(400).json({ message: 'targetDb est requis' });
-        }
-        
-        const encryptedPath = path.join(ENCRYPTED_BACKUP_DIR, filename);
-        
-        if (!fs.existsSync(encryptedPath)) {
-            return res.status(404).json({ message: 'Backup chiffre introuvable' });
-        }
-        
-        const tempSqlPath = path.join(BACKUP_DIR, 'temp_restore_' + Date.now() + '.sql');
-        
-        const decryptResult = backupEncryption.decryptFile(encryptedPath, tempSqlPath);
-        
-        if (!decryptResult.success) {
-            return res.status(500).json({ message: 'Erreur de dechiffrement: ' + decryptResult.error });
-        }
-        
-        const signaturePath = encryptedPath + '.sig';
-        if (fs.existsSync(signaturePath)) {
-            const verifyResult = backupEncryption.verifySignature(tempSqlPath, signaturePath);
-            if (verifyResult.success && !verifyResult.isValid) {
-                fs.unlinkSync(tempSqlPath);
-                return res.status(400).json({ message: 'Signature invalide, restauration annulee' });
-            }
-        }
-        
-        const mysqldump = getMysqldumpPath();
-        const passwordOption = DB_PASSWORD ? '-p' + DB_PASSWORD : '';
-        const command = mysqldump + ' -h ' + DB_HOST + ' -u ' + DB_USER + ' ' + passwordOption + ' ' + targetDb + ' < ' + tempSqlPath;
-        
-        try {
-            await execPromise(command);
-            fs.unlinkSync(tempSqlPath);
-            res.json({ message: 'Restauration terminee avec succes', targetDb: targetDb });
-        } catch (err) {
-            fs.unlinkSync(tempSqlPath);
-            res.status(500).json({ message: 'Erreur lors de la restauration: ' + err.message });
-        }
-    } catch (err) {
-        console.error('Erreur restoreBackup:', err);
-        res.status(500).json({ message: 'Erreur lors de la restauration' });
-    }
+  const encryptedPath = cheminSecurise(ENCRYPTED_BACKUP_DIR, req.params.filename);
+  if (!encryptedPath || !fs.existsSync(encryptedPath)) return res.status(404).json({ message: 'Backup chiffré introuvable' });
+  res.setHeader('Content-Type', 'application/octet-stream');
+  res.setHeader('Content-Disposition', 'attachment; filename=' + path.basename(encryptedPath));
+  res.setHeader('X-Encrypted', 'true');
+  res.setHeader('X-Signed', fs.existsSync(encryptedPath + '.sig') ? 'true' : 'false');
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Encrypted, X-Signed');
+  fs.createReadStream(encryptedPath).pipe(res);
 };
 
 exports.deleteBackup = async (req, res) => {
-    try {
-        const { filename } = req.params;
-        
-        const sqlPath = path.join(BACKUP_DIR, filename);
-        const encryptedPath = path.join(ENCRYPTED_BACKUP_DIR, filename.replace('.sql', '.enc'));
-        const signaturePath = sqlPath + '.sig';
-        
-        let deleted = 0;
-        
-        if (fs.existsSync(sqlPath)) {
-            fs.unlinkSync(sqlPath);
-            deleted++;
-        }
-        
-        if (fs.existsSync(encryptedPath)) {
-            fs.unlinkSync(encryptedPath);
-            deleted++;
-        }
-        
-        if (fs.existsSync(signaturePath)) {
-            fs.unlinkSync(signaturePath);
-            deleted++;
-        }
-        
-        res.json({ 
-            message: deleted + ' fichier(s) supprime(s)',
-            deleted: deleted
-        });
-    } catch (err) {
-        console.error('Erreur deleteBackup:', err);
-        res.status(500).json({ message: 'Erreur lors de la suppression' });
+  try {
+    const sqlPath = cheminSecurise(BACKUP_DIR, req.params.filename);
+    if (!sqlPath) return res.status(400).json({ message: 'Nom de fichier invalide' });
+    const encryptedPath = cheminSecurise(ENCRYPTED_BACKUP_DIR, req.params.filename.replace('.sql', '.enc'));
+    const aSupprimer = [sqlPath, encryptedPath, encryptedPath && encryptedPath + '.sig'].filter(Boolean);
+    let deleted = 0;
+    for (const f of aSupprimer) if (fs.existsSync(f)) { fs.unlinkSync(f); deleted++; }
+    res.json({ message: deleted + ' fichier(s) supprimé(s)', deleted });
+  } catch (err) {
+    console.error('Erreur deleteBackup:', err);
+    res.status(500).json({ message: 'Erreur lors de la suppression' });
+  }
+};
+
+exports.restoreBackup = async (req, res) => {
+  let tempSqlPath = null;
+  try {
+    const { targetDb, confirmation } = req.body;
+    if (!targetDb || !DB_NOM_OK.test(targetDb)) return res.status(400).json({ message: 'targetDb invalide' });
+    if (confirmation !== targetDb) {
+      return res.status(400).json({ message: 'Confirmation requise : renvoyez le nom exact de la base dans "confirmation"' });
     }
+    const autorisees = [...(await getTenantDatabases()), DB_MASTER];
+    if (!autorisees.includes(targetDb)) return res.status(400).json({ message: 'Base cible inconnue' });
+
+    const encryptedPath = cheminSecurise(ENCRYPTED_BACKUP_DIR, req.params.filename);
+    if (!encryptedPath || !fs.existsSync(encryptedPath)) return res.status(404).json({ message: 'Backup chiffré introuvable' });
+
+    // Vérifier la signature AVANT de déchiffrer/restaurer
+    const sigPath = encryptedPath + '.sig';
+    if (fs.existsSync(sigPath)) {
+      const v = backupEncryption.verifySignature(encryptedPath, sigPath);
+      if (v.success && !v.isValid) return res.status(400).json({ message: 'Signature invalide, restauration annulée' });
+    }
+
+    tempSqlPath = path.join(BACKUP_DIR, 'temp_restore_' + Date.now() + '.sql');
+    const dec = backupEncryption.decryptFile(encryptedPath, tempSqlPath);
+    if (!dec.success) return res.status(500).json({ message: 'Erreur de déchiffrement' });
+
+    await importerDepuisFichier(targetDb, tempSqlPath);
+    res.json({ message: 'Restauration terminée avec succès', targetDb });
+  } catch (err) {
+    console.error('Erreur restoreBackup:', err.message);
+    res.status(500).json({ message: 'Erreur lors de la restauration' });
+  } finally {
+    if (tempSqlPath && fs.existsSync(tempSqlPath)) fs.unlinkSync(tempSqlPath);
+  }
 };
