@@ -40,5 +40,18 @@ async function reparerPermissionsManquantes(clientPool) {
 
     return { lignesAjoutees, totalRoles: roles.length, totalModules: modules.length };
 }
+function q(db, sql, p) { return new Promise((res, rej) => db.query(sql, p, (e, r) => (e ? rej(e) : res(r)))); }
+
+async function chargerPermissionsConsultation(db, roleId) {
+  if (!roleId) return { admin: false, modules: new Set() };
+  const roles = await q(db, 'SELECT est_admin_entreprise FROM roles WHERE id = ?', [roleId]);
+  if (roles.length && roles[0].est_admin_entreprise) return { admin: true, modules: new Set() };
+  const rows = await q(db,
+    `SELECT m.nom FROM permissions p JOIN modules m ON p.module_id = m.id
+     WHERE p.role_id = ? AND p.consultation = 1`, [roleId]);
+  return { admin: false, modules: new Set(rows.map((r) => r.nom)) };
+}
+
+module.exports = { reparerPermissionsManquantes, chargerPermissionsConsultation };
 
 module.exports = { reparerPermissionsManquantes };
