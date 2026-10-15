@@ -128,7 +128,7 @@ exports.updateProduit = (req, res) => {
     });
   });
 };
-
+const { repondreErreurDb } = require('../utils/dbErrors');
 exports.deleteProduit = (req, res) => {
   const db = req.db;
   
@@ -140,8 +140,7 @@ exports.deleteProduit = (req, res) => {
     
     db.query('DELETE FROM produits WHERE id = ?', [req.params.id], (err, result) => {
       if (err) { 
-        console.error(err); 
-        return res.status(500).json({ message: 'Erreur serveur' }); 
+        if (err) return repondreErreurDb(res, err);
       }
       if (result.affectedRows === 0) return res.status(404).json({ message: 'Produit introuvable' });
       

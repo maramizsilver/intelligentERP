@@ -154,12 +154,9 @@ exports.deleteFournisseur = (req, res) => {
             console.error(errSelect);
             return res.status(500).json({ message: 'Erreur serveur' });
         }
-
+     const { repondreErreurDb } = require('../utils/dbErrors');
         db.query('DELETE FROM fournisseurs WHERE id = ?', [req.params.id], (err, result) => {
-            if (err) {
-                console.error(err);
-                return res.status(500).json({ message: 'Erreur serveur' });
-            }
+            if (err) return repondreErreurDb(res, err);
             if (result.affectedRows === 0) {
                 return res.status(404).json({ message: 'Fournisseur introuvable' });
             }
