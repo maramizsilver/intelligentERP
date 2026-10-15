@@ -139,12 +139,7 @@ router.post('/mfa/verify-login',
   verifyMFALogin
 );
 
-router.post('/mfa/verify-backup',
-  authMiddleware,
-  tenantMiddleware,
-  mfaLimiter,
-  verifyBackupCode
-);
+
 
 router.post('/mfa/regenerate-backup',
   authMiddleware,

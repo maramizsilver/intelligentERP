@@ -9,16 +9,10 @@ module.exports = (req, res, next) => {
 
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    
-    // Récupérer la langue préférée
-    const acceptLanguage = req.headers['accept-language'] || 'fr';
-    const supportedLanguages = ['fr', 'en', 'ar'];
-    const preferredLanguage = acceptLanguage.split(',')[0].split('-')[0];
-    req.language = supportedLanguages.includes(preferredLanguage) ? preferredLanguage : 'fr';
-    
-    next();
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+// Un token "MFA en attente" ne doit JAMAIS ouvrir une route protégée
+if (decoded.mfa_pending) return res.status(401).json({ message: 'Authentification MFA incomplète' });
+req.user = decoded;
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
       return res.status(401).json({ message: 'Session expirée, veuillez vous reconnecter' });
@@ -39,7 +33,10 @@ const verifyTokenWithCompany = async (req, res, next) => {
 
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+    if (decoded.mfa_pending) {
+      return res.status(401).json({ message: 'Authentification MFA incomplète' });
+    }
     
     // Vérifier que l'utilisateur existe et a un company_id
     const [users] = await promisePoolMaster.query(

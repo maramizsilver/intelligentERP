@@ -14,9 +14,24 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // MFA (2e facteur)
+  const [mfa, setMfa] = useState(null);           // { tempToken } quand le 2e facteur est requis
+  const [mfaCode, setMfaCode] = useState('');
+  const [useBackup, setUseBackup] = useState(false);
+
   const { login } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
+
+  const terminerConnexion = (user, token) => {
+    login(user, token);
+    let redirectPath = '/dashboard';
+    if (user.is_super_admin) redirectPath = '/superadmin/dashboard';
+    else if (user.is_external) redirectPath = '/client/dashboard';
+    else if (user.essai_expire) redirectPath = '/essai-expire';
+    navigate(redirectPath);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,14 +46,14 @@ export default function Login() {
         password,
         device_info: deviceInfo
       });
-      const { user, token } = res.data;
-      login(user, token);
 
-      let redirectPath = '/dashboard';
-      if (user.is_super_admin) redirectPath = '/superadmin/dashboard';
-      else if (user.is_external) redirectPath = '/client/dashboard';
-      else if (user.essai_expire) redirectPath = '/essai-expire';
-      navigate(redirectPath);
+      // Cas MFA : on n'a PAS encore de token final, juste un temp_token
+      if (res.data.mfa_required) {
+        setMfa({ tempToken: res.data.temp_token });
+        return;
+      }
+
+      terminerConnexion(res.data.user, res.data.token);
     } catch (err) {
       if (err.response?.status === 423 || err.response?.data?.code === 'ACCOUNT_LOCKED') {
         setError(err.response?.data?.message || t('compte_verrouille') || 'Compte verrouillé pour raisons de sécurité.');
@@ -50,12 +65,29 @@ export default function Login() {
     }
   };
 
+  const handleMfaSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const payload = { tempToken: mfa.tempToken, device_info: collectDeviceInfo() };
+      if (useBackup) payload.backupCode = mfaCode.trim();
+      else payload.token = mfaCode.trim();
+
+      const res = await API.post('/auth/mfa/verify-login', payload);
+      terminerConnexion(res.data.user, res.data.token);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Code invalide');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div style={styles.page}>
       <div style={styles.card}>
-        {/* ============================================================
-            PANNEAU GAUCHE - Sombre, branding
-            ============================================================ */}
+        {/* PANNEAU GAUCHE */}
         <div style={styles.leftPanel}>
           <div style={styles.leftDecoCircle1} />
           <div style={styles.leftDecoCircle2} />
@@ -72,7 +104,6 @@ export default function Login() {
               {t('login_sous_titre') || 'Accédez à votre espace de travail sécurisé'}
             </p>
 
-            {/* Mini dashboard décoratif */}
             <div style={styles.statCard}>
               <div style={styles.statCardHeader}>
                 <span style={styles.statCardBadge}>
@@ -122,9 +153,7 @@ export default function Login() {
           </div>
         </div>
 
-        {/* ============================================================
-            PANNEAU DROIT - Formulaire clair
-            ============================================================ */}
+        {/* PANNEAU DROIT */}
         <div style={styles.rightPanel}>
           <div style={styles.topBar}>
             <LanguageSwitcher />
@@ -132,9 +161,15 @@ export default function Login() {
 
           <div style={styles.rightScroll}>
             <div style={styles.header}>
-              <h1 style={styles.title}>{t('connexion') || 'Connexion'}</h1>
+              <h1 style={styles.title}>
+                {mfa
+                  ? (t('verification_mfa') || 'Vérification en 2 étapes')
+                  : (t('connexion') || 'Connexion')}
+              </h1>
               <p style={styles.subtitle}>
-                {t('accedez_espace_securise') || 'Accédez à votre espace de travail sécurisé'}
+                {mfa
+                  ? (t('entrez_code_mfa') || 'Entrez le code généré par votre application')
+                  : (t('accedez_espace_securise') || 'Accédez à votre espace de travail sécurisé')}
               </p>
             </div>
 
@@ -144,89 +179,175 @@ export default function Login() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} style={styles.form}>
-              <div style={styles.section}>
-                <label style={styles.sectionLabel}>{t('email_professionnel') || 'Identifiant'}</label>
-                <input
-                  style={styles.input}
-                  type="email"
-                  placeholder="exemple@entreprise.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
-                  required
-                  onFocus={(e) => (e.target.style.borderColor = '#0EA5E9')}
-                  onBlur={(e) => (e.target.style.borderColor = '#E2E8F0')}
-                />
-              </div>
-
-              <div style={styles.section}>
-                <label style={styles.sectionLabel}>{t('mot_de_passe') || 'Mot de passe'}</label>
-                <input
-                  style={styles.input}
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                  required
-                  onFocus={(e) => (e.target.style.borderColor = '#0EA5E9')}
-                  onBlur={(e) => (e.target.style.borderColor = '#E2E8F0')}
-                />
-              </div>
-
-              <div style={styles.optionsRow}>
-                <label style={styles.checkboxLabel}>
+            {mfa ? (
+              /* ============================================================
+                 FORMULAIRE MFA (2e étape)
+                 ============================================================ */
+              <form onSubmit={handleMfaSubmit} style={styles.form}>
+                <div style={styles.section}>
+                  <label style={styles.sectionLabel}>
+                    {useBackup
+                      ? (t('code_secours') || 'Code de secours')
+                      : (t('code_6_chiffres') || "Code à 6 chiffres (application d'authentification)")}
+                  </label>
                   <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    style={styles.checkbox}
+                    style={styles.input}
+                    type="text"
+                    inputMode={useBackup ? 'text' : 'numeric'}
+                    autoComplete="one-time-code"
+                    maxLength={useBackup ? 9 : 6}
+                    value={mfaCode}
+                    onChange={(e) =>
+                      setMfaCode(useBackup ? e.target.value : e.target.value.replace(/\D/g, ''))
+                    }
+                    disabled={loading}
+                    required
+                    autoFocus
+                    onFocus={(e) => (e.target.style.borderColor = '#0EA5E9')}
+                    onBlur={(e) => (e.target.style.borderColor = '#E2E8F0')}
                   />
-                  {t('se_souvenir_de_moi') || 'Se souvenir de moi'}
-                </label>
-                <span style={styles.link} onClick={() => navigate('/request-reset')}>
-                  {t('mot_de_passe_oublie') || 'Mot de passe oublié ?'}
-                </span>
-              </div>
+                </div>
 
-              <div style={styles.inviteBox}>
-                <span style={styles.inviteIcon}>🚀</span>
-                <div style={styles.inviteTextBlock}>
-                  <strong style={styles.inviteTitle}>{t('creer_un_espace_erp') || 'Créer un espace ERP'}</strong>
-                  <span style={styles.inviteDesc}>
-                    {t('inscription_entreprise_desc') || "Inscription entreprise ou individu — Essai gratuit 30 connexions ou abonnement"}
+                <button
+                  style={loading ? styles.buttonLoading : styles.button}
+                  type="submit"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <span style={styles.buttonContent}>
+                      <span style={styles.spinner} />
+                      {t('verification_en_cours') || 'Vérification…'}
+                    </span>
+                  ) : (
+                    <span style={styles.buttonContent}>
+                      {t('valider') || 'Valider'}
+                      <span>→</span>
+                    </span>
+                  )}
+                </button>
+
+                <span
+                  style={styles.link}
+                  onClick={() => {
+                    setUseBackup(!useBackup);
+                    setMfaCode('');
+                    setError('');
+                  }}
+                >
+                  {useBackup
+                    ? (t('utiliser_code_app') || "Utiliser le code de l'application")
+                    : (t('utiliser_code_secours') || 'Utiliser un code de secours')}
+                </span>
+
+                <span
+                  style={styles.link}
+                  onClick={() => {
+                    setMfa(null);
+                    setMfaCode('');
+                    setError('');
+                    setUseBackup(false);
+                  }}
+                >
+                  ← {t('retour') || 'Retour'}
+                </span>
+              </form>
+            ) : (
+              /* ============================================================
+                 FORMULAIRE LOGIN (1ère étape — INCHANGÉ)
+                 ============================================================ */
+              <form onSubmit={handleSubmit} style={styles.form}>
+                <div style={styles.section}>
+                  <label style={styles.sectionLabel}>
+                    {t('email_professionnel') || 'Identifiant'}
+                  </label>
+                  <input
+                    style={styles.input}
+                    type="email"
+                    placeholder="exemple@entreprise.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
+                    required
+                    onFocus={(e) => (e.target.style.borderColor = '#0EA5E9')}
+                    onBlur={(e) => (e.target.style.borderColor = '#E2E8F0')}
+                  />
+                </div>
+
+                <div style={styles.section}>
+                  <label style={styles.sectionLabel}>
+                    {t('mot_de_passe') || 'Mot de passe'}
+                  </label>
+                  <input
+                    style={styles.input}
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                    required
+                    onFocus={(e) => (e.target.style.borderColor = '#0EA5E9')}
+                    onBlur={(e) => (e.target.style.borderColor = '#E2E8F0')}
+                  />
+                </div>
+
+                <div style={styles.optionsRow}>
+                  <label style={styles.checkboxLabel}>
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      style={styles.checkbox}
+                    />
+                    {t('se_souvenir_de_moi') || 'Se souvenir de moi'}
+                  </label>
+                  <span style={styles.link} onClick={() => navigate('/request-reset')}>
+                    {t('mot_de_passe_oublie') || 'Mot de passe oublié ?'}
                   </span>
                 </div>
+
+                <div style={styles.inviteBox}>
+                  <span style={styles.inviteIcon}>🚀</span>
+                  <div style={styles.inviteTextBlock}>
+                    <strong style={styles.inviteTitle}>
+                      {t('creer_un_espace_erp') || 'Créer un espace ERP'}
+                    </strong>
+                    <span style={styles.inviteDesc}>
+                      {t('inscription_entreprise_desc') ||
+                        'Inscription entreprise ou individu — Essai gratuit 30 connexions ou abonnement'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    style={styles.inviteButton}
+                    onClick={() => navigate('/register')}
+                  >
+                    {t('sinscrire') || "S'inscrire"}
+                  </button>
+                </div>
+
                 <button
-                  type="button"
-                  style={styles.inviteButton}
-                  onClick={() => navigate('/register')}
+                  style={loading ? styles.buttonLoading : styles.button}
+                  type="submit"
+                  disabled={loading}
                 >
-                  {t('sinscrire') || "S'inscrire"}
+                  {loading ? (
+                    <span style={styles.buttonContent}>
+                      <span style={styles.spinner} />
+                      {t('connexion_en_cours') || 'Connexion en cours...'}
+                    </span>
+                  ) : (
+                    <span style={styles.buttonContent}>
+                      {t('se_connecter') || 'Se connecter'}
+                      <span>→</span>
+                    </span>
+                  )}
                 </button>
-              </div>
+              </form>
+            )}
 
-              <button
-                style={loading ? styles.buttonLoading : styles.button}
-                type="submit"
-                disabled={loading}
-              >
-                {loading ? (
-                  <span style={styles.buttonContent}>
-                    <span style={styles.spinner} />
-                    {t('connexion_en_cours') || 'Connexion en cours...'}
-                  </span>
-                ) : (
-                  <span style={styles.buttonContent}>
-                    {t('se_connecter') || 'Se connecter'}
-                    <span>→</span>
-                  </span>
-                )}
-              </button>
-            </form>
-
-            <p style={styles.footer}>© 2026 ERP - {t('tous_droits_reserves') || 'Tous droits réservés'}</p>
+            <p style={styles.footer}>
+              © 2026 ERP - {t('tous_droits_reserves') || 'Tous droits réservés'}
+            </p>
           </div>
         </div>
       </div>

@@ -227,136 +227,132 @@ exports.deactivateMFA = async (req, res) => {
   }
 };
 
-// 4. VERIFICATION LORS DU LOGIN (2eme facteur) - AVEC ENREGISTREMENT DE SESSION
 exports.verifyMFALogin = async (req, res) => {
   try {
-    const { token, userId, tempToken } = req.body;
-
-    if (!token) {
-      return res.status(400).json({
-        success: false,
-        message: 'Le code de verification est requis'
-      });
+    const { token, backupCode, tempToken } = req.body;
+    if (!token && !backupCode) {
+      return res.status(400).json({ success: false, message: 'Le code de vérification est requis' });
     }
 
     let decoded;
     try {
-      decoded = jwt.verify(tempToken, process.env.JWT_SECRET);
-      if (!decoded.mfa_pending || decoded.id !== userId) {
-        return res.status(401).json({
-          success: false,
-          message: 'Session MFA invalide'
-        });
-      }
-    } catch (error) {
-      return res.status(401).json({
-        success: false,
-        message: 'Session MFA expiree, veuillez vous reconnecter'
-      });
+      decoded = jwt.verify(tempToken, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+      if (!decoded.mfa_pending) throw new Error('not pending');
+    } catch {
+      return res.status(401).json({ success: false, message: 'Session MFA expirée, veuillez vous reconnecter' });
     }
+    const userId = decoded.id;
 
     const [rows] = await masterPool.query(
-      'SELECT id, mfa_secret, mfa_enabled, mfa_attempts, mfa_locked_until FROM users WHERE id = ?',
-      [userId]
-    );
-
+      `SELECT u.*, e.nom AS entreprise_nom, e.statut AS entreprise_statut, e.plan_type,
+              e.connexions_utilisees, e.limite_connexions_essai, e.db_name
+       FROM users u LEFT JOIN entreprises e ON u.entreprise_id = e.id WHERE u.id = ?`, [userId]);
     if (!rows.length || !rows[0].mfa_enabled) {
-      return res.status(400).json({
-        success: false,
-        message: 'MFA non active pour ce compte'
-      });
+      return res.status(400).json({ success: false, message: 'MFA non active pour ce compte' });
     }
-
     const user = rows[0];
+
     const lockStatus = MFAService.isMFALocked(user);
-    
     if (lockStatus.locked) {
-      return res.status(403).json({
-        success: false,
-        message: `Compte verrouille. Reessayez dans ${lockStatus.remainingMinutes} minute(s).`,
-        locked_until: user.mfa_locked_until
-      });
+      return res.status(403).json({ success: false, message: `Compte verrouillé. Réessayez dans ${lockStatus.remainingMinutes} minute(s).` });
     }
 
-    const secret = user.mfa_secret;
-    let attempts = user.mfa_attempts || 0;
-    const isValid = MFAService.verifyToken(secret, token, mfaConfig.totp.window);
+    // --- Vérification du code (TOTP ou code de secours) ---
+    let valide = false;
+    let nouveauxCodes = null;
+    if (token) {
+      valide = MFAService.verifyToken(user.mfa_secret, token, mfaConfig.totp.window);
+    } else {
+      const brut = user.mfa_backup_codes;
+      const codes = typeof brut === 'string' ? JSON.parse(brut) : (brut || []);
+      const r = MFAService.verifyAndConsumeBackupCode(backupCode, codes);
+      valide = r.valid;
+      if (valide) nouveauxCodes = JSON.stringify(r.newList);
+    }
 
-    if (!isValid) {
-      attempts += 1;
-      const maxAttempts = mfaConfig.security.maxAttempts;
-      const lockDuration = mfaConfig.security.lockDuration;
-
-      let lockedUntil = null;
-      if (attempts >= maxAttempts) {
-        lockedUntil = new Date(Date.now() + lockDuration * 60 * 1000);
-        await masterPool.query(
-          'UPDATE users SET mfa_attempts = ?, mfa_locked_until = ? WHERE id = ?',
-          [attempts, lockedUntil, userId]
-        );
-      } else {
-        await masterPool.query(
-          'UPDATE users SET mfa_attempts = ? WHERE id = ?',
-          [attempts, userId]
-        );
-      }
-
+    if (!valide) {
+      const attempts = (user.mfa_attempts || 0) + 1;
+      const max = mfaConfig.security.maxAttempts;
+      const lockedUntil = attempts >= max ? new Date(Date.now() + mfaConfig.security.lockDuration * 60000) : null;
+      await masterPool.query('UPDATE users SET mfa_attempts = ?, mfa_locked_until = ? WHERE id = ?',
+        [attempts, lockedUntil, userId]);
       return res.status(401).json({
-        success: false,
-        message: 'Code de verification invalide',
-        attempts_remaining: maxAttempts - attempts,
-        locked: lockedUntil !== null,
-        locked_until: lockedUntil
+        success: false, message: 'Code de vérification invalide',
+        attempts_remaining: Math.max(0, max - attempts), locked: !!lockedUntil, locked_until: lockedUntil
       });
     }
 
-    await masterPool.query(
-      'UPDATE users SET mfa_attempts = 0, mfa_locked_until = NULL WHERE id = ?',
-      [userId]
-    );
+    await masterPool.query('UPDATE users SET mfa_attempts = 0, mfa_locked_until = NULL, last_login = NOW() WHERE id = ?', [userId]);
+    const clientPool = db.getClientPool(user.entreprise_id, user.db_name);
+    if (nouveauxCodes) {
+      await masterPool.query('UPDATE users SET mfa_backup_codes = ? WHERE id = ?', [nouveauxCodes, userId]);
+      await clientPool.promise().query('UPDATE users SET mfa_backup_codes = ? WHERE id = ?', [nouveauxCodes, userId]);
+    }
 
-    await masterPool.query(
-      'UPDATE users SET last_login = NOW() WHERE id = ?',
-      [userId]
-    );
+    // --- Mêmes contrôles que login : statut entreprise + essai gratuit ---
+    if (user.entreprise_statut !== 'actif') {
+      return res.status(403).json({
+        message: user.entreprise_statut === 'en_attente' ? 'Votre entreprise est en attente de validation' : 'Votre entreprise est suspendue'
+      });
+    }
+    let essaiExpire = false, connexionsRestantes = null;
+    if (user.plan_type === 'essai') {
+      if (user.connexions_utilisees >= user.limite_connexions_essai) {
+        essaiExpire = true; connexionsRestantes = 0;
+      } else {
+        const n = user.connexions_utilisees + 1;
+        await masterPool.query('UPDATE entreprises SET connexions_utilisees = ? WHERE id = ?', [n, user.entreprise_id]);
+        connexionsRestantes = user.limite_connexions_essai - n;
+        essaiExpire = connexionsRestantes <= 0;
+      }
+    }
 
-    const finalToken = jwt.sign(
-      {
-        id: userId,
-        entreprise_id: decoded.entreprise_id,
-        db_name: decoded.db_name,
-        mfa_verified: true
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    let roleNom = 'Utilisateur';
+    if (user.role_id) {
+      const [r] = await clientPool.promise().query('SELECT nom FROM roles WHERE id = ?', [user.role_id]);
+      if (r.length) roleNom = r[0].nom;
+    }
 
-    // ENREGISTREMENT DE LA SESSION (CORRECTION DU BUG)
+    const finalToken = jwt.sign({
+      id: user.id,
+      entreprise_id: user.entreprise_id,
+      role_id: user.role_id,
+      is_super_admin: false,
+      is_entreprise_admin: user.is_entreprise_admin || false,
+      is_external: user.is_external || false,
+      client_id: user.client_id || null,
+      essai_expire: essaiExpire,
+      db_name: user.db_name,
+      mfa_verified: true
+    }, process.env.JWT_SECRET, { expiresIn: '24h' });
+
     try {
-      await SessionService.recordConnection(null, { id: userId }, finalToken, req);
+      await SessionService.recordConnection(
+        clientPool,
+        { id: user.id, email: user.email, nom: user.nom, prenom: user.prenom, entreprise_nom: user.entreprise_nom },
+        finalToken, req, req.body.device_info || {});
     } catch (err) {
       if (err.message === 'DEVICE_BLOCKED') {
-        return res.status(403).json({
-          success: false,
-          message: 'Appareil bloque. Contactez votre administrateur.',
-          code: 'DEVICE_BLOCKED'
-        });
+        return res.status(403).json({ success: false, message: 'Appareil bloqué. Contactez votre administrateur.', code: 'DEVICE_BLOCKED' });
       }
-      console.error('[MFA] Erreur enregistrement session:', err);
+      console.error('[MFA] Erreur enregistrement session:', err.message);
     }
 
     res.status(200).json({
       success: true,
-      message: 'Verification MFA reussie',
-      token: finalToken
+      message: 'Vérification MFA réussie',
+      token: finalToken,
+      user: {
+        id: user.id, nom: user.nom || '', prenom: user.prenom || '', email: user.email,
+        role: roleNom, entreprise: user.entreprise_nom || null,
+        is_super_admin: false, is_entreprise_admin: user.is_entreprise_admin || false,
+        is_external: user.is_external || false, plan_type: user.plan_type || null,
+        essai_expire: essaiExpire, connexions_restantes: connexionsRestantes, mfa_enabled: true
+      }
     });
-
   } catch (error) {
     console.error('[MFA] Erreur verification login:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors de la verification MFA'
-    });
+    res.status(500).json({ success: false, message: 'Erreur lors de la vérification MFA' });
   }
 };
 
