@@ -21,7 +21,7 @@ exports.testNotification = async (req, res) => {
 
 // SEND LOGIN ALERT
 exports.sendLoginAlert = async (req, res) => {
-  const { userId } = req.body;
+  const userId = req.user.id;
 
   try {
     const [users] = await db.promisePoolMaster.query(

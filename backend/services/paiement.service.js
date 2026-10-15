@@ -89,7 +89,7 @@ class PaiementService {
     }
   }
 
-  async createAbonnement({ email, entrepriseNom, amount = 100 }) {
+  async createAbonnement({ email, entrepriseNom, entrepriseId, amount = 100 }) {
     try {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       
@@ -112,6 +112,7 @@ class PaiementService {
         cancel_url: `${frontendUrl}/paiement/abonnement-cancel`,
         metadata: {
           entreprise_nom: entrepriseNom,
+          entreprise_id: String(entrepriseId),
           type: 'abonnement',
         },
         customer_email: email,

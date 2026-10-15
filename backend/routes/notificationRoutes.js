@@ -3,26 +3,19 @@ const router = express.Router();
 const notificationController = require('../controllers/notificationController');
 const authMiddleware = require('../middleware/authMiddleware');
 const tenantMiddleware = require('../middleware/tenant.middleware');
+const { staffEntrepriseSeulement, adminEntrepriseSeulement } = require('../middleware/accessGuards.middleware');
+const { apiLimiter } = require('../middleware/rateLimit.middleware');
 
-// ============================================================
-// MIDDLEWARES
-// ============================================================
 router.use(authMiddleware);
+router.use(staffEntrepriseSeulement);
 router.use(tenantMiddleware);
 
-// ROUTES
+// Outils de test : admin uniquement + limités (sinon relais de spam/phishing depuis votre domaine)
+router.post('/test', adminEntrepriseSeulement, apiLimiter, notificationController.testNotification);
+router.post('/login-alert', adminEntrepriseSeulement, apiLimiter, notificationController.sendLoginAlert);
+router.post('/test-canal', adminEntrepriseSeulement, apiLimiter, notificationController.testCanal);
 
-// Test notification
-router.post('/test', notificationController.testNotification);
-
-// Alerte de connexion
-router.post('/login-alert', notificationController.sendLoginAlert);
-
-// Preferences utilisateur
 router.get('/preferences', notificationController.getPreferences);
 router.put('/preferences', notificationController.updatePreferences);
-
-// Test par canal (Email / WhatsApp)
-router.post('/test-canal', notificationController.testCanal);
 
 module.exports = router;
