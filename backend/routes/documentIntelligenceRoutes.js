@@ -44,34 +44,36 @@ const uploadOcr = multer({
     }
 });
 
+const { staffEntrepriseSeulement } = require('../middleware/accessGuards.middleware');
+
+// Module RBAC requis selon le type demandé
+const MODULE_AUTOFILL = {
+  client: 'Ventes', fournisseur: 'Achats', produit: 'Stock',
+  devis: 'Ventes', commande: 'Ventes', facture: 'Ventes', entreprise: 'Documents'
+};
+const MODULE_RESOUDRE = { devis: 'Ventes', commande: 'Ventes', facture: 'Ventes' };
+
+const permissionParParam = (table, param) => (req, res, next) => {
+  const module = table[req.params[param]];
+  if (!module) return res.status(400).json({ message: 'Type non supporté' });
+  return checkPermission(module, 'consultation')(req, res, next);
+};
+
 router.use(authMiddleware);
+router.use(staffEntrepriseSeulement);   // ni client externe, ni SuperAdmin
 router.use(checkEssaiActif);
 router.use(tenantMiddleware);
 
-// --- Génération / remplissage Word ---
 router.get('/modeles', checkPermission('Documents', 'consultation'), listerModeles);
 router.get('/modeles/:type/:nom/tags', checkPermission('Documents', 'consultation'), tagsDuModele);
 router.post('/generer', checkPermission('Documents', 'creation'), genererDocument);
-
-// --- Numérisation intelligente (OCR) ---
 router.post('/ocr', checkPermission('Documents', 'creation'), uploadOcr.single('fichier'), numeriser);
 
-// --- Saisie intelligente (auto-remplissage) ---
-router.get('/autofill/:typeEntite/:identifiant', autoRemplirChamp);
-
-// --- Recherche globale ---
-router.get('/recherche', rechercheGlobaleHandler);
-
-// --- Dictionnaire intelligent ---
+router.get('/autofill/:typeEntite/:identifiant', permissionParParam(MODULE_AUTOFILL, 'typeEntite'), autoRemplirChamp);
+router.get('/resoudre/:type/:id', permissionParParam(MODULE_RESOUDRE, 'type'), resoudreDocument);
+router.get('/recherche', rechercheGlobaleHandler);        // permissions par module dans le handler
 router.post('/orthographe', verifierOrthographe);
-
-// --- Calendrier intelligent ---
 router.post('/valider-date', validerDateHandler);
-
-// --- Montants en toutes lettres ---
 router.post('/montant-en-lettres', montantEnLettresHandler);
-
-// --- Résolution de document complet (relations) ---
-router.get('/resoudre/:type/:id', resoudreDocument);
 
 module.exports = router;

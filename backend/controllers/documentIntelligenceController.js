@@ -13,7 +13,7 @@
 
 const path = require('path');
 const fs = require('fs');
-
+const { chargerPermissionsConsultation } = require('../services/permissions.service');
 const { remplirModeleDocx, extraireTagsModele, listerModelesDisponibles } = require('../services/documentTemplate.service');
 const { numeriserEtAnalyser } = require('../services/ocr.service');
 const { autoRemplir, resoudreDocumentComplet } = require('../services/autofill.service');
@@ -259,27 +259,21 @@ exports.resoudreDocument = async (req, res) => {
 
 // GET /api/documents-intelligents/recherche?q=...&modules=clients,fournisseurs
 exports.rechercheGlobaleHandler = async (req, res) => {
-    try {
-        const { q, modules } = req.query;
+  try {
+    const { q, modules } = req.query;
+    const perms = await chargerPermissionsConsultation(req.db, req.user.role_id);
+    const aAcces = (nomModule) => perms.admin || perms.modules.has(nomModule);
 
-        const aAcces = (nomModule) => {
-            if (req.user.is_super_admin) return true;
-            if (!req.user.permissions) return true;
-            const perm = req.user.permissions[nomModule];
-            return !!(perm && perm.consultation);
-        };
-
-        const resultat = await rechercheGlobale(req.db, q, {
-            aAcces,
-            modules: modules ? modules.split(',') : null
-        });
-        res.json(resultat);
-    } catch (err) {
-        console.error('Erreur rechercheGlobaleHandler:', err);
-        res.status(500).json({ message: 'Erreur lors de la recherche' });
-    }
+    const resultat = await rechercheGlobale(req.db, q, {
+      aAcces,
+      modules: modules ? modules.split(',') : null
+    });
+    res.json(resultat);
+  } catch (err) {
+    console.error('Erreur rechercheGlobaleHandler:', err);
+    res.status(500).json({ message: 'Erreur lors de la recherche' });
+  }
 };
-
 // DICTIONNAIRE INTELLIGENT (ORTHOGRAPHE)
 // POST /api/documents-intelligents/orthographe  Body: { texte, langue, appliquer }
 exports.verifierOrthographe = async (req, res) => {

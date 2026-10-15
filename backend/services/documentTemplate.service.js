@@ -82,7 +82,8 @@ function extraireTagsModele(cheminModele) {
  * sont proposés à tous les tenants ; les modèles propres à une entreprise
  * vivent dans /templates/documents/<entreprise_id>).
  */
-function listerModelesDisponibles(typeDocument, entrepriseId) {
+function listerModelesDisponibles(typeDocument, entrepriseId) { 
+    if (typeDocument && !/^[a-z0-9_]+$/i.test(typeDocument)) return [];
     const resultats = [];
     for (const sousDossier of ['_communs', String(entrepriseId)]) {
         const dossier = path.join(DOSSIER_MODELES, sousDossier, typeDocument || '');

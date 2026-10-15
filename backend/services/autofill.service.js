@@ -1,3 +1,7 @@
+const encryptionService = require('./encryption.service');
+
+const CHAMPS_CHIFFRES = ['email', 'telephone', 'adresse', 'description', 'notes'];
+
 const ENTITES = {
     client: {
         table: 'clients',
@@ -128,20 +132,6 @@ const ENTITES = {
             commande_id: 'commande_id'
         }
     },
-    user: {
-        table: 'users',
-        colonnesRecherche: ['id', 'email', 'matricule'],
-        mappingTags: {
-            id: 'user_id',
-            nom: 'user_nom',
-            prenom: 'user_prenom',
-            email: 'user_email',
-            telephone: 'user_telephone',
-            matricule: 'user_matricule',
-            fonction: 'user_fonction',
-            service: 'user_service'
-        }
-    }
 };
 
 function colonneCorrespondante(cle) {
@@ -178,17 +168,13 @@ function autoRemplir(db, typeEntite, identifiant) {
 
         db.query(sql, params, (err, rows) => {
             if (err) return reject(err);
-            if (rows.length === 0) {
-                return resolve({ trouve: false, donnees: null, tags: {} });
-            }
-            const donnees = rows[0];
+            if (rows.length === 0) return resolve({ trouve: false, tags: {} });
+            const donnees = encryptionService.decryptSensitiveFields(rows[0], CHAMPS_CHIFFRES);
             const tags = {};
             for (const [colonne, tag] of Object.entries(entite.mappingTags)) {
-                if (donnees[colonne] !== undefined && donnees[colonne] !== null) {
-                    tags[tag] = donnees[colonne];
-                }
+                if (donnees[colonne] !== undefined && donnees[colonne] !== null) tags[tag] = donnees[colonne];
             }
-            resolve({ trouve: true, donnees, tags });
+            resolve({ trouve: true, tags });          // plus de `donnees` brut renvoyé au client
         });
     });
 }
@@ -263,7 +249,7 @@ function resoudreDocumentComplet(db, typeDocument, id, entrepriseId) {
             if (rows.length === 0) return resolve({ trouve: false, tags: {} });
 
             const r = rows[0];
-            
+
             let tags = {
                 client_id: r.c_id,
                 client_nom: r.c_nom,
@@ -331,10 +317,10 @@ function resoudreDocumentComplet(db, typeDocument, id, entrepriseId) {
                     JOIN produits p ON dp.produit_id = p.id
                     WHERE dp.devis_id = ?
                 `;
-                
+
                 db.query(sqlProduits, [tags.devis_id], (err2, rows2) => {
                     if (!err2 && rows2 && rows2.length > 0) {
-                        const produitsList = rows2.map(p => 
+                        const produitsList = rows2.map(p =>
                             `${p.quantite}x ${p.produit_nom} - ${p.prix_unitaire} TND (${p.total_ligne} TND)`
                         ).join('\n');
                         tags.devis_produits = produitsList;
