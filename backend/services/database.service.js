@@ -1,15 +1,18 @@
 // backend/services/database.service.js
-const mysql = require('mysql2/promise');
-require('dotenv').config();
+const mysql = require("mysql2/promise");
+require("dotenv").config();
 
 function sanitizeForDbName(str) {
-  return (str || '')
-    .toString()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 40) || 'entreprise';
+  return (
+    (str || "")
+      .toString()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 40) || "entreprise"
+  );
 }
 
 function generateDbName(entrepriseNom, entrepriseId) {
@@ -19,10 +22,10 @@ function generateDbName(entrepriseNom, entrepriseId) {
 
 async function getAdminConnection() {
   return mysql.createConnection({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    multipleStatements: false
+    host: process.env.DB_HOST || "localhost",
+    user: process.env.DB_USER || "root",
+    password: process.env.DB_PASSWORD || "",
+    multipleStatements: false,
   });
 }
 
@@ -201,7 +204,7 @@ const INITIAL_SCHEMA = [
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     company_id INT DEFAULT 1,
     FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT,
-    INDEX idx_devis_numero (numero_devis),
+    UNIQUE KEY uniq_numero_devis (numero_devis),
     INDEX idx_devis_reference (reference),
     INDEX idx_devis_date_devis (date_devis),
     INDEX idx_devis_statut (statut),
@@ -303,6 +306,7 @@ const INITIAL_SCHEMA = [
     entreprise_id INT NOT NULL DEFAULT 1,
     company_id INT DEFAULT 1,
     FOREIGN KEY (fournisseur_id) REFERENCES fournisseurs(id) ON DELETE RESTRICT,
+    UNIQUE KEY uniq_numero_bc (numero_bc),
     INDEX idx_achats_entreprise (entreprise_id),
     INDEX idx_achats_company_id (company_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
@@ -712,8 +716,10 @@ const INITIAL_SCHEMA = [
     role ENUM('user','model') NOT NULL,
     contenu MEDIUMTEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_gemini_chatbot_messages_user (user_id, created_at)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+    company_id INT DEFAULT 1,
+    INDEX idx_gemini_chatbot_messages_user (user_id, created_at),
+    INDEX idx_gemini_chatbot_messages_company_id (company_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 ];
 
 async function createTenantDatabase(entrepriseId, dbName) {
@@ -724,13 +730,15 @@ async function createTenantDatabase(entrepriseId, dbName) {
   const admin = await getAdminConnection();
   try {
     await admin.query(
-      `CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+      `CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
     );
     await admin.changeUser({ database: dbName });
     for (const statement of INITIAL_SCHEMA) {
       await admin.query(statement);
     }
-    console.log(`[TENANT] Base "${dbName}" prete pour l'entreprise #${entrepriseId}`);
+    console.log(
+      `[TENANT] Base "${dbName}" prete pour l'entreprise #${entrepriseId}`,
+    );
     console.log(`[TENANT] ${INITIAL_SCHEMA.length} tables creees`);
   } finally {
     await admin.end();
@@ -744,9 +752,11 @@ async function migrerBaseExistante(dbName) {
 
     const migrations = [
       `ALTER TABLE commandes 
-       ADD COLUMN IF NOT EXISTS devis_id INT NULL AFTER client_id,
-       ADD CONSTRAINT IF NOT EXISTS commandes_devis_fk 
-       FOREIGN KEY (devis_id) REFERENCES devis(id) ON DELETE SET NULL`,
+       ADD COLUMN IF NOT EXISTS devis_id INT NULL AFTER client_id`,
+
+      `ALTER TABLE commandes 
+    ADD CONSTRAINT commandes_devis_fk 
+     FOREIGN KEY (devis_id) REFERENCES devis(id) ON DELETE SET NULL`,
 
       `ALTER TABLE devis 
        ADD COLUMN IF NOT EXISTS entreprise_id INT NOT NULL DEFAULT 1`,
@@ -756,7 +766,6 @@ async function migrerBaseExistante(dbName) {
 
       `ALTER TABLE achats 
        ADD COLUMN IF NOT EXISTS entreprise_id INT NOT NULL DEFAULT 1`,
-
       `ALTER TABLE sequences 
        ADD COLUMN IF NOT EXISTS dernier_numero_facture INT NOT NULL DEFAULT 0`,
 
@@ -779,6 +788,7 @@ async function migrerBaseExistante(dbName) {
         entreprise_id INT NOT NULL DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        company_id INT DEFAULT 1,
         UNIQUE KEY numero_facture_unique (numero_facture),
         FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT,
         FOREIGN KEY (devis_id) REFERENCES devis(id) ON DELETE SET NULL,
@@ -786,7 +796,8 @@ async function migrerBaseExistante(dbName) {
         INDEX idx_factures_entreprise (entreprise_id),
         INDEX idx_factures_client (client_id),
         INDEX idx_factures_devis (devis_id),
-        INDEX idx_factures_commande (commande_id)
+        INDEX idx_factures_commande (commande_id),
+        INDEX idx_factures_company_id (company_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
       `CREATE TABLE IF NOT EXISTS chatbot_messages (
@@ -795,7 +806,9 @@ async function migrerBaseExistante(dbName) {
         role ENUM('user','assistant') NOT NULL,
         contenu MEDIUMTEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_chatbot_messages_user (user_id, created_at)
+        company_id INT DEFAULT 1,
+        INDEX idx_chatbot_messages_user (user_id, created_at),
+        INDEX idx_chatbot_messages_company_id (company_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
       `CREATE TABLE IF NOT EXISTS documents_metier (
@@ -838,8 +851,10 @@ async function migrerBaseExistante(dbName) {
         role ENUM('user','model') NOT NULL,
         contenu MEDIUMTEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_gemini_chatbot_messages_user (user_id, created_at)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+        company_id INT DEFAULT 1,
+        INDEX idx_gemini_chatbot_messages_user (user_id, created_at),
+        INDEX idx_gemini_chatbot_messages_company_id (company_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
     ];
 
     for (const sql of migrations) {
@@ -860,7 +875,7 @@ async function migrerToutesLesBasesExistantes() {
   const admin = await getAdminConnection();
   try {
     const [rows] = await admin.query(
-      "SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE 'entreprise_%'"
+      "SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE 'entreprise\\_%'",
     );
     for (const row of rows) {
       await migrerBaseExistante(row.schema_name);
@@ -876,5 +891,5 @@ module.exports = {
   sanitizeForDbName,
   createTenantDatabase,
   migrerBaseExistante,
-  migrerToutesLesBasesExistantes
+  migrerToutesLesBasesExistantes,
 };

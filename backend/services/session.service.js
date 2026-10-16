@@ -388,47 +388,7 @@ class SessionService {
         }
     }
 
-    static async checkSuspiciousActivity(userId, fingerprint, location, req, previousSessionCount) {
-        // Verifier les connexions depuis un pays inhabituel (dans la MASTER)
-        const [previous] = await db.promisePoolMaster.query(
-            'SELECT country FROM user_connections WHERE user_id = ? ORDER BY created_at DESC LIMIT 5',
-            [userId]
-        );
-
-        if (previous.length > 0) {
-            const countries = previous.map(p => p.country);
-            if (!countries.includes(location.country) && location.country !== 'Inconnu') {
-                await db.promisePoolMaster.query(
-                    `INSERT INTO security_alerts 
-                     (user_id, alert_type, severity, message, details)
-                     VALUES (?, 'new_country', 'medium', 
-                             'Connexion depuis un pays non reconnu', ?)`,
-                    [userId, JSON.stringify({ 
-                        ip: req.ip, 
-                        country: location.country,
-                        city: location.city,
-                        time: new Date().toISOString()
-                    })]
-                );
-                console.log('[SESSION] Alerte: nouveau pays -', location.country);
-            }
-        }
-
-        // Verifier les connexions simultanees
-        if (previousSessionCount > 1) {
-            await db.promisePoolMaster.query(
-                `INSERT INTO security_alerts 
-                 (user_id, alert_type, severity, message, details)
-                 VALUES (?, 'multiple_sessions', 'high', 
-                         'Connexions simultanees detectees', ?)`,
-                [userId, JSON.stringify({ 
-                    sessions_count: previousSessionCount,
-                    time: new Date().toISOString()
-                })]
-            );
-            console.log('[SESSION] Alerte: connexions simultanees -', previousSessionCount);
-        }
-    }
+   
 
     static async hasActiveSession(userId, token) {
         const [rows] = await db.promisePoolMaster.query(
