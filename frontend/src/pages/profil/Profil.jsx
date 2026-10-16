@@ -17,8 +17,6 @@ export default function Profil() {
     prenom: '',
     email: '',
     telephone: '',
-    poste: '',
-    departement: '',
     fonction: '',
     service: '',
     matricule: ''
@@ -38,8 +36,6 @@ export default function Profil() {
         prenom: user.prenom || '',
         email: user.email || '',
         telephone: user.telephone || '',
-        poste: user.poste || '',
-        departement: user.departement || '',
         fonction: user.fonction || '',
         service: user.service || '',
         matricule: user.matricule || ''
@@ -204,16 +200,7 @@ export default function Profil() {
             </div>
           </div>
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>{t('departement')}</label>
-            <input
-              style={inputStyle}
-              value={form.departement}
-              onChange={(e) => setForm({...form, departement: e.target.value})}
-              placeholder={t('departement')}
-              disabled={loading}
-            />
-          </div>
+        
 
           <Button type="submit" variant="primary" loading={loading}>
             {t('enregistrer')}
