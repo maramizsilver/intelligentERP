@@ -83,15 +83,14 @@ function invalidateClientPool(entrepriseId) {
         tenantPools.delete(entrepriseId);
     }
 }
-
-// ============================================================
+async function closeAllPools() {
+  for (const [, e] of tenantPools) await new Promise((r) => e.pool.end(() => r()));
+  tenantPools.clear();
+  await masterPool.promise().end();
+}
 // EXPORTS
-// ============================================================
-
-// Export par défaut (compatibilité avec l'ancien code)
+module.exports.closeAllPools = closeAllPools;
 module.exports = masterPool;
-
-// Exports nommés
 module.exports.masterPool = masterPool;
 module.exports.promisePoolMaster = promisePoolMaster; 
 module.exports.getClientPool = getClientPool;

@@ -3,7 +3,7 @@ const rateLimit = require('express-rate-limit');
 // 1. LIMITEUR GLOBAL (toutes les routes)
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // 100 requêtes par IP
+    max: 1000, // 1000 requêtes par IP
     message: {
         message: 'Trop de requêtes, veuillez réessayer dans 15 minutes'
     },

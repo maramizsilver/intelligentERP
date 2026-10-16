@@ -13,7 +13,7 @@ const schema = Joi.object({
   EXPORT_SECRET_KEY: prodRequis(Joi.string().min(32)),
   DB_HOST: Joi.string().default('localhost'),
   DB_USER: isProd ? Joi.string().invalid('root').required() : Joi.string().optional(),
-  DB_PASSWORD: prodRequis(Joi.string()),
+  DB_PASSWORD:  prodRequis(Joi.string().allow('')),
   DB_MASTER_NAME: Joi.string().default('erp_db'),
   FRONTEND_URL: prodRequis(Joi.string().uri()),
   CORS_ORIGINS: prodRequis(Joi.string()),            // ex: https://app.mondomaine.tn
