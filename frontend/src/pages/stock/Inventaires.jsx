@@ -27,16 +27,15 @@ export default function Inventaires() {
   const [editId, setEditId] = useState(null);
   const [formData, setFormData] = useState({
     entrepot_id: '',
-    date: '',
-    statut: 'planifie'
+    date: ''
   });
   const [formLoading, setFormLoading] = useState(false);
-  const [detailsModal, setDetailsModal] = useState({ open: false, inventaire: null, ecarts: [] });
-  const [ecartsLoading, setEcartsLoading] = useState(false);
-  const [ecartsModif, setEcartsModif] = useState({});
+  const [detailsModal, setDetailsModal] = useState({ open: false, inventaire: null, lignes: [] });
+  const [lignesLoading, setLignesLoading] = useState(false);
+  const [comptagesModif, setComptagesModif] = useState({});
 
-  const peutModifier = hasPermission('Inventaires', 'modification');
-  const peutSupprimer = hasPermission('Inventaires', 'suppression');
+  const peutModifier = hasPermission('Stock', 'modification');
+  const peutSupprimer = hasPermission('Stock', 'suppression');
 
   useEffect(() => {
     loadData();
@@ -73,12 +72,11 @@ export default function Inventaires() {
       setEditId(inventaire.id);
       setFormData({
         entrepot_id: inventaire.entrepot_id,
-        date: inventaire.date?.split('T')[0] || '',
-        statut: inventaire.statut || 'planifie'
+        date: inventaire.date?.split('T')[0] || ''
       });
     } else {
       setEditId(null);
-      setFormData({ entrepot_id: '', date: '', statut: 'planifie' });
+      setFormData({ entrepot_id: '', date: '' });
     }
     setModalOpen(true);
   };
@@ -118,39 +116,49 @@ export default function Inventaires() {
   };
 
   const handleViewDetails = async (inventaire) => {
-    setDetailsModal({ open: true, inventaire, ecarts: [] });
-    setEcartsLoading(true);
+    setDetailsModal({ open: true, inventaire, lignes: [] });
+    setLignesLoading(true);
     try {
-      const res = await API.get(`/inventaires/${inventaire.id}/ecarts`);
-      const ecarts = res.data.ecarts || [];
-      setDetailsModal(prev => ({ ...prev, ecarts }));
-      const ecartsObj = {};
-      ecarts.forEach(e => {
-        ecartsObj[e.produit_id] = e.quantite_reelle || e.quantite_theorique || 0;
+      const res = await API.get(`/inventaires/${inventaire.id}/lignes`);
+      const lignes = res.data.lignes || [];
+      setDetailsModal(prev => ({ ...prev, lignes }));
+      const comptagesObj = {};
+      lignes.forEach(l => {
+        comptagesObj[l.produit_id] = l.quantite_comptee ?? l.quantite_theorique ?? 0;
       });
-      setEcartsModif(ecartsObj);
+      setComptagesModif(comptagesObj);
     } catch (err) {
-      setError('Impossible de charger les écarts');
+      setError('Impossible de charger les lignes');
     } finally {
-      setEcartsLoading(false);
+      setLignesLoading(false);
     }
   };
 
-  const handleUpdateEcart = (produitId, value) => {
-    setEcartsModif(prev => ({ ...prev, [produitId]: parseInt(value) || 0 }));
+  const handleUpdateComptage = (produitId, value) => {
+    setComptagesModif(prev => ({ ...prev, [produitId]: parseInt(value) || 0 }));
   };
 
-  const handleSaveEcarts = async () => {
+  const handleSaveComptages = async () => {
     const inventaireId = detailsModal.inventaire?.id;
     if (!inventaireId) return;
     try {
-      const ecartsToSave = detailsModal.ecarts.map(e => ({
-        produit_id: e.produit_id,
-        quantite_reelle: ecartsModif[e.produit_id] || e.quantite_reelle || e.quantite_theorique || 0
+      const comptages = detailsModal.lignes.map(l => ({
+        produit_id: l.produit_id,
+        quantite_comptee: comptagesModif[l.produit_id] ?? l.quantite_comptee ?? l.quantite_theorique ?? 0
       }));
-      await API.put(`/inventaires/${inventaireId}/ecarts`, { ecarts: ecartsToSave });
+      await API.put(`/inventaires/${inventaireId}/comptage`, { comptages });
       setSuccess(t('ecart_enregistre'));
-      setDetailsModal({ open: false, inventaire: null, ecarts: [] });
+      setDetailsModal({ open: false, inventaire: null, lignes: [] });
+      loadData();
+    } catch (err) {
+      setError('Erreur');
+    }
+  };
+
+  const handleCloturer = async (inventaire) => {
+    try {
+      await API.put(`/inventaires/${inventaire.id}/cloturer`);
+      setSuccess(t('inventaire_termine'));
       loadData();
     } catch (err) {
       setError('Erreur');
@@ -159,7 +167,7 @@ export default function Inventaires() {
 
   const handleChangeStatut = async (id, statut) => {
     try {
-      await API.patch(`/inventaires/${id}`, { statut });
+      await API.put(`/inventaires/${id}`, { statut });
       setSuccess(t(`inventaire_${statut}`));
       loadData();
     } catch (err) {
@@ -169,18 +177,14 @@ export default function Inventaires() {
 
   const getStatutBadge = (statut) => {
     const variants = {
-      planifie: 'secondary',
+      brouillon: 'secondary',
       en_cours: 'warning',
-      termine: 'success',
-      annule: 'danger',
-      valide: 'info'
+      termine: 'success'
     };
     const labels = {
-      planifie: t('planifie_inventaire'),
+      brouillon: t('brouillon_inventaire'),
       en_cours: t('en_cours_inventaire'),
-      termine: t('termine_inventaire'),
-      annule: t('annule_inventaire'),
-      valide: t('valide')
+      termine: t('termine_inventaire')
     };
     return { variant: variants[statut] || 'secondary', label: labels[statut] || statut };
   };
@@ -219,31 +223,23 @@ export default function Inventaires() {
       label: t('modifier'),
       variant: 'secondary',
       onClick: (row) => {
-        if (row.statut === 'planifie') handleOpenModal(row);
+        if (row.statut === 'brouillon') handleOpenModal(row);
       }
     });
-    
+
     actions.push({
       label: t('lancer_inventaire'),
       variant: 'warning',
       onClick: (row) => {
-        if (row.statut === 'planifie') handleChangeStatut(row.id, 'en_cours');
+        if (row.statut === 'brouillon') handleChangeStatut(row.id, 'en_cours');
       }
     });
-    
+
     actions.push({
-      label: t('valider_inventaire'),
+      label: t('cloturer_inventaire'),
       variant: 'success',
       onClick: (row) => {
-        if (row.statut === 'en_cours') handleChangeStatut(row.id, 'valide');
-      }
-    });
-    
-    actions.push({
-      label: t('annuler_inventaire'),
-      variant: 'danger',
-      onClick: (row) => {
-        if (row.statut === 'en_cours') handleChangeStatut(row.id, 'annule');
+        if (row.statut === 'en_cours') handleCloturer(row);
       }
     });
   }
@@ -253,7 +249,7 @@ export default function Inventaires() {
       label: t('supprimer'),
       variant: 'danger',
       onClick: (row) => {
-        if (row.statut === 'planifie') handleDelete(row.id);
+        if (row.statut === 'brouillon') handleDelete(row.id);
       }
     });
   }
@@ -299,10 +295,11 @@ export default function Inventaires() {
           icon="📋"
           title={t('aucun_inventaire')}
           description={t('gerer_inventaires')}
-          action={peutModifier ? {
-            label: t('nouvel_inventaire'),
-            onClick: () => handleOpenModal()
-          } : null}
+          action={peutModifier ? (
+            <Button variant="primary" onClick={() => handleOpenModal()}>
+              {t('nouvel_inventaire')}
+            </Button>
+          ) : null}
         />
       ) : (
         <Card title={t('liste_inventaires')} variant="primary">
@@ -322,7 +319,7 @@ export default function Inventaires() {
       )}
 
       <Modal
-        open={modalOpen}
+        isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editId ? t('modifier_inventaire') : t('nouvel_inventaire')}
       >
@@ -372,14 +369,14 @@ export default function Inventaires() {
       </Modal>
 
       <Modal
-        open={detailsModal.open}
-        onClose={() => setDetailsModal({ open: false, inventaire: null, ecarts: [] })}
+        isOpen={detailsModal.open}
+        onClose={() => setDetailsModal({ open: false, inventaire: null, lignes: [] })}
         title={`${t('produits_inventaires')} - ${detailsModal.inventaire?.entrepot_nom || ''}`}
-        size="large"
+        size="xl"
       >
-        {ecartsLoading ? (
+        {lignesLoading ? (
           <LoadingSpinner size="md" text={t('chargement')} />
-        ) : detailsModal.ecarts.length === 0 ? (
+        ) : detailsModal.lignes.length === 0 ? (
           <EmptyState icon="✅" title={t('aucun_ecart')} />
         ) : (
           <>
@@ -389,23 +386,23 @@ export default function Inventaires() {
               <span style={styles.ecartsCol}>{t('quantite_reelle')}</span>
               <span style={styles.ecartsCol}>{t('ecart_inventaire')}</span>
             </div>
-            {detailsModal.ecarts.map((ecart) => {
-              const reelle = ecartsModif[ecart.produit_id] || ecart.quantite_reelle || ecart.quantite_theorique || 0;
-              const theorique = ecart.quantite_theorique || 0;
-              const diff = reelle - theorique;
+            {detailsModal.lignes.map((ligne) => {
+              const comptee = comptagesModif[ligne.produit_id] ?? ligne.quantite_comptee ?? ligne.quantite_theorique ?? 0;
+              const theorique = ligne.quantite_theorique || 0;
+              const diff = comptee - theorique;
               const isSurplus = diff > 0;
               const isManque = diff < 0;
               return (
-                <div key={ecart.produit_id} style={styles.ecartsRow}>
-                  <span style={styles.ecartsCol}>{ecart.produit_nom || ecart.nom || '-'}</span>
+                <div key={ligne.produit_id} style={styles.ecartsRow}>
+                  <span style={styles.ecartsCol}>{ligne.produit_nom || ligne.nom || '-'}</span>
                   <span style={styles.ecartsCol}>{theorique}</span>
                   <span style={styles.ecartsCol}>
                     <input
                       style={{ ...styles.ecartsInput, width: '80px' }}
                       type="number"
-                      value={reelle}
-                      onChange={(e) => handleUpdateEcart(ecart.produit_id, e.target.value)}
-                      disabled={detailsModal.inventaire?.statut === 'valide' || detailsModal.inventaire?.statut === 'termine'}
+                      value={comptee}
+                      onChange={(e) => handleUpdateComptage(ligne.produit_id, e.target.value)}
+                      disabled={detailsModal.inventaire?.statut === 'termine'}
                     />
                   </span>
                   <span style={{
@@ -419,12 +416,12 @@ export default function Inventaires() {
                 </div>
               );
             })}
-            {detailsModal.inventaire?.statut !== 'valide' && detailsModal.inventaire?.statut !== 'termine' && (
+            {detailsModal.inventaire?.statut !== 'termine' && (
               <div style={styles.modalActions}>
-                <Button variant="secondary" onClick={() => setDetailsModal({ open: false, inventaire: null, ecarts: [] })}>
+                <Button variant="secondary" onClick={() => setDetailsModal({ open: false, inventaire: null, lignes: [] })}>
                   {t('fermer')}
                 </Button>
-                <Button variant="primary" onClick={handleSaveEcarts}>
+                <Button variant="primary" onClick={handleSaveComptages}>
                   {t('enregistrer_ecarts')}
                 </Button>
               </div>

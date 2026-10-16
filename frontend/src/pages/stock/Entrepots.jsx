@@ -26,15 +26,14 @@ export default function Entrepots() {
   const [formData, setFormData] = useState({
     nom: '',
     adresse: '',
-    capacite: '',
-    gerant: '',
+    responsable: '',
     actif: true
   });
   const [formLoading, setFormLoading] = useState(false);
   const [deleteModal, setDeleteModal] = useState({ open: false, id: null, nom: '' });
 
-  const peutModifier = hasPermission('Entrepots', 'modification');
-  const peutSupprimer = hasPermission('Entrepots', 'suppression');
+  const peutModifier = hasPermission('Stock', 'modification');
+  const peutSupprimer = hasPermission('Stock', 'suppression');
 
   useEffect(() => {
     loadEntrepots();
@@ -58,13 +57,12 @@ export default function Entrepots() {
       setFormData({
         nom: entrepot.nom,
         adresse: entrepot.adresse || '',
-        capacite: entrepot.capacite || '',
-        gerant: entrepot.gerant || '',
+        responsable: entrepot.responsable || '',
         actif: entrepot.actif !== undefined ? entrepot.actif : true
       });
     } else {
       setEditId(null);
-      setFormData({ nom: '', adresse: '', capacite: '', gerant: '', actif: true });
+      setFormData({ nom: '', adresse: '', responsable: '', actif: true });
     }
     setModalOpen(true);
   };
@@ -92,9 +90,14 @@ export default function Entrepots() {
     }
   };
 
-  const handleToggleActif = async (id, actif) => {
+  const handleToggleActif = async (entrepot) => {
     try {
-      await API.patch(`/entrepots/${id}`, { actif: !actif });
+      await API.put(`/entrepots/${entrepot.id}`, {
+        nom: entrepot.nom,
+        adresse: entrepot.adresse,
+        responsable: entrepot.responsable,
+        actif: !entrepot.actif
+      });
       setSuccess(t('entrepot_actif_modifie'));
       loadEntrepots();
     } catch (err) {
@@ -116,8 +119,7 @@ export default function Entrepots() {
   const columns = [
     { key: 'nom', label: t('nom_entrepot') },
     { key: 'adresse', label: t('adresse_entrepot') },
-    { key: 'capacite', label: t('capacite_stock') },
-    { key: 'gerant', label: t('gerant_entrepot') },
+    { key: 'responsable', label: t('responsable_entrepot') },
     {
       key: 'actif',
       label: t('statut'),
@@ -143,7 +145,7 @@ export default function Entrepots() {
     ...(peutModifier ? [{
       label: row => row.actif ? t('inactif_entrepot') : t('actif_entrepot'),
       variant: 'warning',
-      onClick: (row) => handleToggleActif(row.id, row.actif)
+      onClick: (row) => handleToggleActif(row)
     }] : []),
     ...(peutSupprimer ? [{
       label: t('supprimer'),
@@ -190,13 +192,13 @@ export default function Entrepots() {
 
       {entrepots.length === 0 ? (
         <EmptyState
-      
           title={t('aucun_entrepot')}
           description={t('entrepots_gerer')}
-          action={peutModifier ? {
-            label: t('ajouter_entrepot'),
-            onClick: () => handleOpenModal()
-          } : null}
+          action={peutModifier ? (
+            <Button variant="primary" onClick={() => handleOpenModal()}>
+              {t('ajouter_entrepot')}
+            </Button>
+          ) : null}
         />
       ) : (
         <Card title={t('liste_entrepots')} variant="primary">
@@ -206,7 +208,7 @@ export default function Entrepots() {
 
       {/* Modal Création/Modification */}
       <Modal
-        open={modalOpen}
+        isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editId ? t('modifier_entrepot_titre') : t('creer_entrepot_titre')}
       >
@@ -236,22 +238,13 @@ export default function Entrepots() {
                 disabled={formLoading}
               />
             </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>{t('capacite_stock')}</label>
-              <input
-                style={styles.input}
-                type="number"
-                value={formData.capacite}
-                onChange={(e) => setFormData({ ...formData, capacite: e.target.value })}
-                disabled={formLoading}
-              />
-            </div>
+            {/* ✅ SUPPRIMÉ : champ 'capacite' */}
             <div style={styles.formGroup}>
               <label style={styles.label}>{t('gerant_entrepot')}</label>
               <input
                 style={styles.input}
-                value={formData.gerant}
-                onChange={(e) => setFormData({ ...formData, gerant: e.target.value })}
+                value={formData.responsable}
+                onChange={(e) => setFormData({ ...formData, responsable: e.target.value })}
                 disabled={formLoading}
               />
             </div>
@@ -281,7 +274,7 @@ export default function Entrepots() {
 
       {/* Modal Suppression */}
       <Modal
-        open={deleteModal.open}
+        isOpen={deleteModal.open}
         onClose={() => setDeleteModal({ open: false, id: null, nom: '' })}
         title={t('supprimer')}
         variant="danger"
