@@ -14,9 +14,9 @@ function query(db, sql, params = []) {
     });
 }
 
-let tableVerifiee = false;
+const tablesVerifiees = new WeakSet(); 
 async function assurerTable(db) {
-    if (tableVerifiee) return;
+    if (tablesVerifiees.has(db)) return;
     await query(
         db,
         `CREATE TABLE IF NOT EXISTS chatbot_messages (
@@ -28,7 +28,7 @@ async function assurerTable(db) {
             INDEX idx_chatbot_messages_user (user_id, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
     );
-    tableVerifiee = true;
+    tablesVerifiees.add(db);
 }
 
 function construirePromptSysteme(user) {

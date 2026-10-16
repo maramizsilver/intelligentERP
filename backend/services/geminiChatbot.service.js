@@ -11,9 +11,9 @@ function query(db, sql, params = []) {
     });
 }
 
-let tableVerifiee = false;
+const tablesVerifiees = new WeakSet(); 
 async function assurerTable(db) {
-    if (tableVerifiee) return;
+  if (tablesVerifiees.has(db)) return;
     await query(db, `CREATE TABLE IF NOT EXISTS gemini_chatbot_messages (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NOT NULL,
@@ -22,7 +22,7 @@ async function assurerTable(db) {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_gemini_chatbot_messages_user (user_id, created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
-    tableVerifiee = true;
+    tablesVerifiees.add(db);
 }
 
 // ============================================================
