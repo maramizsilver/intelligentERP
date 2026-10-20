@@ -19,23 +19,63 @@ const paiementController = require('./controllers/paiementController');
 const app = express();
 const isProd = env.NODE_ENV === 'production';
 
-app.set('trust proxy', env.TRUST_PROXY);          
+app.set('trust proxy', env.TRUST_PROXY);
 
 // ---------- CORS : origines lues depuis l'environnement ----------
 const origines = (env.CORS_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
-if (!isProd) origines.push('http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000');
+if (!isProd) {
+  origines.push(
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:5173',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001',
+    'http://127.0.0.1:5173'
+  );
+}
 
-app.use(cors({
-  origin: (origin, cb) => (!origin || origines.includes(origin) ? cb(null, true) : cb(new Error('Not allowed by CORS'))),
+// En dev uniquement : autorise aussi tout le réseau local (10.x, 192.168.x, 172.16-31.x)
+// pour pouvoir tester depuis une autre machine, un téléphone, ou via l'IP LAN.
+const isLanOrigin = (origin) =>
+  /^https?:\/\/(10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin);
+
+const corsOptionsDelegate = (origin, cb) => {
+  // Pas d'origin : Postman, curl, SSR, même-origine → on laisse passer
+  if (!origin) return cb(null, true);
+  // Whitelist explicite (.env + localhost dev)
+  if (origines.includes(origin)) return cb(null, true);
+  // LAN en dev uniquement
+  if (!isProd && isLanOrigin(origin)) return cb(null, true);
+  // Refus
+  console.error('[CORS] Origin refusée:', origin);
+  return cb(new Error('Not allowed by CORS'));
+};
+
+const corsOptions = {
+  origin: corsOptionsDelegate,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Enterprise-Id', 'Cookie', 'Accept-Language', 'X-Requested-With'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-CSRF-Token',
+    'X-Enterprise-Id',
+    'Cookie',
+    'Accept-Language',
+    'X-Requested-With'
+  ],
   exposedHeaders: ['Content-Disposition', 'X-Encrypted', 'X-Signed', 'X-Signature']
-}));
+};
+
+app.use(cors(corsOptions));
+
+// Répondre explicitement aux preflight OPTIONS AVANT toutes les routes.
+// Sans ça, le navigateur rejette la requête avec :
+// "Response to preflight request doesn't pass access control check"
+app.options(/.*/, cors(corsOptions));
 
 // ---------- Webhook Stripe : corps BRUT, avant express.json ----------
 app.post('/api/paiement/webhook', express.raw({ type: 'application/json' }), paiementController.webhookStripe);
-
 app.use(cookieParser());
 app.use(securityHeaders);
 app.use(noCache);
@@ -106,7 +146,7 @@ app.get('/', (req, res) => res.json({ message: 'Serveur ERP fonctionne !' }));
 app.use(errorHandler);
 
 // ---------- Démarrage ----------
-const server = app.listen(env.PORT, () => {
+const server = app.listen(env.PORT, '0.0.0.0', () => {
   console.log(`Serveur démarré sur le port ${env.PORT} (${env.NODE_ENV})`);
   SessionService.cleanupExpiredSessions();
   setInterval(() => SessionService.cleanupExpiredSessions(), 30 * 60 * 1000);
