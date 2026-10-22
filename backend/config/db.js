@@ -89,9 +89,10 @@ async function closeAllPools() {
   await masterPool.promise().end();
 }
 // EXPORTS
-module.exports.closeAllPools = closeAllPools;
+
 module.exports = masterPool;
 module.exports.masterPool = masterPool;
+module.exports.closeAllPools = closeAllPools;
 module.exports.promisePoolMaster = promisePoolMaster; 
 module.exports.getClientPool = getClientPool;
 module.exports.invalidateClientPool = invalidateClientPool;
