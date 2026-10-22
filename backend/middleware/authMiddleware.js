@@ -13,6 +13,7 @@ module.exports = (req, res, next) => {
 // Un token "MFA en attente" ne doit JAMAIS ouvrir une route protégée
 if (decoded.mfa_pending) return res.status(401).json({ message: 'Authentification MFA incomplète' });
 req.user = decoded;
+ return next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
       return res.status(401).json({ message: 'Session expirée, veuillez vous reconnecter' });
@@ -37,6 +38,7 @@ const verifyTokenWithCompany = async (req, res, next) => {
     if (decoded.mfa_pending) {
       return res.status(401).json({ message: 'Authentification MFA incomplète' });
     }
+   
     
     // Vérifier que l'utilisateur existe et a un company_id
     const [users] = await promisePoolMaster.query(
